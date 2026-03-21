@@ -22,7 +22,12 @@ const StudentTasks: React.FC = () => {
     if (studentData && studentData.tasks) {
       // جلب حالة الإكمال المحفوظة في الهاتف لكي لا تضيع
       const savedStatus = JSON.parse(localStorage.getItem(`tasks_status_${studentData.civilId}`) || '{}');
-      
+      const { studentData, refreshData } = useApp(); // تأكد من جلب refreshData
+
+useEffect(() => {
+  // بمجرد دخول الطالب لهذه الصفحة، نطلب من السيرفر آخر التحديثات
+  refreshData();
+}, []); // مصفوفة فارغة تعني: "عند فتح هذه الصفحة فقط"
       const syncedTasks = studentData.tasks.map((task: any) => ({
         ...task,
         // إذا كانت المهمة معلمة كمكتملة سابقاً في الهاتف، نحافظ على حالتها
