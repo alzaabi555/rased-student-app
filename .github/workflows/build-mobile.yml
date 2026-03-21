@@ -8,37 +8,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'zulu'
-          
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      
-      - name: Install Dependencies
-        run: npm install
-        
-      - name: Build Web Project
-        run: npm run build
-        
-      - name: Sync Android
-        run: npx cap sync android
-        
-      - name: Build Debug APK
+      - run: npm install
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Build APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
-          
-      - name: Upload Android APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: Rased-Student-Android-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
   ios-build:
     runs-on: macos-latest
     steps:
@@ -53,35 +43,29 @@ jobs:
       - name: Build Web Project
         run: npm run build
         
-      - name: Initialize iOS Project
+      - name: 🍏 Generate iOS Project from Scratch
         run: |
+          # حذف المجلد الناقص الذي تم رفعه من ويندوز
           rm -rf ios
+          
+          # إنشاء مجلد iOS جديد ونظيف (سيقوم بتوليد الـ Podfile تلقائياً)
           npx cap add ios
+          
+          # مزامنة ملفات الويب
           npx cap sync ios
           
-      - name: Dynamic Build (Searching for Podfile)
+      - name: 🚀 Build IPA
         run: |
-          # البحث عن مكان الـ Podfile والدخول لمجتواه
-          PODFILE_PATH=$(find ios -name "Podfile" | head -n 1)
-          IOS_DIR=$(dirname "$PODFILE_PATH")
-          echo "📍 Found iOS Source at: $IOS_DIR"
-          cd "$IOS_DIR"
+          # الدخول للمجلد الذي أنشأه السيرفر الآن
+          cd ios/App
           
-          # تثبيت المكتبات
-          pod install
-          
-          # بناء التطبيق (التفاحة)
-          echo "🚀 Building Xcode Workspace..."
+          # بناء التطبيق (سيجد الـ Podfile والـ Workspace الآن)
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
           
-          # تجميع الـ IPA
+          # تحويله إلى صيغة IPA
           mkdir -p Payload
           cp -r build/Debug-iphoneos/App.app Payload/
-          zip -r Rased-Student.ipa Payload
-          
-          # نقل الملف للمجلد الرئيسي (جذر المشروع) للرفع
-          # سنستخدم مساراً نسبياً للرجوع للخلف مهما كان العمق
-          find . -name "Rased-Student.ipa" -exec cp {} "$GITHUB_WORKSPACE/" \;
+          zip -r ../../Rased-Student.ipa Payload
           
       - name: Upload iOS IPA
         uses: actions/upload-artifact@v4
