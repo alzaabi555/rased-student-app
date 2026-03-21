@@ -40,7 +40,7 @@ jobs:
           name: Rased-Student-Android-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
-  ios-build:
+ ios-build:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,23 +54,30 @@ jobs:
       - name: Build Web Project
         run: npm run build
         
-      - name: Initialize iOS Project
+      - name: Force Initialize iOS Project
         run: |
-          # حذف أي آثار قديمة وإضافة المنصة من جديد
+          # 1. تنظيف شامل
           rm -rf ios
+          # 2. تثبيت المنصة
           npx cap add ios
+          # 3. مزامنة الملفات
           npx cap sync ios
           
-      - name: Build IPA (Auto-Path Discovery)
+      - name: Build IPA (Manual Navigation)
         run: |
-          # البحث عن مكان ملف الـ workspace أينما كان
-          WORKSPACE_PATH=$(find ios -name "App.xcworkspace" | head -n 1)
-          PROJECT_DIR=$(dirname "$WORKSPACE_PATH")
+          # ننتقل للمسار القياسي الذي ينشئه كاباسيتور
+          cd ios/App
           
-          echo "🚀 Found Workspace at: $WORKSPACE_PATH"
-          cd "$PROJECT_DIR"
+          # تثبيت المكتبات (Pods) يدوياً للتأكد من وجود الـ Workspace
+          pod install
           
-          # بناء التطبيق
+          # التأكد من وجود الملف قبل البدء
+          if [ ! -d "App.xcworkspace" ]; then
+            echo "❌ Error: App.xcworkspace still not found!"
+            exit 1
+          fi
+          
+          echo "🚀 Building Xcode Workspace..."
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
           
           # تجميع الـ IPA
@@ -78,8 +85,8 @@ jobs:
           cp -r build/Debug-iphoneos/App.app Payload/
           zip -r Rased-Student.ipa Payload
           
-          # نقل الملف للمجلد الرئيسي لسهولة الرفع
-          mv Rased-Student.ipa ../../../
+          # نقل الملف للمجلد الرئيسي لرفعه
+          mv Rased-Student.ipa ../../
           
       - name: Upload iOS IPA
         uses: actions/upload-artifact@v4
