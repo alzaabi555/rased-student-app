@@ -11,6 +11,7 @@ interface Task {
   subject: string;
   dueDate: string;
   completed: boolean;
+  completedAt?: string; // 👈 تتبع تاريخ الإنجاز للنظافة التلقائية
 }
 
 const StudentTasks: React.FC = () => {
@@ -22,26 +23,57 @@ const StudentTasks: React.FC = () => {
     if (refreshData) refreshData();
   }, []);
 
+  // 🧠 جلب المهام وفلترتها (إخفاء المحذوف + النظافة التلقائية)
   useEffect(() => {
     if (studentData && Array.isArray(studentData.tasks)) {
-      const savedStatus = JSON.parse(localStorage.getItem(`tasks_status_${studentData.civilId}`) || '{}');
-      const syncedTasks = studentData.tasks.map((task: any) => ({
-        id: String(task.id || Math.random()),
-        title: String(task.title || 'مهمة بدون عنوان'),
-        subject: String(task.subject || 'عام'),
-        dueDate: String(task.dueDate || ''),
-        completed: savedStatus[task.id] || false 
-      }));
+      const civilId = studentData.civilId;
+      const savedStatus = JSON.parse(localStorage.getItem(`tasks_status_${civilId}`) || '{}');
+      let hiddenTasks = JSON.parse(localStorage.getItem(`hidden_tasks_${civilId}`) || '[]');
+      const todayStr = new Date().toDateString(); // تاريخ اليوم
+
+      const syncedTasks = studentData.tasks
+        .filter((task: any) => !hiddenTasks.includes(String(task.id))) // 🛡️ صد المهام المحذوفة نهائياً
+        .map((task: any) => {
+          const id = String(task.id || Math.random());
+          const status = savedStatus[id];
+          
+          // التوافق مع البيانات القديمة والجديدة
+          const isCompleted = status && typeof status === 'object' ? status.completed : !!status;
+          const completedAt = status && typeof status === 'object' ? status.completedAt : todayStr;
+
+          // 🧹 النظافة التلقائية: إذا المهمة منجزة وتاريخ إنجازها قديم (ليس اليوم)، أخفها فوراً!
+          if (isCompleted && completedAt !== todayStr) {
+            hiddenTasks.push(id);
+            return null; // سيتم استبعادها
+          }
+
+          return {
+            id,
+            title: String(task.title || 'مهمة بدون عنوان'),
+            subject: String(task.subject || 'عام'),
+            dueDate: String(task.dueDate || ''),
+            completed: isCompleted,
+            completedAt: completedAt
+          };
+        })
+        .filter(Boolean) as Task[];
+
+      // حفظ القائمة الجديدة للمهام المخفية في الهاتف
+      localStorage.setItem(`hidden_tasks_${civilId}`, JSON.stringify(hiddenTasks));
       setTasks(syncedTasks);
     } else {
       setTasks([]);
     }
   }, [studentData]);
 
+  // 💾 حفظ حالة المهام وتاريخ إنجازها في الهاتف
   useEffect(() => {
-    if (studentData?.civilId && tasks.length > 0) {
+    if (studentData?.civilId) {
       const statusMap = tasks.reduce((acc: any, task) => {
-        acc[task.id] = task.completed;
+        acc[task.id] = { 
+          completed: task.completed, 
+          completedAt: task.completedAt || new Date().toDateString() 
+        };
         return acc;
       }, {});
       localStorage.setItem(`tasks_status_${studentData.civilId}`, JSON.stringify(statusMap));
@@ -58,12 +90,22 @@ const StudentTasks: React.FC = () => {
 
   const toggleTask = (id: string) => {
     setTasks(prev => prev.map(task => 
-      task.id === id ? { ...task, completed: !task.completed } : task
+      task.id === id ? { 
+        ...task, 
+        completed: !task.completed,
+        completedAt: !task.completed ? new Date().toDateString() : undefined // تسجيل يوم الإنجاز
+      } : task
     ));
   };
 
+  // 🗑️ الحذف النهائي الذي لا عودة منه
   const deleteTask = (id: string) => {
-    if (window.confirm('هل تريد إخفاء هذه المهمة من قائمتك؟')) {
+    if (window.confirm('هل تريد حذف هذه المهمة نهائياً من قائمتك؟')) {
+      const civilId = studentData?.civilId || 'default';
+      const hidden = JSON.parse(localStorage.getItem(`hidden_tasks_${civilId}`) || '[]');
+      hidden.push(id);
+      localStorage.setItem(`hidden_tasks_${civilId}`, JSON.stringify(hidden)); // 🔒 ختم الإخفاء
+
       setTasks(prev => prev.filter(task => task.id !== id));
     }
   };
@@ -148,6 +190,10 @@ const StudentTasks: React.FC = () => {
                   <div className="flex-1">
                     <h3 className="text-sm font-bold text-indigo-200/60 line-through mb-1">{task.title}</h3>
                   </div>
+                  {/* 🗑️ إضافة زر الحذف للمهام المنجزة لتنظيفها يدوياً */}
+                  <button onClick={() => deleteTask(task.id)} className="p-2 text-indigo-200/30 hover:text-rose-400 transition-colors">
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
               ))}
             </div>
