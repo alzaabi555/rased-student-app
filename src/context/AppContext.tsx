@@ -1,4 +1,3 @@
-// AppContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6po82-XePyAWBd9FMNCTgY7WlYaOH6pn1kTazLqxEfvremqsSk_dU/exec"; 
@@ -36,7 +35,6 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const login = async (civilId: string): Promise<boolean> => {
     setLoading(true);
     try {
-      // 🎯 نستخدم URLSearchParams لضمان إرسال الرقم بشكل صحيح للسيرفر
       const url = `${GOOGLE_SCRIPT_URL}?civilId=${encodeURIComponent(civilId.trim())}`;
       const response = await fetch(url);
       const result = await response.json();
@@ -44,15 +42,12 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
       if (result.success && result.data) {
         setStudentData(result.data);
         localStorage.setItem('rased_student_session', JSON.stringify(result.data));
-        localStorage.setItem('last_civil_id', civilId.trim());
+        localStorage.setItem('last_civil_id', civilId.trim()); // 👈 ضروري جداً
         return true;
       }
       return false;
-    } catch (e) {
-      return false;
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { return false;
+    } finally { setLoading(false); }
   };
 
   const logout = () => {
@@ -63,7 +58,8 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const t = (key: string) => {
     const trans: any = { 
       'navHome': 'الرئيسية', 'navSchedule': 'الجدول', 
-      'navTasks': 'مهامي', 'navGrades': 'إتقاني' 
+      'navTasks': 'مهامي', 'navGrades': 'إتقاني',
+      'myQuests': 'مهامي الدراسية'
     };
     return trans[key] || key;
   };
