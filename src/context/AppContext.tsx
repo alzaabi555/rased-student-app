@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// 🌐 ضع رابط الـ Web App الخاص بك هنا
+// 🌐 رابط الـ Web App الخاص بك 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6po82-XePyAWBd9FMNCTgY7WlYaOH6pn1kTazLqxEfvremqsSk_dU/exec";
 
 interface AppContextType {
@@ -73,18 +73,41 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
     localStorage.removeItem('last_civil_id');
   };
 
+  // 🌍 القاموس العربي الشامل (المحرك المركزي للغات)
   const t = (key: string) => {
     const translations: any = {
+      // 📱 القائمة السفلية والتنقل
+      'navHome': 'الرئيسية',
+      'navSchedule': 'الجدول',
+      'navTasks': 'مهامي',
+      'navGrades': 'إتقاني',
+      
+      // 🚀 صفحة المهام
       'myQuests': 'مهامي الدراسية',
       'pendingTasks': 'قيد الإنجاز',
       'completedTasks': 'المكتملة',
       'completionRate': 'نسبة الإنجاز',
-      'navHome': 'الرئيسية',
-      'navSchedule': 'الجدول',
-      'navTasks': 'مهامي',
-      'navGrades': 'إتقاني'
+      
+      // 🚪 شاشة الدخول 
+      'loginTitle': 'منصة نور',
+      'loginSubtitle': 'بوابتك الذكية للتميز الدراسي',
+      'civilIdLabel': 'الرقم المدني للطالب',
+      'civilIdPlaceholder': 'أدخل رقمك المدني هنا...',
+      'loginButton': 'تسجيل الدخول',
+      
+      // 📅 شاشة الجدول 
+      'timetableTitle': 'الجدول الدراسي',
+      'class': 'الصف:',
+      'timetableEmpty': 'الجدول قيد التجهيز',
+      'timetableDesc': 'سيتم ربط جدول الحصص الأسبوعي الخاص بصفك قريباً لتتمكن من متابعة موادك الدراسية بكل سهولة وإتقان.',
+
+      // 📊 كلمات عامة أخرى قد تحتاجها الصفحات
+      'welcome': 'أهلاً بك،',
+      'semester1': 'الفصل الدراسي الأول',
+      'semester2': 'الفصل الدراسي الثاني',
+      'logout': 'تسجيل الخروج'
     };
-    return translations[key] || key;
+    return translations[key] || key; // إذا لم يجد الكلمة في القاموس، سيعرض المفتاح كما هو
   };
 
   return (
