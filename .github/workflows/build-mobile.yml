@@ -53,29 +53,24 @@ jobs:
       - name: Build Web Project
         run: npm run build
         
-      - name: Force Initialize iOS Project
+      - name: Initialize iOS Project
         run: |
-          # 1. تنظيف شامل
           rm -rf ios
-          # 2. تثبيت المنصة
           npx cap add ios
-          # 3. مزامنة الملفات
           npx cap sync ios
           
-      - name: Build IPA (Manual Navigation)
+      - name: Dynamic Build (Searching for Podfile)
         run: |
-          # ننتقل للمسار القياسي الذي ينشئه كاباسيتور
-          cd ios/App
+          # البحث عن مكان الـ Podfile والدخول لمجتواه
+          PODFILE_PATH=$(find ios -name "Podfile" | head -n 1)
+          IOS_DIR=$(dirname "$PODFILE_PATH")
+          echo "📍 Found iOS Source at: $IOS_DIR"
+          cd "$IOS_DIR"
           
-          # تثبيت المكتبات (Pods) يدوياً للتأكد من وجود الـ Workspace
+          # تثبيت المكتبات
           pod install
           
-          # التأكد من وجود الملف قبل البدء
-          if [ ! -d "App.xcworkspace" ]; then
-            echo "❌ Error: App.xcworkspace still not found!"
-            exit 1
-          fi
-          
+          # بناء التطبيق (التفاحة)
           echo "🚀 Building Xcode Workspace..."
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
           
@@ -84,8 +79,9 @@ jobs:
           cp -r build/Debug-iphoneos/App.app Payload/
           zip -r Rased-Student.ipa Payload
           
-          # نقل الملف للمجلد الرئيسي لرفعه
-          mv Rased-Student.ipa ../../
+          # نقل الملف للمجلد الرئيسي (جذر المشروع) للرفع
+          # سنستخدم مساراً نسبياً للرجوع للخلف مهما كان العمق
+          find . -name "Rased-Student.ipa" -exec cp {} "$GITHUB_WORKSPACE/" \;
           
       - name: Upload iOS IPA
         uses: actions/upload-artifact@v4
