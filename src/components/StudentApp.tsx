@@ -22,14 +22,15 @@ const StudentApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'home' | 'timetable' | 'tasks' | 'grades'>('home');
   const [currentSemester] = useState<'1' | '2'>('1');
 
-  // 📡 دالة الاتصال الموحدة (توجه الأمر لـ AppContext)
+  // 📡 دالة الدخول (تأكد أنها تنادي login من useApp)
   const handleLogin = async (civilId: string) => {
-  setLoginError('');
-  const success = await login(civilId); // ينادي الدالة من AppContext
-  if (!success) {
-    setLoginError('الرقم المدني غير مسجل في النظام أو فشل الاتصال.');
-  }
-};
+    setLoginError('');
+    // لاحظ أننا نستخدم login القادمة من useApp وليس fetch محلي
+    const success = await login(civilId); 
+    if (!success) {
+      setLoginError('الرقم المدني غير مسجل أو فشل الاتصال بالسيرفر.');
+    }
+  };
 
   // 🔔 محرك الإشعارات الذكي (النسخة المزدوجة التي لا تُقهر)
   useEffect(() => {
