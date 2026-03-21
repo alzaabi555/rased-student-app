@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6po82-XePyAWBd9FMNCTgY7WlYaOH6pn1kTazLqxEfvremqsSk_dU/exec"; 
+// ⚠️ تأكد أن هذا الرابط هو الأحدث من جوجل
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6po82-XePyAWBd9FMNCTgY7WlYaOH6pn1kTazLqxEfvremqsSk_dU/exec";
 
 interface AppContextType {
   t: (key: string) => string;
@@ -19,35 +20,39 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const [loading, setLoading] = useState(false);
   const [dir] = useState<'rtl' | 'ltr'>('rtl');
 
+  // دالة التحديث
   const refreshData = async () => {
     const savedId = localStorage.getItem('last_civil_id');
     if (!savedId) return;
     try {
       const response = await fetch(`${GOOGLE_SCRIPT_URL}?civilId=${savedId.trim()}`);
       const result = await response.json();
-      if (result.success) {
+      if (result.success && result.data) {
         setStudentData(result.data);
-        localStorage.setItem('rased_student_session', JSON.stringify(result.data));
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Refresh failed", e); }
   };
 
+  // دالة الدخول الحاسمة
   const login = async (civilId: string): Promise<boolean> => {
     setLoading(true);
     try {
-      const url = `${GOOGLE_SCRIPT_URL}?civilId=${encodeURIComponent(civilId.trim())}`;
-      const response = await fetch(url);
+      const response = await fetch(`${GOOGLE_SCRIPT_URL}?civilId=${civilId.trim()}`);
       const result = await response.json();
 
       if (result.success && result.data) {
         setStudentData(result.data);
         localStorage.setItem('rased_student_session', JSON.stringify(result.data));
-        localStorage.setItem('last_civil_id', civilId.trim()); // 👈 ضروري جداً
+        localStorage.setItem('last_civil_id', civilId.trim());
         return true;
       }
       return false;
-    } catch (e) { return false;
-    } finally { setLoading(false); }
+    } catch (error) {
+      console.error("Login connection error", error);
+      return false;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = () => {
@@ -58,8 +63,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const t = (key: string) => {
     const trans: any = { 
       'navHome': 'الرئيسية', 'navSchedule': 'الجدول', 
-      'navTasks': 'مهامي', 'navGrades': 'إتقاني',
-      'myQuests': 'مهامي الدراسية'
+      'navTasks': 'مهامي', 'navGrades': 'إتقاني' 
     };
     return trans[key] || key;
   };
