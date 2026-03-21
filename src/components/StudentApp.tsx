@@ -14,110 +14,50 @@ import StudentTasks from './StudentTasks';
 import StudentGrades from './StudentGrades';
 import StudentTimetable from './StudentTimetable';
 
-// ==========================================
-// 🔗 رابط السيرفر (Google Apps Script)
-// ==========================================
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6po82-XePyAWBd9FMNCTgY7WlYaOH6pn1kTazLqxEfvremqsSk_dU/exec"; 
-
-// ✅ النسخة المصححة لحل أخطاء الـ Build
-export interface GradeRecord { 
-  id: string; 
-  category: string; 
-  subject: string; 
-  score: number; 
-  maxScore: number; 
-  date: string; 
-  semester: '1' | '2'; 
-  studentId?: string; // أضفنا هذا السطر
-}
-
-export interface TaskRecord { 
-  id: string; 
-  title: string; 
-  subject: string; 
-  dueDate: string; 
-  completed: boolean; 
-  studentId?: string; // أضفنا هذا السطر
-}
-
-export interface Student { 
-  id: string; 
-  civilId: string; 
-  name: string; 
-  gender: 'male' | 'female'; 
-  classes: string[]; 
-  attendance?: any[]; 
-  grades?: GradeRecord[]; 
-  tasks?: TaskRecord[]; 
-  behavior?: any[]; 
-  grade?: string; // أضفنا هذا السطر
-}
-
 const StudentApp: React.FC = () => {
-  const { t, dir } = useApp();
+  // 🧠 السر هنا: استخدام `studentData` و `login` و `loading` من العقل الموحد (AppContext)
+  const { t, dir, studentData, loading, login } = useApp();
   
-  // 🧠 حالة التطبيق
-  const [student, setStudent] = useState<Student | null>(null);
-  const [isFetching, setIsFetching] = useState(false);
   const [loginError, setLoginError] = useState('');
-
   const [activeTab, setActiveTab] = useState<'home' | 'timetable' | 'tasks' | 'grades'>('home');
   const [currentSemester] = useState<'1' | '2'>('1');
 
-  // 📡 دالة الاتصال بالسيرفر
-  const fetchStudentData = async (civilId: string) => {
-    setIsFetching(true);
+  // 📡 دالة الاتصال الموحدة (توجه الأمر لـ AppContext)
+  const handleLogin = async (civilId: string) => {
     setLoginError('');
-
-    try {
-      const response = await fetch(`${GOOGLE_SCRIPT_URL}?civilId=${civilId}`);
-      const result = await response.json();
-
-      if (result.success && result.data) {
-        setStudent(result.data); 
-      } else {
-        setLoginError(result.error || 'الرقم المدني غير مسجل في النظام.');
-      }
-    } catch (error) {
-      console.error("Fetch Error:", error);
-      setLoginError('حدث خطأ في الاتصال بالسيرفر. تأكد من الإنترنت أو الرابط.');
-    } finally {
-      setIsFetching(false);
+    const success = await login(civilId);
+    if (!success) {
+      setLoginError('الرقم المدني غير مسجل في النظام أو فشل الاتصال.');
     }
   };
 
-  // 🔔 محرك الإشعارات الذكي (Task Notification Radar)
+  // 🔔 محرك الإشعارات (متصل الآن بالعقل المدبر)
   useEffect(() => {
     const manageNotifications = async () => {
-      // التأكد من أننا على هاتف حقيقي وأن الطالب لديه مهام
-      if (!student || !student.tasks || !Capacitor.isNativePlatform()) return;
+      if (!studentData || !studentData.tasks || !Capacitor.isNativePlatform()) return;
 
-      const pendingTasks = student.tasks.filter(t => !t.completed);
+      const pendingTasks = studentData.tasks.filter((t: any) => !t.completed);
       
       try {
-        // 1. طلب صلاحية إرسال الإشعارات
         let permStatus = await LocalNotifications.checkPermissions();
         if (permStatus.display !== 'granted') {
           permStatus = await LocalNotifications.requestPermissions();
         }
         if (permStatus.display !== 'granted') return;
 
-        // 2. إلغاء الإشعارات القديمة المجدولة حتى لا نزعج الطالب
         const pendingReqs = await LocalNotifications.getPending();
         if (pendingReqs.notifications.length > 0) {
           await LocalNotifications.cancel(pendingReqs);
         }
 
-        if (pendingTasks.length === 0) return; // لا توجد مهام معلقة
+        if (pendingTasks.length === 0) return;
 
-        // 3. تحليل المهام لاكتشاف "المهام الجديدة كلياً"
         const savedTaskIds = JSON.parse(localStorage.getItem('rased_student_known_tasks') || '[]');
-        const currentTaskIds = student.tasks.map(t => t.id);
-        const newTasks = pendingTasks.filter(t => !savedTaskIds.includes(t.id));
+        const currentTaskIds = studentData.tasks.map((t: any) => t.id);
+        const newTasks = pendingTasks.filter((t: any) => !savedTaskIds.includes(t.id));
 
         const notificationsToSchedule = [];
 
-        // 🟢 إشعار فوري إذا كانت هناك مهمة جديدة (يظهر بعد 5 ثوانٍ من التحديث)
         if (newTasks.length > 0) {
           notificationsToSchedule.push({
             title: "مهمة جديدة من معلمك! 🤩",
@@ -125,19 +65,16 @@ const StudentApp: React.FC = () => {
             id: Math.floor(Math.random() * 10000),
             schedule: { at: new Date(Date.now() + 1000 * 5) }, 
           });
-          // تحديث الذاكرة لكي لا يعتبرها جديدة مرة أخرى
           localStorage.setItem('rased_student_known_tasks', JSON.stringify(currentTaskIds));
         }
 
-        // 🟡 تذكير ذكي للمهام المعلقة (يظهر بعد ساعتين من فتح التطبيق)
         notificationsToSchedule.push({
           title: "تذكير بمهامك المعلقة ⏳",
           body: `يا بطل، لا تنسَ إنجاز ${pendingTasks.length} مهمة تنتظر إبداعك!`,
           id: 9999,
-          schedule: { at: new Date(Date.now() + 1000 * 60 * 60 * 2) }, // بعد ساعتين
+          schedule: { at: new Date(Date.now() + 1000 * 60 * 60 * 2) },
         });
 
-        // جدولة الإشعارات في نظام الهاتف
         await LocalNotifications.schedule({ notifications: notificationsToSchedule });
 
       } catch (error) {
@@ -146,7 +83,7 @@ const StudentApp: React.FC = () => {
     };
 
     manageNotifications();
-  }, [student]); // سيعمل هذا المحرك تلقائياً كلما تم تحديث بيانات الطالب
+  }, [studentData]); 
 
   const NAV_ITEMS = [
     { id: 'home', icon: Home, label: t('navHome') || 'الرئيسية' },
@@ -156,29 +93,30 @@ const StudentApp: React.FC = () => {
   ] as const;
 
   const renderContent = () => {
-    if (!student) return null;
+    if (!studentData) return null;
     switch (activeTab) {
-      case 'home': return <StudentDashboard student={student} currentSemester={currentSemester} />;
+      case 'home': return <StudentDashboard student={studentData} currentSemester={currentSemester} />;
       case 'timetable': return <StudentTimetable />;
-      case 'tasks': return <StudentTasks />;
-      case 'grades': return <StudentGrades student={student} currentSemester={currentSemester} />;
-      default: return <StudentDashboard student={student} currentSemester={currentSemester} />;
+      case 'tasks': return <StudentTasks />; // 🚀 صفحة المهام ستقرأ الآن البيانات الصحيحة!
+      case 'grades': return <StudentGrades student={studentData} currentSemester={currentSemester} />;
+      default: return <StudentDashboard student={studentData} currentSemester={currentSemester} />;
     }
   };
 
-  if (!student) {
+  // شاشة الدخول
+  if (!studentData) {
     return (
       <div className="relative h-screen w-full bg-[#0f172a] overflow-hidden" dir={dir}>
         <RamadanTheme />
-        <StudentLogin onLogin={fetchStudentData} />
-        {isFetching && (
+        <StudentLogin onLogin={handleLogin} />
+        {loading && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0f172a]/80 backdrop-blur-md animate-in fade-in">
             <Loader2 className="w-12 h-12 text-cyan-400 animate-spin mb-4" />
             <h2 className="text-lg font-black text-white animate-pulse">جاري جلب بياناتك...</h2>
             <p className="text-xs font-bold text-indigo-300 mt-2">نجمع درجاتك ومهامك من السيرفر 🚀</p>
           </div>
         )}
-        {loginError && !isFetching && (
+        {loginError && !loading && (
           <div className="absolute top-10 left-4 right-4 z-50 bg-rose-500/10 border border-rose-500/50 backdrop-blur-md p-4 rounded-2xl shadow-lg animate-in slide-in-from-top-4">
             <p className="text-sm font-black text-rose-400 text-center">{loginError}</p>
             <button onClick={() => setLoginError('')} className="mt-2 w-full bg-rose-500/20 py-2 rounded-xl text-xs font-bold text-white hover:bg-rose-500/30 transition-colors">حسناً</button>
@@ -220,9 +158,6 @@ const StudentApp: React.FC = () => {
               </button>
             );
           })}
-        </div>
-        <div className="text-center mt-3 opacity-30 pointer-events-auto flex flex-col items-center justify-center">
-            <span className="text-[8px] font-black text-indigo-200 tracking-[0.2em]">محموعة راصد</span>
         </div>
       </div>
     </div>
