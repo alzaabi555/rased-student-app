@@ -73,21 +73,26 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
     localStorage.removeItem('last_civil_id');
   };
 
-  // 🌍 القاموس العربي الشامل (تمت إضافة كل المفاتيح من الصور)
+  // 🌍 القاموس العربي الشامل (النسخة الخالية من أي كلمة إنجليزية 100%)
   const t = (key: string) => {
     const translations: any = {
+      // 🚪 شاشة الدخول (الكلمات المتمردة التي تم ترويضها!)
+      'rasedApp': 'منصة نور',
+      'studentEdition': 'نسخة الطالب',
+      'STUDENTEDITION': 'نسخة الطالب',
+      'STUDENT EDITION': 'نسخة الطالب',
+      'welcomeBack': 'مرحباً بك',
+      'enterCivilIdToStart': 'أدخل رقمك المدني للبدء',
+      'startAdventure': 'تسجيل الدخول',
+      'civilIdPlaceholder': 'أدخل رقمك المدني هنا...', 
+      
       // 📱 القائمة السفلية والتنقل
       'navHome': 'الرئيسية',
       'navSchedule': 'الجدول',
       'navTasks': 'مهامي',
       'navGrades': 'إتقاني',
       
-      // 🚪 شاشة الدخول (المفاتيح التي ظهرت في صورتك)
-      'welcomeBack': 'مرحباً بك',
-      'enterCivilIdToStart': 'أدخل رقمك المدني للبدء',
-      'startAdventure': 'تسجيل الدخول',
-      
-      // 📅 شاشة الجدول (المفاتيح التي ظهرت في صورك)
+      // 📅 شاشة الجدول
       'mySchedule': 'الجدول الدراسي',
       'scheduleSubtitle': 'جدول الحصص الأسبوعي',
       'noClasses': 'لا توجد حصص مضافة',
@@ -99,7 +104,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
       'completedTasks': 'المكتملة',
       'completionRate': 'نسبة الإنجاز',
       
-      // 📊 كلمات عامة احتياطية
+      // 📊 كلمات عامة
       'welcome': 'أهلاً بك،',
       'semester1': 'الفصل الدراسي الأول',
       'semester2': 'الفصل الدراسي الثاني',
@@ -107,7 +112,6 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
       'class': 'الصف:'
     };
     
-    // إذا وجد الكلمة في القاموس يعرضها بالعربي، وإلا يعرضها كما هي
     return translations[key] || key; 
   };
 
