@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Home, CalendarDays, CheckSquare, ShieldCheck, Loader2 } from 'lucide-react';
+// 👈 لاحظ أننا أضفنا أيقونة Library هنا
+import { Home, CalendarDays, CheckSquare, ShieldCheck, Library, Loader2 } from 'lucide-react'; 
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
-// 🌙 استدعاء الثيم الرمضاني
 import RamadanTheme from './RamadanTheme';
 import StudentLogin from './StudentLogin';
 import StudentDashboard from './StudentDashboard';
 import StudentTasks from './StudentTasks';
 import StudentGrades from './StudentGrades';
 import StudentTimetable from './StudentTimetable';
+import StudentLibrary from './StudentLibrary'; // 👈 استدعاء صفحة المكتبة الجديدة
 
 const StudentApp: React.FC = () => {
-  const { t, dir, studentData, loading, login } = useApp();
+  const { dir, studentData, loading, login } = useApp();
   
   const [loginError, setLoginError] = useState('');
-  const [activeTab, setActiveTab] = useState<'home' | 'timetable' | 'tasks' | 'grades'>('home');
+  // 👈 أضفنا 'library' كحالة مسموح بها
+  const [activeTab, setActiveTab] = useState<'home' | 'timetable' | 'tasks' | 'library' | 'grades'>('home');
 
   const handleLogin = async (civilId: string) => {
     setLoginError('');
@@ -26,7 +28,6 @@ const StudentApp: React.FC = () => {
     }
   };
 
-  // 🔔 محرك الإشعارات 
   useEffect(() => {
     const manageNotifications = async () => {
       if (!studentData || !studentData.tasks) return;
@@ -65,11 +66,13 @@ const StudentApp: React.FC = () => {
     manageNotifications();
   }, [studentData]); 
 
+  // 👈 أضفنا "مكتبتي" إلى القائمة السفلية لتصبح 5 أزرار بدلاً من 4
   const NAV_ITEMS = [
-    { id: 'home', icon: Home, label: t('navHome') },
-    { id: 'timetable', icon: CalendarDays, label: t('navSchedule') },
-    { id: 'tasks', icon: CheckSquare, label: t('navTasks') },
-    { id: 'grades', icon: ShieldCheck, label: t('navGrades') }
+    { id: 'home', icon: Home, label: 'الرئيسية' },
+    { id: 'timetable', icon: CalendarDays, label: 'الجدول' },
+    { id: 'library', icon: Library, label: 'مكتبتي' }, 
+    { id: 'tasks', icon: CheckSquare, label: 'مهامي' },
+    { id: 'grades', icon: ShieldCheck, label: 'إتقاني' }
   ] as const;
 
   const renderContent = () => {
@@ -77,26 +80,22 @@ const StudentApp: React.FC = () => {
     switch (activeTab) {
       case 'home': return <StudentDashboard student={studentData} currentSemester="1" />;
       case 'timetable': return <StudentTimetable />;
+      case 'library': return <StudentLibrary />; // 👈 عرض المكتبة عند الضغط عليها
       case 'tasks': return <StudentTasks />;
       case 'grades': return <StudentGrades student={studentData} currentSemester="1" />;
       default: return <StudentDashboard student={studentData} currentSemester="1" />;
     }
   };
 
-  // 🚪 شاشة تسجيل الدخول
   if (!studentData) {
     return (
       <div className="relative h-screen w-full bg-[#020617] overflow-hidden" dir={dir}>
-        {/* 🌙 الثيم الرمضاني مثبت في الخلفية */}
         <div className="absolute inset-0 z-0">
           <RamadanTheme />
         </div>
-        
-        {/* محتوى شاشة الدخول فوق الثيم */}
         <div className="relative z-10 h-full w-full">
           <StudentLogin onLogin={handleLogin} />
         </div>
-
         {loading && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0f172a]/80 backdrop-blur-md">
             <Loader2 className="w-12 h-12 text-cyan-400 animate-spin mb-4" />
@@ -113,10 +112,8 @@ const StudentApp: React.FC = () => {
     );
   }
 
-  // 📱 شاشة التطبيق من الداخل
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden relative text-white bg-[#020617]" dir={dir}>
-      {/* 🌙 الثيم الرمضاني مثبت في الخلفية للتطبيق بالكامل */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <RamadanTheme />
       </div>
@@ -129,7 +126,6 @@ const StudentApp: React.FC = () => {
         </div>
       </main>
 
-      {/* 📱 شريط التنقل السفلي */}
       <div className="absolute bottom-0 left-0 right-0 z-50 p-4 pb-safe bg-gradient-to-t from-[#020617] via-[#020617]/90 to-transparent pointer-events-none">
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-2 mx-auto max-w-md shadow-2xl pointer-events-auto flex justify-between items-center relative overflow-hidden">
           {NAV_ITEMS.map((item) => {
@@ -139,7 +135,7 @@ const StudentApp: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center justify-center w-16 h-14 rounded-2xl relative transition-all duration-300 z-10 ${isActive ? 'scale-105' : 'hover:bg-white/5 opacity-60'}`}
+                className={`flex flex-col items-center justify-center w-[18%] h-14 rounded-2xl relative transition-all duration-300 z-10 ${isActive ? 'scale-105' : 'hover:bg-white/5 opacity-60'}`}
               >
                 {isActive && <div className="absolute inset-0 bg-cyan-500/20 rounded-2xl"></div>}
                 <Icon className={`w-5 h-5 mb-1 ${isActive ? 'text-cyan-300' : 'text-slate-400'}`} />
