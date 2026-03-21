@@ -24,12 +24,12 @@ const StudentApp: React.FC = () => {
 
   // 📡 دالة الاتصال الموحدة (توجه الأمر لـ AppContext)
   const handleLogin = async (civilId: string) => {
-    setLoginError('');
-    const success = await login(civilId);
-    if (!success) {
-      setLoginError('الرقم المدني غير مسجل في النظام أو فشل الاتصال.');
-    }
-  };
+  setLoginError('');
+  const success = await login(civilId); // ينادي الدالة من AppContext
+  if (!success) {
+    setLoginError('الرقم المدني غير مسجل في النظام أو فشل الاتصال.');
+  }
+};
 
   // 🔔 محرك الإشعارات الذكي (النسخة المزدوجة التي لا تُقهر)
   useEffect(() => {
