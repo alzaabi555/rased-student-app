@@ -43,39 +43,20 @@ jobs:
       - name: Build Web Project
         run: npm run build
         
-      - name: 🍏 Generate iOS Project
+      - name: 🍏 Generate iOS Project (Capacitor 8 SPM)
         run: |
           rm -rf ios
           npx cap add ios
           npx cap sync ios
           
-      - name: 📦 Hardcode Podfile & Install (The Absolute Fix)
-        run: |
-          cd ios/App
-          
-          echo "⚠️ Writing explicit Podfile for Rased Student..."
-          # سنكتب المسارات المباشرة للمكتبات الموجودة في package.json الخاص بك
-          cat <<EOF > Podfile
-          platform :ios, '15.0'
-          use_frameworks!
-
-          target 'App' do
-            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
-            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
-            pod 'CapacitorLocalNotifications', :path => '../../node_modules/@capacitor/local-notifications'
-          end
-          EOF
-          
-          # الآن سيتم تثبيت المكتبات بنجاح 100%
-          pod install
-          
       - name: 🚀 Build IPA
         run: |
           cd ios/App
-          # بناء التطبيق
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
           
-          # تحويله إلى صيغة IPA
+          # 🪄 السر هنا: نستخدم -project App.xcodeproj بدلاً من workspace
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
+          
+          # تجميع التطبيق إلى صيغة IPA
           mkdir -p Payload
           cp -r build/Debug-iphoneos/App.app Payload/
           zip -r ../../Rased-Student.ipa Payload
