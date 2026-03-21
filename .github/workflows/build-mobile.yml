@@ -54,32 +54,36 @@ jobs:
       - name: Build Web Project
         run: npm run build
         
-      - name: Initialize iOS Project from Scratch
+      - name: Initialize iOS Project
         run: |
-          # 1. حذف أي مجلد ios قديم لضمان النظافة
+          # حذف أي آثار قديمة وإضافة المنصة من جديد
           rm -rf ios
-          
-          # 2. إضافة منصة iOS بشكل نظيف (سيقوم بتوليد الـ Podfile تلقائياً)
           npx cap add ios
-          
-          # 3. مزامنة الملفات
           npx cap sync ios
           
-      - name: Build IPA (Unsigned)
+      - name: Build IPA (Auto-Path Discovery)
         run: |
-          # الدخول للمجلد الذي أنشأه Capacitor تلقائياً
-          cd ios/App
+          # البحث عن مكان ملف الـ workspace أينما كان
+          WORKSPACE_PATH=$(find ios -name "App.xcworkspace" | head -n 1)
+          PROJECT_DIR=$(dirname "$WORKSPACE_PATH")
           
-          # بناء التطبيق (هنا سيجد كل الملفات المطلوبة)
+          echo "🚀 Found Workspace at: $WORKSPACE_PATH"
+          cd "$PROJECT_DIR"
+          
+          # بناء التطبيق
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
           
-          # تجميع ملف الـ IPA
+          # تجميع الـ IPA
           mkdir -p Payload
           cp -r build/Debug-iphoneos/App.app Payload/
           zip -r Rased-Student.ipa Payload
+          
+          # نقل الملف للمجلد الرئيسي لسهولة الرفع
+          mv Rased-Student.ipa ../../../
           
       - name: Upload iOS IPA
         uses: actions/upload-artifact@v4
         with:
           name: Rased-Student-iOS-IPA
+          path: Rased-Student.ipa-IPA
           path: ios/App/Rased-Student.ipaApp.ipa
