@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// 🌐 ضع رابط الـ Web App الخاص بك هنا (الذي ينتهي بـ /exec)
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6po82-XePyAWBd9FMNCTgY7WlYaOH6pn1kTazLqxEfvremqsSk_dU/exec";
 
 interface AppContextType {
@@ -10,6 +9,7 @@ interface AppContextType {
   loading: boolean;
   login: (civilId: string) => Promise<boolean>;
   logout: () => void;
+  refreshData: () => Promise<void>; // أضفنا تعريف الدالة هنا
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -18,25 +18,33 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const [studentData, setStudentData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [dir] = useState<'rtl' | 'ltr'>('rtl');
-// 🔄 دالة تحديث البيانات بدون الحاجة للخروج (تحديث صامت)
-const refreshData = async () => {
-  const savedId = localStorage.getItem('last_civil_id');
-  if (!savedId || loading) return;
 
-  try {
-    // نحدث حالة التحميل بشكل بسيط (بدون قفل الشاشة إذا أردت)
-    const response = await fetch(`${GOOGLE_SCRIPT_URL}?civilId=${savedId.trim()}`);
-    const result = await response.json();
+  // 🔄 دالة تحديث البيانات (تحديث صامت)
+  const refreshData = async () => {
+    const savedId = localStorage.getItem('last_civil_id');
+    if (!savedId) return;
 
-    if (result.success && result.data) {
-      setStudentData(result.data);
-      localStorage.setItem('rased_student_session', JSON.stringify(result.data));
+    try {
+      const response = await fetch(`${GOOGLE_SCRIPT_URL}?civilId=${savedId.trim()}`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setStudentData(result.data);
+        localStorage.setItem('rased_student_session', JSON.stringify(result.data));
+      }
+    } catch (error) {
+      console.error("Refresh Error:", error);
     }
-  } catch (error) {
-    console.error("Refresh Error:", error);
-  }
-};
-  // محاولة استعادة الجلسة عند فتح التطبيق
+  };
+
+  // 🔔 مؤقت التحديث التلقائي: يعمل كل 60 ثانية
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshData();
+    }, 60000); 
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     const savedData = localStorage.getItem('rased_student_session');
     if (savedData) {
@@ -44,7 +52,6 @@ const refreshData = async () => {
     }
   }, []);
 
-  // 📥 دالة تسجيل الدخول وجلب البيانات من جوجل
   const login = async (civilId: string): Promise<boolean> => {
     setLoading(true);
     try {
@@ -53,7 +60,6 @@ const refreshData = async () => {
 
       if (result.success && result.data) {
         setStudentData(result.data);
-        // حفظ البيانات في الهاتف لسرعة الفتح لاحقاً
         localStorage.setItem('rased_student_session', JSON.stringify(result.data));
         localStorage.setItem('last_civil_id', civilId); 
         return true;
@@ -62,8 +68,7 @@ const refreshData = async () => {
         return false;
       }
     } catch (error) {
-      console.error("Login Error:", error);
-      alert("فشل الاتصال بالسيرفر. تأكد من الإنترنت.");
+      alert("فشل الاتصال بالسيرفر.");
       return false;
     } finally {
       setLoading(false);
@@ -73,22 +78,22 @@ const refreshData = async () => {
   const logout = () => {
     setStudentData(null);
     localStorage.removeItem('rased_student_session');
+    localStorage.removeItem('last_civil_id');
   };
 
-  // دالة بسيطة للترجمة (يمكنك توسيعها لاحقاً)
   const t = (key: string) => {
     const translations: any = {
       'myQuests': 'مهامي الدراسية',
       'pendingTasks': 'قيد الإنجاز',
       'completedTasks': 'المهام المكتملة',
       'completionRate': 'نسبة الإنجاز'
-      // أضف أي مفاتيح أخرى تحتاجها هنا
     };
     return translations[key] || key;
   };
 
   return (
-    <AppContext.Provider value={{ t, dir, studentData, loading, login, logout }}>
+    // 🎯 أضفنا refreshData هنا لكي تراها بقية المكونات
+    <AppContext.Provider value={{ t, dir, studentData, loading, login, logout, refreshData }}>
       {children}
     </AppContext.Provider>
   );
