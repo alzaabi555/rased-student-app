@@ -56,7 +56,7 @@ jobs:
           echo "⚠️ Writing explicit Podfile for Rased Student..."
           # سنكتب المسارات المباشرة للمكتبات الموجودة في package.json الخاص بك
           cat <<EOF > Podfile
-          platform :ios, '13.0'
+          platform :ios, '15.0'
           use_frameworks!
 
           target 'App' do
