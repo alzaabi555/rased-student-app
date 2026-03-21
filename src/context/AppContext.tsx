@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// 🌐 رابط الـ Web App الخاص بك 
+// 🌐 رابط الـ Web App الخاص بك
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6po82-XePyAWBd9FMNCTgY7WlYaOH6pn1kTazLqxEfvremqsSk_dU/exec";
 
 interface AppContextType {
@@ -73,7 +73,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
     localStorage.removeItem('last_civil_id');
   };
 
-  // 🌍 القاموس العربي الشامل (المحرك المركزي للغات)
+  // 🌍 القاموس العربي الشامل (تمت إضافة كل المفاتيح من الصور)
   const t = (key: string) => {
     const translations: any = {
       // 📱 القائمة السفلية والتنقل
@@ -82,32 +82,33 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
       'navTasks': 'مهامي',
       'navGrades': 'إتقاني',
       
+      // 🚪 شاشة الدخول (المفاتيح التي ظهرت في صورتك)
+      'welcomeBack': 'مرحباً بك',
+      'enterCivilIdToStart': 'أدخل رقمك المدني للبدء',
+      'startAdventure': 'تسجيل الدخول',
+      
+      // 📅 شاشة الجدول (المفاتيح التي ظهرت في صورك)
+      'mySchedule': 'الجدول الدراسي',
+      'scheduleSubtitle': 'جدول الحصص الأسبوعي',
+      'noClasses': 'لا توجد حصص مضافة',
+      'editSchedule': 'تعديل الجدول',
+      
       // 🚀 صفحة المهام
       'myQuests': 'مهامي الدراسية',
       'pendingTasks': 'قيد الإنجاز',
       'completedTasks': 'المكتملة',
       'completionRate': 'نسبة الإنجاز',
       
-      // 🚪 شاشة الدخول 
-      'loginTitle': 'منصة نور',
-      'loginSubtitle': 'بوابتك الذكية للتميز الدراسي',
-      'civilIdLabel': 'الرقم المدني للطالب',
-      'civilIdPlaceholder': 'أدخل رقمك المدني هنا...',
-      'loginButton': 'تسجيل الدخول',
-      
-      // 📅 شاشة الجدول 
-      'timetableTitle': 'الجدول الدراسي',
-      'class': 'الصف:',
-      'timetableEmpty': 'الجدول قيد التجهيز',
-      'timetableDesc': 'سيتم ربط جدول الحصص الأسبوعي الخاص بصفك قريباً لتتمكن من متابعة موادك الدراسية بكل سهولة وإتقان.',
-
-      // 📊 كلمات عامة أخرى قد تحتاجها الصفحات
+      // 📊 كلمات عامة احتياطية
       'welcome': 'أهلاً بك،',
       'semester1': 'الفصل الدراسي الأول',
       'semester2': 'الفصل الدراسي الثاني',
-      'logout': 'تسجيل الخروج'
+      'logout': 'تسجيل الخروج',
+      'class': 'الصف:'
     };
-    return translations[key] || key; // إذا لم يجد الكلمة في القاموس، سيعرض المفتاح كما هو
+    
+    // إذا وجد الكلمة في القاموس يعرضها بالعربي، وإلا يعرضها كما هي
+    return translations[key] || key; 
   };
 
   return (
