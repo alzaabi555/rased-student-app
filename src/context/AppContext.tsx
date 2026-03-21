@@ -81,14 +81,19 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
     localStorage.removeItem('last_civil_id');
   };
 
+ // دالة بسيطة للترجمة 
   const t = (key: string) => {
     const translations: any = {
       'myQuests': 'مهامي الدراسية',
       'pendingTasks': 'قيد الإنجاز',
       'completedTasks': 'المهام المكتملة',
-      'completionRate': 'نسبة الإنجاز'
+      'completionRate': 'نسبة الإنجاز',
+      // يمكنك إضافة كلمات أخرى هنا مستقبلاً
     };
-    return translations[key] || key;
+    
+    // 🎯 السر هنا: أزلنا (|| key) لكي يرجع undefined إذا لم يجد الكلمة
+    // وبهذا تعمل الكلمات العربية الموجودة في باقي الصفحات تلقائياً!
+    return translations[key]; 
   };
 
   return (
