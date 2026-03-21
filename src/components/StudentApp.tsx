@@ -31,59 +31,53 @@ const StudentApp: React.FC = () => {
     }
   };
 
-  // 🔔 محرك الإشعارات (متصل الآن بالعقل المدبر)
+  // 🔔 محرك الإشعارات الذكي (النسخة المزدوجة التي لا تُقهر)
   useEffect(() => {
     const manageNotifications = async () => {
-      if (!studentData || !studentData.tasks || !Capacitor.isNativePlatform()) return;
+      // أزلنا شرط Native Platform لكي يعمل التنبيه الداخلي حتى على المتصفح
+      if (!studentData || !studentData.tasks) return;
 
-      const pendingTasks = studentData.tasks.filter((t: any) => !t.completed);
+      const currentTaskIds = studentData.tasks.map((t: any) => t.id);
+      const savedTaskIds = JSON.parse(localStorage.getItem('rased_student_known_tasks') || '[]');
       
-      try {
-        let permStatus = await LocalNotifications.checkPermissions();
-        if (permStatus.display !== 'granted') {
-          permStatus = await LocalNotifications.requestPermissions();
+      // 🎯 اكتشاف المهام الجديدة كلياً
+      const newTasks = studentData.tasks.filter((t: any) => !savedTaskIds.includes(t.id));
+
+      if (newTasks.length > 0) {
+        // تحديث الذاكرة فوراً لكي لا يزعج الطالب مرة أخرى بنفس المهمة
+        localStorage.setItem('rased_student_known_tasks', JSON.stringify(currentTaskIds));
+
+        // 1. 🚀 التنبيه الداخلي المباشر (يخترق حظر الهواتف ويظهر في منتصف الشاشة)
+        setTimeout(() => {
+          alert(`🔔 مهمة جديدة من معلمك!\n\nالمهمة: ${newTasks[0].title}\nالمادة: ${newTasks[0].subject}`);
+        }, 1000);
+
+        // 2. 📱 محاولة إرسال إشعار الهاتف العادي (يعمل فقط إذا كان التطبيق مثبتاً على جوال)
+        try {
+          if (Capacitor.isNativePlatform()) {
+            let permStatus = await LocalNotifications.checkPermissions();
+            if (permStatus.display !== 'granted') {
+              permStatus = await LocalNotifications.requestPermissions();
+            }
+            if (permStatus.display === 'granted') {
+              await LocalNotifications.schedule({
+                notifications: [{
+                  title: "مهمة جديدة! 🤩",
+                  body: `تمت إضافة مهمة: "${newTasks[0].title}"`,
+                  id: Math.floor(Math.random() * 100000),
+                  schedule: { at: new Date(Date.now() + 2000) }, // بعد ثانيتين
+                }]
+              });
+            }
+          }
+        } catch (error) {
+          console.error("فشل إرسال الإشعار الخارجي", error);
         }
-        if (permStatus.display !== 'granted') return;
-
-        const pendingReqs = await LocalNotifications.getPending();
-        if (pendingReqs.notifications.length > 0) {
-          await LocalNotifications.cancel(pendingReqs);
-        }
-
-        if (pendingTasks.length === 0) return;
-
-        const savedTaskIds = JSON.parse(localStorage.getItem('rased_student_known_tasks') || '[]');
-        const currentTaskIds = studentData.tasks.map((t: any) => t.id);
-        const newTasks = pendingTasks.filter((t: any) => !savedTaskIds.includes(t.id));
-
-        const notificationsToSchedule = [];
-
-        if (newTasks.length > 0) {
-          notificationsToSchedule.push({
-            title: "مهمة جديدة من معلمك! 🤩",
-            body: `تمت إضافة مهمة: "${newTasks[0].title}". ادخل للتفاصيل!`,
-            id: Math.floor(Math.random() * 10000),
-            schedule: { at: new Date(Date.now() + 1000 * 5) }, 
-          });
-          localStorage.setItem('rased_student_known_tasks', JSON.stringify(currentTaskIds));
-        }
-
-        notificationsToSchedule.push({
-          title: "تذكير بمهامك المعلقة ⏳",
-          body: `يا بطل، لا تنسَ إنجاز ${pendingTasks.length} مهمة تنتظر إبداعك!`,
-          id: 9999,
-          schedule: { at: new Date(Date.now() + 1000 * 60 * 60 * 2) },
-        });
-
-        await LocalNotifications.schedule({ notifications: notificationsToSchedule });
-
-      } catch (error) {
-        console.error("Error scheduling notifications", error);
       }
     };
 
     manageNotifications();
-  }, [studentData]); 
+  }, [studentData]);
 
   const NAV_ITEMS = [
     { id: 'home', icon: Home, label: t('navHome') || 'الرئيسية' },
