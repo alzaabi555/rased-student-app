@@ -20,9 +20,8 @@ const PREDEFINED_SUBJECTS = [
   'الفنون التشكيلية', 'تقنية المعلومات', 'الرياضة المدرسية', 'المهارات الحياتية'
 ];
 
-// جدول مبدئي فارغ (يحتوي فقط على بعض البيانات للتجربة)
 const INITIAL_SCHEDULE: Record<number, string[]> = {
-  0: ['الرياضيات', 'العلوم', '', 'اللغة العربية', '', '', '', ''],
+  0: ['', '', '', '', '', '', '', ''],
   1: ['', '', '', '', '', '', '', ''],
   2: ['', '', '', '', '', '', '', ''],
   3: ['', '', '', '', '', '', '', ''],
@@ -30,14 +29,31 @@ const INITIAL_SCHEDULE: Record<number, string[]> = {
 };
 
 const StudentTimetable: React.FC = () => {
-  const { t, dir } = useApp();
+  // 🧠 أضفنا studentData هنا لربط الجدول برقم الطالب
+  const { t, dir, studentData } = useApp(); 
   
   const [selectedDay, setSelectedDay] = useState<number>(0);
-  const [weeklySchedule, setWeeklySchedule] = useState<Record<number, string[]>>(INITIAL_SCHEDULE);
   
-  // حالات نافذة تعديل الجدول
+  // 💾 زراعة الذاكرة: استدعاء الجدول من الهاتف عند فتح الصفحة
+  const [weeklySchedule, setWeeklySchedule] = useState<Record<number, string[]>>(() => {
+    try {
+      const studentId = studentData?.civilId || 'default';
+      const saved = localStorage.getItem(`rased_timetable_${studentId}`);
+      if (saved) return JSON.parse(saved);
+    } catch (e) { console.error(e); }
+    return INITIAL_SCHEDULE;
+  });
+  
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [activeCell, setActiveCell] = useState<{ day: number, period: number } | null>(null);
+
+  // 💾 زراعة الذاكرة: حفظ الجدول فوراً عند أي تغيير
+  useEffect(() => {
+    try {
+      const studentId = studentData?.civilId || 'default';
+      localStorage.setItem(`rased_timetable_${studentId}`, JSON.stringify(weeklySchedule));
+    } catch (e) { console.error(e); }
+  }, [weeklySchedule, studentData]);
 
   useEffect(() => {
     const today = new Date().getDay();
@@ -48,12 +64,10 @@ const StudentTimetable: React.FC = () => {
     }
   }, []);
 
-  // استخراج الحصص الممتلئة لليوم المحدد فقط لعرضها في القائمة الرئيسية
   const todayClasses = (weeklySchedule[selectedDay] || Array(8).fill(''))
     .map((subject, index) => ({ periodNum: index + 1, subject }))
     .filter(cls => cls.subject !== '');
 
-  // دالة اختيار مادة لخلية معينة
   const handleSelectSubject = (subject: string) => {
     if (!activeCell) return;
     const { day, period } = activeCell;
@@ -70,7 +84,6 @@ const StudentTimetable: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-transparent text-white overflow-hidden pt-safe relative" dir={dir}>
       
-      {/* 🌟 1. رأس الصفحة وشريط الأيام */}
       <div className="pt-6 pb-2 px-0 bg-white/5 backdrop-blur-3xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] border-b border-white/10 sticky top-0 z-30 shrink-0">
         <div className="px-6 mb-6 flex justify-between items-start">
           <div>
@@ -83,7 +96,6 @@ const StudentTimetable: React.FC = () => {
             </p>
           </div>
           
-          {/* زر تعديل الجدول في الأعلى */}
           <button 
             onClick={() => setIsEditingSchedule(true)}
             className="w-10 h-10 bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg transition-all active:scale-95"
@@ -113,7 +125,6 @@ const StudentTimetable: React.FC = () => {
         </div>
       </div>
 
-      {/* 📅 2. قائمة الحصص لليوم المحدد (العرض الرئيسي) */}
       <div className="flex-1 overflow-y-auto px-6 py-8 custom-scrollbar relative">
         <div className={`absolute top-8 bottom-8 w-[2px] bg-white/10 ${dir === 'rtl' ? 'right-[2.35rem]' : 'left-[2.35rem]'} z-0 rounded-full shadow-inner`}></div>
 
@@ -121,12 +132,10 @@ const StudentTimetable: React.FC = () => {
           {todayClasses.length > 0 ? todayClasses.map((cls, index) => (
             <div key={index} className="flex gap-4">
               
-              {/* النقطة الزمنية الموحدة */}
               <div className="flex flex-col items-center mt-5">
                 <div className="w-[14px] h-[14px] rounded-full border-[3px] z-10 bg-black border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.3)]"></div>
               </div>
 
-              {/* بطاقة الحصة الموحدة النظيفة */}
               <div className="flex-1 rounded-[1.5rem] p-4 bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors shadow-sm relative overflow-hidden">
                 <div className="flex justify-between items-start">
                   <div>
@@ -151,7 +160,6 @@ const StudentTimetable: React.FC = () => {
         </div>
       </div>
 
-      {/* 🧩 3. شاشة تعديل الجدول الكاملة (Grid Edit Modal) */}
       {isEditingSchedule && (
         <div className="absolute inset-0 z-50 flex flex-col bg-[#0f172a]/95 backdrop-blur-2xl animate-in slide-in-from-bottom-8 duration-300">
           
@@ -169,7 +177,6 @@ const StudentTimetable: React.FC = () => {
             اضغط على الفراغ لتحديد المادة
           </div>
 
-          {/* شبكة الجدول (Table) */}
           <div className="flex-1 overflow-auto custom-scrollbar p-6">
             <table className="w-full border-separate border-spacing-2">
               <thead>
@@ -214,7 +221,6 @@ const StudentTimetable: React.FC = () => {
         </div>
       )}
 
-      {/* 🎯 4. نافذة اختيار المادة (تظهر عند الضغط على خلية) */}
       {activeCell && (
         <div className="absolute inset-0 z-[60] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-[#1e293b]/95 backdrop-blur-2xl border border-white/20 rounded-[2.5rem] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300 flex flex-col max-h-[80vh]">
@@ -239,7 +245,6 @@ const StudentTimetable: React.FC = () => {
               ))}
             </div>
 
-            {/* زر لتفريغ الحصة (مسح المادة) */}
             <div className="mt-4 pt-4 border-t border-white/10 shrink-0">
               <button 
                 onClick={() => handleSelectSubject('')}
