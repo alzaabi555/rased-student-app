@@ -1,17 +1,16 @@
 name: Build Mobile Apps (Android & iOS)
 on:
   push:
-    branches: [ main ] # سيتم البناء في كل مرة ترفع فيها للكود
+    branches: [ main ]
 
 jobs:
-  # --- مهمة بناء الأندرويد ---
   android-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
       
       - name: Install Dependencies
         run: npm install
@@ -29,19 +28,18 @@ jobs:
           ./gradlew assembleDebug
           
       - name: Upload Android APK
-       uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: Rased-Student-Android-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
-  # --- مهمة بناء الآيفون ---
   ios-build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           
       - name: Install Dependencies
         run: npm install
@@ -61,7 +59,7 @@ jobs:
           zip -r App.ipa Payload
           
       - name: Upload iOS IPA
-      uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: Rased-Student-iOS-IPA
           path: ios/App/App.ipa
