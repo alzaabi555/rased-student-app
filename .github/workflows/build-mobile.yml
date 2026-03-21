@@ -53,8 +53,8 @@ jobs:
         run: |
           cd ios/App
           
-          # 🪄 السر هنا: نستخدم -project App.xcodeproj بدلاً من workspace
-          xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
+          # 🪄 تم البناء بنجاح! الآن نأمره بوضع الملف في مجلد build
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO SYMROOT=$PWD/build build
           
           # تجميع التطبيق إلى صيغة IPA
           mkdir -p Payload
