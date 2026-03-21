@@ -38,29 +38,47 @@ jobs:
           node-version: 22
           
       - name: Install Dependencies
-        run: npm install
-        
+        run: |
+          npm install
+          # 🚨 السر هنا: إجبار السيرفر على تحميل أدوات آبل لكاباسيتور
+          npm install @capacitor/core @capacitor/ios
+          
       - name: Build Web Project
         run: npm run build
         
-      - name: 🍏 Generate iOS Project from Scratch
+      - name: 🍏 Generate iOS Project
         run: |
-          # تنظيف وبناء من الصفر
           rm -rf ios
           npx cap add ios
           npx cap sync ios
           
-      - name: 📦 Install CocoaPods (Create Workspace)
+      - name: 📦 Create Podfile & Install (The Nuclear Option)
         run: |
-          # هذه هي الخطوة السحرية التي ستصنع ملف App.xcworkspace
           cd ios/App
+          
+          # 🪄 الحيلة السحرية: إذا لم يجد الملف، سيكتبه السيرفر بنفسه!
+          if [ ! -f Podfile ]; then
+            echo "⚠️ Podfile is missing! Generating forcefully..."
+            cat <<EOF > Podfile
+          require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
+          platform :ios, '13.0'
+          use_frameworks!
+          def capacitor_pods
+            capacitor_cordova_ios_plugins
+          end
+          target 'App' do
+            capacitor_pods
+          end
+          EOF
+          fi
+          
+          # الآن نثبت المكتبات (وسينجح غصباً عنه)
           pod install
           
       - name: 🚀 Build IPA
         run: |
           cd ios/App
-          
-          # الآن سيعمل هذا الأمر لأنه سيجد الـ Workspace جاهزاً
+          # بناء التطبيق
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
           
           # تحويله إلى صيغة IPA
