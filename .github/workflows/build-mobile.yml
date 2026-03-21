@@ -54,23 +54,32 @@ jobs:
       - name: Build Web Project
         run: npm run build
         
-      - name: Sync iOS
+      - name: Initialize iOS Project from Scratch
         run: |
+          # 1. حذف أي مجلد ios قديم لضمان النظافة
+          rm -rf ios
+          
+          # 2. إضافة منصة iOS بشكل نظيف (سيقوم بتوليد الـ Podfile تلقائياً)
+          npx cap add ios
+          
+          # 3. مزامنة الملفات
           npx cap sync ios
-          cd ios/App/App
-          if [ ! -f Podfile ]; then pod init; fi
-          pod install
           
       - name: Build IPA (Unsigned)
         run: |
-          cd ios/App/App
+          # الدخول للمجلد الذي أنشأه Capacitor تلقائياً
+          cd ios/App
+          
+          # بناء التطبيق (هنا سيجد كل الملفات المطلوبة)
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
+          
+          # تجميع ملف الـ IPA
           mkdir -p Payload
           cp -r build/Debug-iphoneos/App.app Payload/
-          zip -r App.ipa Payload
+          zip -r Rased-Student.ipa Payload
           
       - name: Upload iOS IPA
         uses: actions/upload-artifact@v4
         with:
           name: Rased-Student-iOS-IPA
-          path: ios/App/App/App.ipa
+          path: ios/App/Rased-Student.ipaApp.ipa
