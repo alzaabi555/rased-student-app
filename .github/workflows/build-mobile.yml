@@ -85,5 +85,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Rased-Student-iOS-IPA
-          path: Rased-Student.ipa-IPA
-          path: ios/App/Rased-Student.ipaApp.ipa
+          path: Rased-Student.ipa
