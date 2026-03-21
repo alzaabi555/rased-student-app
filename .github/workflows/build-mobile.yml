@@ -4,10 +4,18 @@ on:
     branches: [ main ]
 
 jobs:
-  android-build:
+ android-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
+      # ☕ إضافة هذه الخطوة ضرورية للأندرويد الآن
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'zulu' # أو 'temurin' كلاهما ممتاز
+          
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -32,28 +40,22 @@ jobs:
         with:
           name: Rased-Student-Android-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
+  - name: Sync iOS
+        run: |
+          npx cap sync ios
+          # 🍎 الانتقال للمسار الصحيح الذي أكدته أنت
+          cd ios/App/App
+          if [ ! -f Podfile ]; then
+            pod init
+          fi
+          pod install
+          cd ../../..
 
-  ios-build:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          
-      - name: Install Dependencies
-        run: npm install
-        
-      - name: Build Web Project
-        run: npm run build
-        
-      - name: Sync iOS
-        run: npx cap sync ios
-        
       - name: Build IPA (Unsigned)
         run: |
-          cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App -sdk iphoneos -configuration Debug -allowProvisioningUpdates build
+          # 🚀 الدخول للمجلد العميق للبناء
+          cd ios/App/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO
           mkdir -p Payload
           cp -r build/Debug-iphoneos/App.app Payload/
           zip -r App.ipa Payload
@@ -62,4 +64,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Rased-Student-iOS-IPA
-          path: ios/App/App.ipa
+          path: ios/App/App/App.ipa # 👈 تحديث مسار الرفع أيضاً
