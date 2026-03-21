@@ -45,21 +45,22 @@ jobs:
         
       - name: 🍏 Generate iOS Project from Scratch
         run: |
-          # حذف المجلد الناقص الذي تم رفعه من ويندوز
+          # تنظيف وبناء من الصفر
           rm -rf ios
-          
-          # إنشاء مجلد iOS جديد ونظيف (سيقوم بتوليد الـ Podfile تلقائياً)
           npx cap add ios
-          
-          # مزامنة ملفات الويب
           npx cap sync ios
+          
+      - name: 📦 Install CocoaPods (Create Workspace)
+        run: |
+          # هذه هي الخطوة السحرية التي ستصنع ملف App.xcworkspace
+          cd ios/App
+          pod install
           
       - name: 🚀 Build IPA
         run: |
-          # الدخول للمجلد الذي أنشأه السيرفر الآن
           cd ios/App
           
-          # بناء التطبيق (سيجد الـ Podfile والـ Workspace الآن)
+          # الآن سيعمل هذا الأمر لأنه سيجد الـ Workspace جاهزاً
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO build
           
           # تحويله إلى صيغة IPA
