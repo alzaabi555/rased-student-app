@@ -18,7 +18,24 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const [studentData, setStudentData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [dir] = useState<'rtl' | 'ltr'>('rtl');
+// 🔄 دالة تحديث البيانات بدون الحاجة للخروج (تحديث صامت)
+const refreshData = async () => {
+  const savedId = localStorage.getItem('last_civil_id');
+  if (!savedId || loading) return;
 
+  try {
+    // نحدث حالة التحميل بشكل بسيط (بدون قفل الشاشة إذا أردت)
+    const response = await fetch(`${GOOGLE_SCRIPT_URL}?civilId=${savedId.trim()}`);
+    const result = await response.json();
+
+    if (result.success && result.data) {
+      setStudentData(result.data);
+      localStorage.setItem('rased_student_session', JSON.stringify(result.data));
+    }
+  } catch (error) {
+    console.error("Refresh Error:", error);
+  }
+};
   // محاولة استعادة الجلسة عند فتح التطبيق
   useEffect(() => {
     const savedData = localStorage.getItem('rased_student_session');
