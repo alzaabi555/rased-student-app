@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
-  CalendarDays, BookOpen, Edit3, X, Check, Trash2 
+  CalendarDays, BookOpen, Edit3, X, Check, Trash2, Plus, Clock 
 } from 'lucide-react';
 
 const DAYS = [
@@ -29,7 +29,7 @@ const INITIAL_SCHEDULE: Record<number, string[]> = {
 };
 
 const StudentTimetable: React.FC = () => {
-  // 🧠 أضفنا studentData هنا لربط الجدول برقم الطالب
+  // 🧠 ربط الجدول برقم الطالب
   const { t, dir, studentData } = useApp(); 
   
   const [selectedDay, setSelectedDay] = useState<number>(0);
@@ -84,6 +84,7 @@ const StudentTimetable: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-transparent text-white overflow-hidden pt-safe relative" dir={dir}>
       
+      {/* ===================== الهيدر الأساسي (وضع العرض) ===================== */}
       <div className="pt-6 pb-2 px-0 bg-white/5 backdrop-blur-3xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] border-b border-white/10 sticky top-0 z-30 shrink-0">
         <div className="px-6 mb-6 flex justify-between items-start">
           <div>
@@ -105,6 +106,7 @@ const StudentTimetable: React.FC = () => {
           </button>
         </div>
 
+        {/* شريط الأيام */}
         <div className="flex gap-2 overflow-x-auto px-6 pb-4 custom-scrollbar snap-x no-scrollbar">
           {DAYS.map((day) => {
             const isActive = selectedDay === day.id;
@@ -125,13 +127,13 @@ const StudentTimetable: React.FC = () => {
         </div>
       </div>
 
+      {/* ===================== محتوى عرض الحصص (Timeline) ===================== */}
       <div className="flex-1 overflow-y-auto px-6 py-8 custom-scrollbar relative">
         <div className={`absolute top-8 bottom-8 w-[2px] bg-white/10 ${dir === 'rtl' ? 'right-[2.35rem]' : 'left-[2.35rem]'} z-0 rounded-full shadow-inner`}></div>
 
         <div className="space-y-6 relative z-10">
           {todayClasses.length > 0 ? todayClasses.map((cls, index) => (
             <div key={index} className="flex gap-4">
-              
               <div className="flex flex-col items-center mt-5">
                 <div className="w-[14px] h-[14px] rounded-full border-[3px] z-10 bg-black border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.3)]"></div>
               </div>
@@ -160,98 +162,107 @@ const StudentTimetable: React.FC = () => {
         </div>
       </div>
 
+      {/* ===================== 🛠️ شاشة تعديل الجدول (التصميم الجديد المريح) ===================== */}
       {isEditingSchedule && (
         <div className="absolute inset-0 z-50 flex flex-col bg-[#0f172a]/95 backdrop-blur-2xl animate-in slide-in-from-bottom-8 duration-300">
           
           <div className="flex justify-between items-center p-6 border-b border-white/10 bg-white/5 shrink-0">
             <h2 className="text-lg font-black text-white flex items-center gap-2">
               <Edit3 className="w-5 h-5 text-cyan-400" />
-              {t('editSchedule') || 'تعبئة الجدول الأسبوعي'}
+              {t('editSchedule') || 'تعديل الجدول الأسبوعي'}
             </h2>
-            <button onClick={() => setIsEditingSchedule(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors">
+            <button onClick={() => setIsEditingSchedule(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors shadow-lg active:scale-95">
               <X className="w-5 h-5 text-indigo-200" />
             </button>
           </div>
 
-          <div className="p-6 text-xs font-bold text-indigo-200/70 text-center shrink-0 bg-black/20">
-            اضغط على الفراغ لتحديد المادة
+          <div className="p-4 text-xs font-bold text-cyan-200/80 text-center shrink-0 bg-black/20 shadow-inner">
+            اسحب لليمين واليسار لاختيار الحصة، واضغط لإضافة المادة
           </div>
 
-          <div className="flex-1 overflow-auto custom-scrollbar p-6">
-            <table className="w-full border-separate border-spacing-2">
-              <thead>
-                <tr>
-                  <th className={`sticky ${dir === 'rtl' ? 'right-0' : 'left-0'} z-20 bg-[#1e293b] p-3 rounded-xl text-xs font-black text-indigo-200 min-w-[70px] shadow-[0_0_10px_rgba(0,0,0,0.5)] border border-white/5`}>
-                    اليوم
-                  </th>
-                  {PERIODS.map(p => (
-                    <th key={p} className="p-3 bg-white/5 border border-white/10 rounded-xl text-xs font-black text-indigo-300 min-w-[85px]">
-                      ح {p}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {DAYS.map(day => (
-                  <tr key={day.id}>
-                    <td className={`sticky ${dir === 'rtl' ? 'right-0' : 'left-0'} z-20 bg-[#1e293b] p-3 rounded-xl text-xs font-black text-white shadow-[0_0_10px_rgba(0,0,0,0.5)] border border-white/5 text-center`}>
-                      {day.name}
-                    </td>
-                    {PERIODS.map((p, idx) => {
-                      const subject = weeklySchedule[day.id]?.[idx];
-                      return (
-                        <td 
-                          key={idx} 
-                          onClick={() => setActiveCell({ day: day.id, period: idx })} 
-                          className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-center cursor-pointer min-w-[85px] h-14 align-middle transition-colors active:scale-95 shadow-inner"
-                        >
-                          {subject ? (
-                            <span className="text-cyan-300 drop-shadow-sm line-clamp-2 leading-tight">{subject}</span>
-                          ) : (
-                            <span className="text-white/20 text-lg">+</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* 🧠 البطاقات الأفقية لكل يوم بدلاً من الجدول المعقد */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
+            {DAYS.map(day => (
+              <div key={day.id} className="bg-white/5 border border-white/10 rounded-3xl p-5 shadow-lg relative overflow-hidden">
+                {/* تأثير الإضاءة الخلفية للبطاقة */}
+                <div className={`absolute top-0 ${dir === 'rtl' ? 'right-0' : 'left-0'} w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl -mt-6 -mr-6`}></div>
+                
+                <h3 className="text-base font-black mb-4 text-white flex items-center gap-2 relative z-10">
+                  <CalendarDays className="w-4 h-4 text-cyan-400" /> {day.name}
+                </h3>
+                
+                {/* شريط تمرير أفقي للحصص */}
+                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-3 snap-x relative z-10">
+                  {PERIODS.map((p, idx) => {
+                    const subject = weeklySchedule[day.id]?.[idx];
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setActiveCell({ day: day.id, period: idx })}
+                        className={`snap-center shrink-0 w-[100px] h-28 rounded-[1.2rem] flex flex-col items-center justify-center gap-3 border transition-all active:scale-95 shadow-sm ${
+                          subject
+                            ? 'bg-gradient-to-b from-cyan-500/20 to-blue-500/20 border-cyan-400/40 text-cyan-100 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
+                            : 'bg-black/30 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1 opacity-70">
+                          <Clock className="w-3 h-3" />
+                          <span className="text-[10px] font-bold tracking-wider">حصة {p}</span>
+                        </div>
+                        <div className="text-[11px] font-black text-center line-clamp-2 px-2 leading-snug w-full">
+                          {subject || <Plus className="w-6 h-6 mx-auto opacity-40 text-white" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
+      {/* ===================== 📚 نافذة اختيار المواد (التصميم الشبكي الجديد) ===================== */}
       {activeCell && (
-        <div className="absolute inset-0 z-[60] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-[#1e293b]/95 backdrop-blur-2xl border border-white/20 rounded-[2.5rem] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300 flex flex-col max-h-[80vh]">
+        <div className="absolute inset-0 z-[60] flex items-end justify-center sm:items-center p-0 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-[#1e293b]/95 backdrop-blur-3xl border border-white/20 rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-300 flex flex-col max-h-[85vh]">
             
-            <div className="flex justify-between items-center mb-4 shrink-0">
-              <h3 className="text-sm font-black text-white">اختر المادة</h3>
-              <button onClick={() => setActiveCell(null)} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-full transition-colors">
-                <X className="w-4 h-4 text-indigo-200" />
+            {/* مقبض السحب (للموبايل) */}
+            <div className="w-12 h-1.5 rounded-full mx-auto mb-4 bg-white/20 sm:hidden"></div>
+
+            <div className="flex justify-between items-center mb-6 shrink-0 border-b border-white/10 pb-4">
+              <div>
+                <h3 className="text-base font-black text-white">اختر المادة</h3>
+                <p className="text-[10px] font-bold text-cyan-400 mt-1">يوم {DAYS[activeCell.day].name} - الحصة {activeCell.period + 1}</p>
+              </div>
+              <button onClick={() => setActiveCell(null)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors active:scale-95 border border-white/5">
+                <X className="w-5 h-5 text-indigo-200" />
               </button>
             </div>
 
-            <div className="overflow-y-auto custom-scrollbar flex-1 pr-2 space-y-2">
+            {/* 🧠 الحل الشبكي: حاوية المواد الشبكية القابلة للتمرير */}
+            <div className="grid grid-cols-2 gap-3 overflow-y-auto custom-scrollbar flex-1 pr-1 pb-4 content-start">
               {PREDEFINED_SUBJECTS.map((subject, idx) => (
                 <button 
                   key={idx}
                   onClick={() => handleSelectSubject(subject)}
-                  className="w-full p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-bold text-right text-indigo-100 transition-colors flex justify-between items-center"
+                  className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-xs font-black text-center text-indigo-100 transition-all active:scale-95 flex flex-col items-center justify-center gap-3 min-h-[90px] group"
                 >
-                  {subject}
-                  <Check className="w-4 h-4 text-cyan-400 opacity-0 hover:opacity-100" />
+                  <div className="p-2 rounded-xl bg-white/5 group-hover:bg-cyan-500/20 group-hover:text-cyan-300 transition-colors">
+                    <BookOpen className="w-5 h-5 opacity-70 group-hover:opacity-100" />
+                  </div>
+                  <span className="line-clamp-2 leading-tight">{subject}</span>
                 </button>
               ))}
             </div>
 
-            <div className="mt-4 pt-4 border-t border-white/10 shrink-0">
+            <div className="mt-2 pt-4 border-t border-white/10 shrink-0">
               <button 
                 onClick={() => handleSelectSubject('')}
-                className="w-full p-3.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-xs font-black text-rose-400 transition-colors flex justify-center items-center gap-2"
+                className="w-full py-4 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-2xl text-xs font-black text-rose-400 transition-colors flex justify-center items-center gap-2 active:scale-95 shadow-sm"
               >
                 <Trash2 className="w-4 h-4" />
-                تفريغ الحصة
+                تفريغ هذه الحصة
               </button>
             </div>
 
