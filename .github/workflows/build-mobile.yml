@@ -42,6 +42,8 @@ jobs:
         
       - name: Build Web Project
         run: npm run build
+      - name: Generate App Icons
+        run: npx capacitor-assets generate --ios || true
         
       - name: 🍏 Generate iOS Project (Capacitor 8 SPM)
         run: |
