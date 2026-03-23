@@ -52,6 +52,8 @@ jobs:
       - name: 🚀 Build IPA
         run: |
           cd ios/App
+          - name: Generate App Icons
+        run: npx capacitor-assets generate --ios || true
           
           # 🪄 تم البناء بنجاح! الآن نأمره بوضع الملف في مجلد build
           xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO SYMROOT=$PWD/build build
