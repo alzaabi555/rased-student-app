@@ -1,4 +1,12 @@
-android-build-huawei:
+name: Build Mobile Apps (Huawei Release APK & iOS)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  android-build-huawei:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -52,3 +60,45 @@ android-build-huawei:
         with:
           name: Rased-Student-Huawei-Release-APK
           path: ${{steps.sign_apk.outputs.signedReleaseFile}}
+
+  ios-build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies & Build Web Project
+        run: |
+          npm install
+          npm run build
+
+      - name: 🍏 Create Fresh iOS Project
+        run: |
+          rm -rf ios
+          npx cap add ios
+
+      - name: 🎨 Generate App Icons Automatically
+        run: npx @capacitor/assets generate --ios || true
+
+      - name: ✍️ Set Arabic App Name (Smart Injection)
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName راصد نسخة الطلبة" ios/App/App/Info.plist || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName راصد نسخة الطلبة" ios/App/App/Info.plist || true
+
+      - name: 🚀 Build IPA
+        run: |
+          cd ios/App
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO SYMROOT=$PWD/build build
+          
+          mkdir -p Payload
+          cp -r build/Debug-iphoneos/App.app Payload/
+          zip -r ../../Rased-Student.ipa Payload
+
+      - name: Upload iOS IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rased-Student-iOS-IPA
+          path: Rased-Student.ipa
