@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
-  CalendarDays, BookOpen, Edit3, X, Check, Trash2, Plus, Clock 
+  CalendarDays, BookOpen, Edit3, X, Check, Trash2, Plus, Clock, ChevronLeft
 } from 'lucide-react';
 
 const DAYS = [
@@ -29,12 +29,10 @@ const INITIAL_SCHEDULE: Record<number, string[]> = {
 };
 
 const StudentTimetable: React.FC = () => {
-  // 🧠 ربط الجدول برقم الطالب
   const { t, dir, studentData } = useApp(); 
   
   const [selectedDay, setSelectedDay] = useState<number>(0);
   
-  // 💾 زراعة الذاكرة: استدعاء الجدول من الهاتف عند فتح الصفحة
   const [weeklySchedule, setWeeklySchedule] = useState<Record<number, string[]>>(() => {
     try {
       const studentId = studentData?.civilId || 'default';
@@ -47,7 +45,6 @@ const StudentTimetable: React.FC = () => {
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [activeCell, setActiveCell] = useState<{ day: number, period: number } | null>(null);
 
-  // 💾 زراعة الذاكرة: حفظ الجدول فوراً عند أي تغيير
   useEffect(() => {
     try {
       const studentId = studentData?.civilId || 'default';
@@ -78,6 +75,7 @@ const StudentTimetable: React.FC = () => {
       return { ...prev, [day]: newDaySchedule };
     });
     
+    // إغلاق الدرج الجانبي بعد الاختيار فوراً
     setActiveCell(null);
   };
 
@@ -162,9 +160,9 @@ const StudentTimetable: React.FC = () => {
         </div>
       </div>
 
-      {/* ===================== 🛠️ شاشة تعديل الجدول (التصميم الجديد المريح) ===================== */}
+      {/* ===================== 🛠️ شاشة تعديل الجدول ===================== */}
       {isEditingSchedule && (
-        <div className="absolute inset-0 z-50 flex flex-col bg-[#0f172a]/95 backdrop-blur-2xl animate-in slide-in-from-bottom-8 duration-300">
+        <div className="absolute inset-0 z-40 flex flex-col bg-[#0f172a]/95 backdrop-blur-2xl animate-in slide-in-from-bottom-8 duration-300">
           
           <div className="flex justify-between items-center p-6 border-b border-white/10 bg-white/5 shrink-0">
             <h2 className="text-lg font-black text-white flex items-center gap-2">
@@ -180,18 +178,15 @@ const StudentTimetable: React.FC = () => {
             اسحب لليمين واليسار لاختيار الحصة، واضغط لإضافة المادة
           </div>
 
-          {/* 🧠 البطاقات الأفقية لكل يوم بدلاً من الجدول المعقد */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
             {DAYS.map(day => (
               <div key={day.id} className="bg-white/5 border border-white/10 rounded-3xl p-5 shadow-lg relative overflow-hidden">
-                {/* تأثير الإضاءة الخلفية للبطاقة */}
                 <div className={`absolute top-0 ${dir === 'rtl' ? 'right-0' : 'left-0'} w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl -mt-6 -mr-6`}></div>
                 
                 <h3 className="text-base font-black mb-4 text-white flex items-center gap-2 relative z-10">
                   <CalendarDays className="w-4 h-4 text-cyan-400" /> {day.name}
                 </h3>
                 
-                {/* شريط تمرير أفقي للحصص */}
                 <div className="flex gap-3 overflow-x-auto no-scrollbar pb-3 snap-x relative z-10">
                   {PERIODS.map((p, idx) => {
                     const subject = weeklySchedule[day.id]?.[idx];
@@ -222,52 +217,81 @@ const StudentTimetable: React.FC = () => {
         </div>
       )}
 
-      {/* ===================== 📚 نافذة اختيار المواد (التصميم الشبكي الجديد) ===================== */}
+      {/* ===================== 📚 الدرج الجانبي لاختيار المواد (Side Drawer) ===================== */}
       {activeCell && (
-        <div className="absolute inset-0 z-[60] flex items-end justify-center sm:items-center p-0 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-[#1e293b]/95 backdrop-blur-3xl border border-white/20 rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-300 flex flex-col max-h-[85vh]">
+        <>
+          {/* الخلفية الضبابية المظلمة التي عند الضغط عليها تغلق الدرج */}
+          <div 
+            className="absolute inset-0 z-[50] bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+            onClick={() => setActiveCell(null)}
+          ></div>
+          
+          {/* الدرج نفسه - يخرج من اليسار */}
+          <div className={`absolute top-0 bottom-0 left-0 z-[60] w-[85%] max-w-sm bg-[#0f172a]/95 backdrop-blur-3xl border-r border-white/10 shadow-[20px_0_50px_rgba(0,0,0,0.5)] flex flex-col animate-in slide-in-from-left duration-300`}>
             
-            {/* مقبض السحب (للموبايل) */}
-            <div className="w-12 h-1.5 rounded-full mx-auto mb-4 bg-white/20 sm:hidden"></div>
-
-            <div className="flex justify-between items-center mb-6 shrink-0 border-b border-white/10 pb-4">
+            {/* رأس الدرج */}
+            <div className="p-6 border-b border-white/10 bg-white/5 shrink-0 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-black text-white">اختر المادة</h3>
-                <p className="text-[10px] font-bold text-cyan-400 mt-1">يوم {DAYS[activeCell.day].name} - الحصة {activeCell.period + 1}</p>
+                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-cyan-400" />
+                  اختر المادة
+                </h3>
+                <p className="text-[11px] font-bold text-cyan-400/70 mt-1">
+                  يوم {DAYS[activeCell.day].name} - الحصة {activeCell.period + 1}
+                </p>
               </div>
               <button onClick={() => setActiveCell(null)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors active:scale-95 border border-white/5">
                 <X className="w-5 h-5 text-indigo-200" />
               </button>
             </div>
 
-            {/* 🧠 الحل الشبكي: حاوية المواد الشبكية القابلة للتمرير */}
-            <div className="grid grid-cols-2 gap-3 overflow-y-auto custom-scrollbar flex-1 pr-1 pb-4 content-start">
-              {PREDEFINED_SUBJECTS.map((subject, idx) => (
-                <button 
-                  key={idx}
-                  onClick={() => handleSelectSubject(subject)}
-                  className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-xs font-black text-center text-indigo-100 transition-all active:scale-95 flex flex-col items-center justify-center gap-3 min-h-[90px] group"
-                >
-                  <div className="p-2 rounded-xl bg-white/5 group-hover:bg-cyan-500/20 group-hover:text-cyan-300 transition-colors">
-                    <BookOpen className="w-5 h-5 opacity-70 group-hover:opacity-100" />
-                  </div>
-                  <span className="line-clamp-2 leading-tight">{subject}</span>
-                </button>
-              ))}
+            {/* القائمة الطولية للمواد */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+              {PREDEFINED_SUBJECTS.map((subject, idx) => {
+                const isSelected = weeklySchedule[activeCell.day]?.[activeCell.period] === subject;
+                return (
+                  <button 
+                    key={idx}
+                    onClick={() => handleSelectSubject(subject)}
+                    className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all duration-200 active:scale-95 ${
+                      isSelected 
+                        ? 'bg-cyan-500/20 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.2)]' 
+                        : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? 'bg-cyan-500/20 text-cyan-300' : 'bg-black/30 text-indigo-200/50'}`}>
+                        <BookOpen className="w-5 h-5" />
+                      </div>
+                      <span className={`text-sm font-black ${isSelected ? 'text-cyan-100' : 'text-slate-200'}`}>
+                        {subject}
+                      </span>
+                    </div>
+                    
+                    {/* أيقونة التحديد أو السهم */}
+                    {isSelected ? (
+                      <Check className="w-5 h-5 text-cyan-400" />
+                    ) : (
+                      <ChevronLeft className="w-5 h-5 text-indigo-200/30" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="mt-2 pt-4 border-t border-white/10 shrink-0">
+            {/* زر تفريغ الحصة في الأسفل */}
+            <div className="p-4 border-t border-white/10 bg-black/20 shrink-0">
               <button 
                 onClick={() => handleSelectSubject('')}
-                className="w-full py-4 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-2xl text-xs font-black text-rose-400 transition-colors flex justify-center items-center gap-2 active:scale-95 shadow-sm"
+                className="w-full py-4 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-2xl text-xs font-black text-rose-400 transition-colors flex justify-center items-center gap-2 active:scale-95"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-5 h-5" />
                 تفريغ هذه الحصة
               </button>
             </div>
 
           </div>
-        </div>
+        </>
       )}
 
     </div>
