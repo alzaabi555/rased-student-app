@@ -2,28 +2,33 @@ name: Build Mobile Apps (Android & iOS)
 on:
   push:
     branches: [ main ]
-    
+
 jobs:
   android-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'zulu'
+          
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          
       - run: npm install
       - run: npm run build
       - run: npx cap sync android
+      
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
+          
       - uses: actions/upload-artifact@v4
         with:
           name: Rased-Student-Android-APK
@@ -31,8 +36,9 @@ jobs:
 
   ios-build:
     runs-on: macos-latest
-   steps:
+    steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -42,26 +48,15 @@ jobs:
         
       - name: Build Web Project
         run: npm run build
-      - name: Generate App Icons
-        run: npx capacitor-assets generate --ios || true
         
-      - name: 🍏 Generate iOS Project (Capacitor 8 SPM)
-        run: |
-          rm -rf ios
-          npx cap add ios
-          npx cap sync ios
-          
-      
+      - name: 🍏 Sync iOS Project
+        run: npx cap sync ios
           
       - name: 🚀 Build IPA
         run: |
           cd ios/App
-       
-          
-          # 🪄 تم البناء بنجاح! الآن نأمره بوضع الملف في مجلد build
           xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO SYMROOT=$PWD/build build
           
-          # تجميع التطبيق إلى صيغة IPA
           mkdir -p Payload
           cp -r build/Debug-iphoneos/App.app Payload/
           zip -r ../../Rased-Student.ipa Payload
