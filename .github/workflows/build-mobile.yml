@@ -41,8 +41,18 @@ jobs:
           npm install
           npm run build
 
-      - name: 🍏 Copy Web Assets to iOS (SPM Mode - No Podfile)
-        run: npx cap copy ios
+      - name: 🍏 Create Fresh iOS Project
+        run: |
+          rm -rf ios
+          npx cap add ios
+
+      - name: 🎨 Generate App Icons Automatically
+        run: npx @capacitor/assets generate --ios || true
+
+      - name: ✍️ Set Arabic App Name (Smart Injection)
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName راصد نسخة الطلبة" ios/App/App/Info.plist || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName راصد نسخة الطلبة" ios/App/App/Info.plist || true
 
       - name: 🚀 Build IPA
         run: |
@@ -52,12 +62,6 @@ jobs:
           mkdir -p Payload
           cp -r build/Debug-iphoneos/App.app Payload/
           zip -r ../../Rased-Student.ipa Payload
-
-      - name: Upload iOS IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: Rased-Student-iOS-IPA
-          path: Rased-Student.ipa
 
       - name: Upload iOS IPA
         uses: actions/upload-artifact@v4
