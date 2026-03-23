@@ -1,5 +1,7 @@
-name: Build Mobile Apps (Android & iOS)
+name: Build Mobile Apps (Android AAB & iOS)
+
 on:
+  workflow_dispatch: # يسمح لك بتشغيل البناء يدوياً متى شئت
   push:
     branches: [ main ]
 
@@ -7,31 +9,63 @@ jobs:
   android-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'zulu'
-      - uses: actions/setup-node@v4
+          distribution: 'temurin'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
-      - run: npm run build
-      - run: npx cap sync android
-      - name: Build APK
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web Assets
+        run: npm run build
+
+      - name: Sync Android Platform
+        run: |
+          echo "Checking Android platform..."
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      - name: Build Android Release Bundle (AAB)
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
-      - uses: actions/upload-artifact@v4
+          ./gradlew bundleRelease --stacktrace
+
+      - name: Sign AAB for Google Play
+        uses: r0adkll/sign-android-release@v1
+        id: sign_app
         with:
-          name: Rased-Student-Android-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          releaseDirectory: android/app/build/outputs/bundle/release
+          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
+          alias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "35.0.0"
+
+      - name: Upload Signed AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rased-Student-GooglePlay-AAB
+          path: ${{steps.sign_app.outputs.signedReleaseFile}}
 
   ios-build:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-node@v4
         with:
           node-version: 22
