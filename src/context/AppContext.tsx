@@ -77,7 +77,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const t = (key: string) => {
     const translations: any = {
       // 🚪 شاشة الدخول (الكلمات المتمردة التي تم ترويضها!)
-      'rasedApp': 'منصة نور',
+      'rasedApp': 'راصد نسخة الطلبه',
       'studentEdition': 'نسخة الطالب',
       'STUDENTEDITION': 'نسخة الطالب',
       'STUDENT EDITION': 'نسخة الطالب',
