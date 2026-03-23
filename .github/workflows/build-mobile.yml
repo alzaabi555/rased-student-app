@@ -2,6 +2,7 @@ name: Build Mobile Apps (Android & iOS)
 on:
   push:
     branches: [ main ]
+    
 jobs:
   android-build:
     runs-on: ubuntu-latest
@@ -48,8 +49,7 @@ jobs:
           npx cap add ios
           npx cap sync ios
           
-       - name: Generate App Icons
-        run: npx capacitor-assets generate --ios || true
+      
           
       - name: 🚀 Build IPA
         run: |
