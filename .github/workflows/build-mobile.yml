@@ -1,12 +1,4 @@
-name: Build Mobile Apps (Android AAB & iOS)
-
-on:
-  workflow_dispatch: # يسمح لك بتشغيل البناء يدوياً متى شئت
-  push:
-    branches: [ main ]
-
-jobs:
-  android-build:
+android-build-huawei:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -37,17 +29,17 @@ jobs:
           fi
           npx cap sync android
 
-      - name: Build Android Release Bundle (AAB)
+      - name: 🚀 Build Android Release APK (For Huawei)
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease --stacktrace
+          ./gradlew assembleRelease --stacktrace
 
-      - name: Sign AAB for Google Play
+      - name: 🔐 Sign APK
         uses: r0adkll/sign-android-release@v1
-        id: sign_app
+        id: sign_apk
         with:
-          releaseDirectory: android/app/build/outputs/bundle/release
+          releaseDirectory: android/app/build/outputs/apk/release
           signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
           alias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -55,50 +47,8 @@ jobs:
         env:
           BUILD_TOOLS_VERSION: "35.0.0"
 
-      - name: Upload Signed AAB
+      - name: 📥 Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rased-Student-GooglePlay-AAB
-          path: ${{steps.sign_app.outputs.signedReleaseFile}}
-
-  ios-build:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install Dependencies & Build Web Project
-        run: |
-          npm install
-          npm run build
-
-      - name: 🍏 Create Fresh iOS Project
-        run: |
-          rm -rf ios
-          npx cap add ios
-
-      - name: 🎨 Generate App Icons Automatically
-        run: npx @capacitor/assets generate --ios || true
-
-      - name: ✍️ Set Arabic App Name (Smart Injection)
-        run: |
-          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName راصد نسخة الطلبة" ios/App/App/Info.plist || true
-          /usr/libexec/PlistBuddy -c "Set :CFBundleName راصد نسخة الطلبة" ios/App/App/Info.plist || true
-
-      - name: 🚀 Build IPA
-        run: |
-          cd ios/App
-          xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphoneos CODE_SIGNING_ALLOWED=NO SYMROOT=$PWD/build build
-          
-          mkdir -p Payload
-          cp -r build/Debug-iphoneos/App.app Payload/
-          zip -r ../../Rased-Student.ipa Payload
-
-      - name: Upload iOS IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: Rased-Student-iOS-IPA
-          path: Rased-Student.ipa
+          name: Rased-Student-Huawei-Release-APK
+          path: ${{steps.sign_apk.outputs.signedReleaseFile}}
