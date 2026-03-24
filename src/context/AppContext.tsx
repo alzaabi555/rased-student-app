@@ -25,7 +25,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
   const activeCivilIdRef = useRef<string | null>(null);
 
-  // 💉 دالة الدمج السحري (تجلب البيانات من الشيتين وتدمجهما في أجزاء من الثانية)
+  // 💉 دالة الدمج السحري (محدثة لقنص النقاط الجاهزة)
   const fetchAndMergeData = async (civilId: string) => {
     try {
       const [studentResponse, parentResponse] = await Promise.all([
@@ -35,7 +35,6 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
       let finalData = null;
 
-      // 1. معالجة بيانات الطالب الأساسية
       if (studentResponse) {
         const studentResult = await studentResponse.json();
         if (studentResult.success && studentResult.data) {
@@ -43,24 +42,29 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
         }
       }
 
-      // إذا لم يجد الطالب في شيت الطالب، نوقف العملية
       if (!finalData) return null;
 
-      // 2. معالجة بيانات ولي الأمر (لجلب نقاط الفرسان والسلوك) ودمجها
+      // 2. معالجة بيانات ولي الأمر (لجلب نقاط الفرسان)
       if (parentResponse) {
         const parentResult = await parentResponse.json();
         if (parentResult.status === "success" && parentResult.subjects) {
           let allBehaviors: any[] = [];
-          
+          let totalKnights = 0; // 💉 العداد الجديد لجمع النقاط الجاهزة
+
           parentResult.subjects.forEach((subject: any) => {
+            // 💉 سحب إجمالي النقاط لكل مادة كما هو مسجل في شيت ولي الأمر
+            totalKnights += Number(subject.totalPoints) || 0;
+
             if (subject.behaviors && Array.isArray(subject.behaviors)) {
               allBehaviors = allBehaviors.concat(subject.behaviors);
             }
           });
           
           finalData.behavior = allBehaviors;
+          finalData.totalKnightsPoints = totalKnights; // 💉 حقن المجموع الجاهز في بيانات الطالب
         } else {
           finalData.behavior = []; 
+          finalData.totalKnightsPoints = 0;
         }
       }
 
