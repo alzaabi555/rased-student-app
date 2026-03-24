@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 
 // 🌐 رابط الـ Web App الخاص بك
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6po82-XePyAWBd9FMNCTgY7WlYaOH6pn1kTazLqxEfvremqsSk_dU/exec";
@@ -20,31 +20,33 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const [loading, setLoading] = useState(false);
   const [dir] = useState<'rtl' | 'ltr'>('rtl');
 
+  // مرجع للاحتفاظ بالرقم المدني الحالي لكي يستخدمه التحديث التلقائي بأمان
+  const activeCivilIdRef = useRef<string | null>(null);
+
   const refreshData = async () => {
-    const savedId = localStorage.getItem('last_civil_id');
-    if (!savedId) return;
+    // 💉 تحديث البيانات يعمل فقط إذا كان هناك طالب مسجل دخوله فعلياً
+    if (!activeCivilIdRef.current) return;
     try {
-      const response = await fetch(`${GOOGLE_SCRIPT_URL}?civilId=${encodeURIComponent(savedId.trim())}`);
+      const response = await fetch(`${GOOGLE_SCRIPT_URL}?civilId=${encodeURIComponent(activeCivilIdRef.current)}`);
       const result = await response.json();
       if (result.success && result.data) {
         setStudentData(result.data);
-        localStorage.setItem('rased_student_session', JSON.stringify(result.data));
       }
     } catch (error) { console.error("Refresh Error:", error); }
   };
 
+  // 💉 التحديث التلقائي ذكي الآن: يعمل فقط بعد تسجيل الدخول
   useEffect(() => {
-    const interval = setInterval(() => { refreshData(); }, 60000); 
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const savedData = localStorage.getItem('rased_student_session');
-    if (savedData) {
-      try { setStudentData(JSON.parse(savedData)); } 
-      catch (e) { localStorage.removeItem('rased_student_session'); }
+    if (studentData) {
+      activeCivilIdRef.current = studentData.civilId;
+      const interval = setInterval(() => { refreshData(); }, 60000); 
+      return () => clearInterval(interval);
+    } else {
+      activeCivilIdRef.current = null;
     }
-  }, []);
+  }, [studentData]);
+
+  // 🗑️ تم استئصال الـ useEffect الذي كان يقوم بالدخول التلقائي (المجرم الأول) من هنا
 
   const login = async (civilId: string): Promise<boolean> => {
     setLoading(true);
@@ -54,7 +56,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
       if (result.success && result.data) {
         setStudentData(result.data);
-        localStorage.setItem('rased_student_session', JSON.stringify(result.data));
+        // حفظ الرقم المدني فقط ليظهر في مربع الدخول للمرات القادمة
         localStorage.setItem('last_civil_id', civilId.trim()); 
         return true;
       }
@@ -69,15 +71,15 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
   const logout = () => {
     setStudentData(null);
-    localStorage.removeItem('rased_student_session');
-    localStorage.removeItem('last_civil_id');
+    activeCivilIdRef.current = null;
+    // لم نعد نمسح last_civil_id لكي يظل مطبوعاً في مربع الدخول لأخيه
   };
 
   // 🌍 القاموس العربي الشامل (النسخة الخالية من أي كلمة إنجليزية 100%)
   const t = (key: string) => {
     const translations: any = {
       // 🚪 شاشة الدخول (الكلمات المتمردة التي تم ترويضها!)
-      'rasedApp': 'راصد نسخة الطلبه',
+      'rasedApp': 'راصد نسخة الطلبة',
       'studentEdition': 'نسخة الطالب',
       'STUDENTEDITION': 'نسخة الطالب',
       'STUDENT EDITION': 'نسخة الطالب',
