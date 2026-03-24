@@ -68,7 +68,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ student, currentSem
   }, [student, currentSemester]);
 
   // 💉 الحقنة الجديدة: حساب نقاط الفرسان من سجل السلوك الإيجابي
-  const knightsPoints = useMemo(() => {
+  const knightsPoints = student.totalKnightsPoints || 0;
     const semBehavior = (student.behavior || []).filter(b => (b.semester || '1') === currentSemester);
     
     return semBehavior.reduce((total, record) => {
