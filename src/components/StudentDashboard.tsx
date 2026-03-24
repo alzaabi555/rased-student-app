@@ -34,6 +34,7 @@ export interface Student {
   attendance?: any[];
   grades?: GradeRecord[];
   behavior?: BehaviorRecord[];
+  totalKnightsPoints?: number; // 💉 تمت الإضافة هنا
 }
 
 // --- وظيفة ترجمة واتجاه داخلية مؤقتة ---
@@ -67,18 +68,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ student, currentSem
     return { totalAssessments, uniqueSubjects, recent };
   }, [student, currentSemester]);
 
-  // 💉 الحقنة الجديدة: حساب نقاط الفرسان من سجل السلوك الإيجابي
+  // 💉 الحقنة النظيفة: سحب النقاط الجاهزة التي تم دمجها في AppContext
   const knightsPoints = student.totalKnightsPoints || 0;
-    const semBehavior = (student.behavior || []).filter(b => (b.semester || '1') === currentSemester);
-    
-    return semBehavior.reduce((total, record) => {
-      // نجمع النقاط الإيجابية فقط (ونفترض نقطة واحدة إذا لم يكن هناك قيمة مسجلة للنقاط)
-      if (record.type === 'positive') {
-        return total + (record.points || 1);
-      }
-      return total;
-    }, 0);
-  }, [student, currentSemester]);
 
   const ArrowIcon = dir === 'rtl' ? ArrowLeft : ArrowRight;
 
@@ -105,9 +96,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ student, currentSem
           </div>
         </div>
 
-        {/* 🛡️ لوحة شرف الفرسان (البديل للـ XP) */}
+        {/* 🛡️ لوحة شرف الفرسان */}
         <div className="mt-8 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-3xl p-5 backdrop-blur-xl shadow-lg flex items-center justify-between relative overflow-hidden">
-          {/* لمعة جمالية ذهبية في الخلفية */}
           <div className="absolute top-0 right-0 w-32 h-32 opacity-20 blur-3xl rounded-full bg-amber-400"></div>
           
           <div className="relative z-10">
@@ -163,7 +153,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ student, currentSem
         </div>
       </div>
 
-      {/* ⚡ 3. أحدث الإنجازات (الدرجات الأكاديمية الصافية) */}
+      {/* ⚡ 3. أحدث الإنجازات */}
       <div className="px-6 mt-8 pb-24 shrink-0">
         <div className="flex justify-between items-center mb-5 px-1">
           <h3 className="text-sm font-black text-white flex items-center gap-2">
@@ -191,8 +181,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ student, currentSem
                       <p className="text-[10px] font-bold text-indigo-200/60 mt-1">{grade.subject} • {new Date(grade.date).toLocaleDateString()}</p>
                     </div>
                   </div>
-                  
-                  {/* الدرجة تظهر هنا كرقم نقي */}
                   <div className="text-center bg-black/40 px-4 py-2 rounded-xl border border-white/10 shadow-inner flex items-center gap-1">
                     <span className="block text-xl font-black text-emerald-400 leading-none">{grade.score}</span>
                   </div>
