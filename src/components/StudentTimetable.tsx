@@ -126,7 +126,7 @@ const StudentTimetable: React.FC = () => {
       </div>
 
       {/* ===================== محتوى عرض الحصص (Timeline) ===================== */}
-      <div className="flex-1 overflow-y-auto px-6 py-8 custom-scrollbar relative">
+      <div className="flex-1 overflow-y-auto px-6 py-8 pb-24 custom-scrollbar relative">
         <div className={`absolute top-8 bottom-8 w-[2px] bg-white/10 ${dir === 'rtl' ? 'right-[2.35rem]' : 'left-[2.35rem]'} z-0 rounded-full shadow-inner`}></div>
 
         <div className="space-y-6 relative z-10">
@@ -162,9 +162,10 @@ const StudentTimetable: React.FC = () => {
 
       {/* ===================== 🛠️ شاشة تعديل الجدول ===================== */}
       {isEditingSchedule && (
-        <div className="absolute inset-0 z-40 flex flex-col bg-[#0f172a]/95 backdrop-blur-2xl animate-in slide-in-from-bottom-8 duration-300">
+        /* 💉 التعديل هنا: تحويل absolute إلى fixed لملء الشاشة بالكامل */
+        <div className="fixed inset-0 z-[100] flex flex-col bg-[#0f172a]/95 backdrop-blur-2xl animate-in slide-in-from-bottom-8 duration-300">
           
-          <div className="flex justify-between items-center p-6 border-b border-white/10 bg-white/5 shrink-0">
+          <div className="flex justify-between items-center p-6 border-b border-white/10 bg-white/5 shrink-0 pt-safe">
             <h2 className="text-lg font-black text-white flex items-center gap-2">
               <Edit3 className="w-5 h-5 text-cyan-400" />
               {t('editSchedule') || 'تعديل الجدول الأسبوعي'}
@@ -178,7 +179,8 @@ const StudentTimetable: React.FC = () => {
             اسحب لليمين واليسار لاختيار الحصة، واضغط لإضافة المادة
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
+          {/* 💉 التعديل هنا: إضافة pb-24 لضمان عدم اختناق العناصر السفلية */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-5 pb-24 space-y-6">
             {DAYS.map(day => (
               <div key={day.id} className="bg-white/5 border border-white/10 rounded-3xl p-5 shadow-lg relative overflow-hidden">
                 <div className={`absolute top-0 ${dir === 'rtl' ? 'right-0' : 'left-0'} w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl -mt-6 -mr-6`}></div>
@@ -220,17 +222,16 @@ const StudentTimetable: React.FC = () => {
       {/* ===================== 📚 الدرج الجانبي لاختيار المواد (Side Drawer) ===================== */}
       {activeCell && (
         <>
-          {/* الخلفية الضبابية المظلمة التي عند الضغط عليها تغلق الدرج */}
+          {/* 💉 التعديل هنا: fixed بدلاً من absolute */}
           <div 
-            className="absolute inset-0 z-[50] bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+            className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
             onClick={() => setActiveCell(null)}
           ></div>
           
-          {/* الدرج نفسه - يخرج من اليسار */}
-          <div className={`absolute top-0 bottom-0 left-0 z-[60] w-[85%] max-w-sm bg-[#0f172a]/95 backdrop-blur-3xl border-r border-white/10 shadow-[20px_0_50px_rgba(0,0,0,0.5)] flex flex-col animate-in slide-in-from-left duration-300`}>
+          {/* 💉 التعديل هنا: fixed بدلاً من absolute */}
+          <div className={`fixed top-0 bottom-0 left-0 z-[120] w-[85%] max-w-sm bg-[#0f172a]/95 backdrop-blur-3xl border-r border-white/10 shadow-[20px_0_50px_rgba(0,0,0,0.5)] flex flex-col animate-in slide-in-from-left duration-300`}>
             
-            {/* رأس الدرج */}
-            <div className="p-6 border-b border-white/10 bg-white/5 shrink-0 flex items-center justify-between">
+            <div className="p-6 pt-safe border-b border-white/10 bg-white/5 shrink-0 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black text-white flex items-center gap-2">
                   <BookOpen className="w-5 h-5 text-cyan-400" />
@@ -245,8 +246,8 @@ const StudentTimetable: React.FC = () => {
               </button>
             </div>
 
-            {/* القائمة الطولية للمواد */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+            {/* 💉 التعديل هنا: إضافة pb-24 للمواد لسهولة التمرير للأسفل */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 pb-24 space-y-3">
               {PREDEFINED_SUBJECTS.map((subject, idx) => {
                 const isSelected = weeklySchedule[activeCell.day]?.[activeCell.period] === subject;
                 return (
@@ -268,7 +269,6 @@ const StudentTimetable: React.FC = () => {
                       </span>
                     </div>
                     
-                    {/* أيقونة التحديد أو السهم */}
                     {isSelected ? (
                       <Check className="w-5 h-5 text-cyan-400" />
                     ) : (
@@ -279,8 +279,7 @@ const StudentTimetable: React.FC = () => {
               })}
             </div>
 
-            {/* زر تفريغ الحصة في الأسفل */}
-            <div className="p-4 border-t border-white/10 bg-black/20 shrink-0">
+            <div className="p-4 pb-8 border-t border-white/10 bg-black/20 shrink-0">
               <button 
                 onClick={() => handleSelectSubject('')}
                 className="w-full py-4 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-2xl text-xs font-black text-rose-400 transition-colors flex justify-center items-center gap-2 active:scale-95"
