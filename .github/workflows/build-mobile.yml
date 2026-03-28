@@ -1,4 +1,4 @@
-name: Build Mobile Apps (Huawei Release APK & iOS)
+name: Build Mobile Apps (Android APK & AAB, iOS)
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
     branches: [ main ]
 
 jobs:
-  android-build-huawei:
+  android-build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -37,11 +37,12 @@ jobs:
           fi
           npx cap sync android
 
-      - name: 🚀 Build Android Release APK (For Huawei)
+      # 👈 التعديل الجراحي: بناء النسختين معاً لجوجل وهواوي
+      - name: 🚀 Build Android Release (APK & AAB)
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleRelease bundleRelease --stacktrace
 
       - name: 🔐 Sign APK
         uses: r0adkll/sign-android-release@v1
@@ -55,11 +56,32 @@ jobs:
         env:
           BUILD_TOOLS_VERSION: "35.0.0"
 
-      - name: 📥 Upload Signed APK
+      # 👈 إضافة خطوة توقيع حزمة جوجل بلاي
+      - name: 🔐 Sign AAB
+        uses: r0adkll/sign-android-release@v1
+        id: sign_aab
+        with:
+          releaseDirectory: android/app/build/outputs/bundle/release
+          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
+          alias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "35.0.0"
+
+      # 👈 تسليم نسخة هواوي / التثبيت المباشر
+      - name: 📥 Upload Signed APK (Huawei & Direct)
         uses: actions/upload-artifact@v4
         with:
-          name: Rased-Student-Huawei-Release-APK
+          name: Rased-Student-Signed-APK
           path: ${{steps.sign_apk.outputs.signedReleaseFile}}
+
+      # 👈 تسليم نسخة جوجل بلاي
+      - name: 📥 Upload Signed AAB (Google Play)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rased-Student-Signed-AAB
+          path: ${{steps.sign_aab.outputs.signedReleaseFile}}
 
   ios-build:
     runs-on: macos-latest
