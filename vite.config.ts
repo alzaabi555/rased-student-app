@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [react()],
-  // 👈 النقطة والشرطة المائلة هنا تجعل المسار "نسبياً"، فيعمل بكفاءة على الويب والأندرويد معاً!
-  base: './', 
+export default defineConfig(({ command, mode }) => {
+  return {
+    plugins: [react()],
+    // 💡 إذا كان البناء لغرض النشر (Production) فسيستخدم المسار النسبي الذي يعمل مع الكل
+    // وإذا كان للتطوير فسيستخدم المسار الجذري
+    base: mode === 'production' ? './' : '/',
+  }
 })
