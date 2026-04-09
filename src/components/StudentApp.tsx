@@ -84,7 +84,7 @@ const StudentApp: React.FC = () => {
     }
   };
 
-  // ================= شاشة الدخول (في حال عدم وجود بيانات الطالب) =================
+  // ================= شاشة الدخول =================
   if (!studentData) {
     return (
       <div className="relative h-[100dvh] w-full bg-[#020617] overflow-hidden" dir={dir}>
@@ -95,7 +95,6 @@ const StudentApp: React.FC = () => {
           <StudentLogin onLogin={handleLogin} />
         </div>
         
-        {/* 💉 واجهة تحميل فاخرة (Glassmorphism Loading) */}
         {loading && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#020617]/80 backdrop-blur-xl animate-in fade-in duration-300">
             <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col items-center">
@@ -105,10 +104,9 @@ const StudentApp: React.FC = () => {
           </div>
         )}
         
-        {/* 💉 واجهة خطأ فاخرة (Top Notification Style) */}
         {loginError && !loading && (
-          <div className="absolute top-[max(env(safe-area-inset-top),20px)] left-4 right-4 z-50 animate-in slide-in-from-top-8 fade-in duration-300">
-            <div className="bg-rose-950/80 border border-rose-500/30 backdrop-blur-2xl p-4 rounded-[2rem] shadow-2xl flex items-center justify-between">
+          <div className="absolute top-[max(env(safe-area-inset-top),20px)] left-4 right-4 z-50 animate-in slide-in-from-top-8 fade-in duration-300 flex justify-center pointer-events-none">
+            <div className="w-full max-w-md bg-rose-950/80 border border-rose-500/30 backdrop-blur-2xl p-4 rounded-[2rem] shadow-2xl flex items-center justify-between pointer-events-auto">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center shrink-0 border border-rose-500/30">
                    <AlertTriangle className="w-5 h-5 text-rose-400" />
@@ -132,18 +130,20 @@ const StudentApp: React.FC = () => {
         <RamadanTheme />
       </div>
 
-      {/* منطقة المحتوى متجاوبة وشفافة لتمرير الخلفية */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative z-10 pt-[env(safe-area-inset-top)]">
-        <div className="flex-1 w-full relative z-10">
-          <div className="max-w-5xl mx-auto w-full h-full">
+      {/* 💉 الحزام الأمني للشاشة (Anti-Stretch Shield) */}
+      {/* استخدمنا overflow-x-hidden لمنع التمدد الجانبي، و items-center لتوسيط المحتوى */}
+      <main className="flex-1 flex flex-col h-full overflow-x-hidden overflow-y-hidden relative z-10 pt-[env(safe-area-inset-top)] items-center">
+        {/* توحيد العرض ليكون max-w-md ليطابق عرض الشريط السفلي */}
+        <div className="flex-1 w-full max-w-md md:max-w-5xl relative z-10">
+          <div className="w-full h-full">
             {renderContent()}
           </div>
         </div>
       </main>
 
-      {/* 💉 شريط التنقل الطافي والفاخر (Dynamic Glass Pill) */}
-      <div className="absolute bottom-0 left-0 right-0 z-[90] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none flex justify-center bg-gradient-to-t from-[#020617] via-[#020617]/80 to-transparent">
-        <div className="bg-[#0f172a]/70 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-2 w-full max-w-[420px] shadow-[0_20px_40px_rgba(0,0,0,0.5)] pointer-events-auto flex justify-between items-center relative transition-all">
+      {/* 💉 شريط التنقل الطافي المحصّن */}
+      <div className="absolute bottom-0 left-0 right-0 z-[90] p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none flex justify-center w-full overflow-hidden bg-gradient-to-t from-[#020617] via-[#020617]/80 to-transparent">
+        <div className="bg-[#0f172a]/70 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-1.5 w-full max-w-md shadow-[0_20px_40px_rgba(0,0,0,0.5)] pointer-events-auto flex justify-between items-center relative transition-all">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -151,9 +151,9 @@ const StudentApp: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center justify-center w-16 h-[56px] rounded-2xl relative transition-all duration-500 z-10 ${isActive ? 'scale-110 -translate-y-2' : 'hover:bg-white/5 opacity-60'}`}
+                // 💉 تغيير w-16 إلى flex-1 لضمان عدم خروج الأزرار عن الشاشة
+                className={`flex flex-col items-center justify-center flex-1 h-[56px] rounded-2xl relative transition-all duration-500 z-10 ${isActive ? 'scale-110 -translate-y-2' : 'hover:bg-white/5 opacity-60'}`}
               >
-                {/* خلفية مشعة عند التفعيل */}
                 {isActive && (
                   <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 rounded-2xl shadow-[0_0_20px_rgba(6,182,212,0.2)]"></div>
                 )}
