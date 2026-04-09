@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { StudentAvatar } from './StudentAvatar';
 import { 
   Trophy, Star, TrendingUp, CalendarCheck, 
-  Zap, Target, ArrowRight, ArrowLeft, Medal, BookOpen, Plus, Shield
+  Zap, Target, ArrowRight, ArrowLeft, Medal, BookOpen, Plus, Shield, Camera
 } from 'lucide-react';
 
-// --- 💉 حقن التعريفات مباشرة (كما طلبت، لم ألمسها) ---
+// --- 💉 حقن التعريفات مباشرة ---
 export interface GradeRecord {
   id: string;
   studentId: string;
@@ -52,6 +52,33 @@ interface StudentDashboardProps {
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ student, currentSemester }) => {
   const { t, dir } = useApp();
 
+  // 📸 حالة حفظ الصورة الشخصية المخصصة
+  const [customAvatar, setCustomAvatar] = useState<string | null>(null);
+
+  // جلب الصورة المحفوظة عند فتح التطبيق
+  useEffect(() => {
+    if (student?.civilId) {
+      const savedImage = localStorage.getItem(`rased_student_avatar_${student.civilId}`);
+      if (savedImage) {
+        setCustomAvatar(savedImage);
+      }
+    }
+  }, [student]);
+
+  // دالة معالجة رفع الصورة
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setCustomAvatar(base64String); // تحديث الواجهة
+        localStorage.setItem(`rased_student_avatar_${student.civilId}`, base64String); // الحفظ محلياً
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const attendanceStats = useMemo(() => {
     const semAttendance = student.attendance || [];
     if (semAttendance.length === 0) return { present: 0, total: 0, percentage: 100 };
@@ -72,15 +99,38 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ student, currentSem
   const ArrowIcon = dir === 'rtl' ? ArrowLeft : ArrowRight;
 
   return (
-    // 💉 الحاوية الأساسية: تم إخفاء التمرير الخارجي وتفعيله في الداخل لنجاح تأثير PageLayout
     <div className="flex flex-col h-full bg-transparent text-white overflow-hidden relative" dir={dir}>
       
-      {/* 🌟 1. الهيدر الزجاجي المثبت (Sticky Glass Layout Header) */}
+      {/* 🌟 1. الهيدر الزجاجي المثبت */}
       <header className="sticky top-0 z-50 bg-[#0f172a]/60 backdrop-blur-2xl border-b border-white/10 pt-[max(env(safe-area-inset-top),16px)] pb-4 px-5 shrink-0 shadow-sm transition-all">
         <div className="flex items-center gap-4">
-          <div className="shrink-0">
-            <StudentAvatar gender={student.gender} className="w-12 h-12 border border-white/20 shadow-[0_0_15px_rgba(99,102,241,0.2)]" />
+          
+          {/* 📸 منطقة الصورة الشخصية القابلة للتغيير */}
+          <div className="shrink-0 relative group">
+            <input 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              id="avatar-upload" 
+              onChange={handleImageUpload} 
+            />
+            <label htmlFor="avatar-upload" className="cursor-pointer block relative">
+              {customAvatar ? (
+                <img 
+                  src={customAvatar} 
+                  alt="Student" 
+                  className="w-12 h-12 rounded-2xl object-cover border border-white/20 shadow-[0_0_15px_rgba(99,102,241,0.2)]" 
+                />
+              ) : (
+                <StudentAvatar gender={student.gender} className="w-12 h-12 border border-white/20 shadow-[0_0_15px_rgba(99,102,241,0.2)]" />
+              )}
+              {/* أيقونة الكاميرا الصغيرة */}
+              <div className="absolute -bottom-1.5 -right-1.5 bg-cyan-500 rounded-full p-1 border-2 border-[#0f172a] shadow-lg group-hover:scale-110 transition-transform">
+                <Camera className="w-2.5 h-2.5 text-white" />
+              </div>
+            </label>
           </div>
+
           <div className="flex-1 min-w-0">
             <h2 className="text-indigo-200 text-[10px] font-bold mb-0.5 flex items-center gap-1 opacity-80">
               <Zap className="w-3 h-3 text-amber-400" /> {t('studentWelcomePrefix') || 'مرحباً بالبطل،'}
@@ -98,10 +148,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ student, currentSem
         </div>
       </header>
 
-      {/* منطقة المحتوى المنزلق (ينزلق تحت الهيدر الزجاجي) */}
+      {/* منطقة المحتوى المنزلق */}
       <main className="flex-1 overflow-y-auto custom-scrollbar pb-[100px] px-5 pt-5 space-y-5">
         
-        {/* 🛡️ لوحة شرف الفرسان (مدمجة وأنيقة) */}
+        {/* 🛡️ لوحة شرف الفرسان */}
         <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-[1.5rem] p-4 backdrop-blur-xl shadow-[0_8px_30px_rgba(245,158,11,0.15)] flex items-center justify-between relative overflow-hidden transition-all hover:scale-[1.01]">
           <div className="absolute top-0 right-0 w-32 h-32 opacity-20 blur-3xl rounded-full bg-amber-400 pointer-events-none"></div>
           
@@ -128,7 +178,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ student, currentSem
           </div>
         </div>
 
-        {/* 📊 2. الإحصائيات (مربعات مضغوطة Compact) */}
+        {/* 📊 2. الإحصائيات */}
         <div className="grid grid-cols-2 gap-3 relative z-20 shrink-0">
           <div className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-[1.25rem] p-3.5 flex flex-col justify-between shadow-sm transition-all hover:bg-white/10">
             <div className="flex items-start justify-between mb-3">
@@ -157,7 +207,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ student, currentSem
           </div>
         </div>
 
-        {/* ⚡ 3. أحدث الإنجازات (أسطر مدمجة Compact Rows بدلا من البطاقات الضخمة) */}
+        {/* ⚡ 3. أحدث الإنجازات */}
         <div className="pb-6">
           <div className="flex justify-between items-center mb-3 px-1">
             <h3 className="text-sm font-black text-white flex items-center gap-2">
