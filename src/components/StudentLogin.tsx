@@ -11,7 +11,8 @@ interface StudentLoginProps {
 
 const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin }) => {
   const { t, dir } = useApp();
-  const [civilId, setCivilId] = useState('');
+  // 💉 استدعاء الرقم المحفوظ من الذاكرة فور فتح التطبيق
+  const [civilId, setCivilId] = useState(() => localStorage.getItem('last_civil_id') || '');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
