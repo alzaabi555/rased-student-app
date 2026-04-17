@@ -25,12 +25,19 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
   const activeCivilIdRef = useRef<string | null>(null);
 
-  // 💉 دالة الدمج السحري (محدثة لقنص النقاط الجاهزة)
+  // 💉 دالة الدمج السحري (محدثة لقنص النقاط الجاهزة + كسر الكاش)
   const fetchAndMergeData = async (civilId: string) => {
     try {
+      // 💉 إضافة كاسر الكاش لإجبار الهاتف على جلب البيانات الطازجة
+      const cacheBuster = new Date().getTime();
+
       const [studentResponse, parentResponse] = await Promise.all([
-        fetch(`${STUDENT_SCRIPT_URL}?civilId=${encodeURIComponent(civilId.trim())}`).catch(() => null),
-        fetch(`${PARENT_SCRIPT_URL}?code=${encodeURIComponent(civilId.trim())}`).catch(() => null)
+        fetch(`${STUDENT_SCRIPT_URL}?civilId=${encodeURIComponent(civilId.trim())}&t=${cacheBuster}`, {
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        }).catch(() => null),
+        fetch(`${PARENT_SCRIPT_URL}?code=${encodeURIComponent(civilId.trim())}&t=${cacheBuster}`, {
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        }).catch(() => null)
       ]);
 
       let finalData = null;
