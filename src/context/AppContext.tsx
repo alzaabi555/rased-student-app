@@ -25,49 +25,68 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
   const activeCivilIdRef = useRef<string | null>(null);
 
- // 💉 دالة الدمج السحري (بدون Headers لتجنب حظر جوجل)
+ // 💉 دالة الدمج السحري (مضادة للصدمات ومحمية بالكامل)
   const fetchAndMergeData = async (civilId: string) => {
     try {
-      // 💉 كاسر الكاش في الرابط فقط (آمن جداً)
       const cacheBuster = new Date().getTime();
+      const fetchOptions: RequestInit = {
+        method: 'GET',
+        redirect: 'follow' // 💉 إجبار المتصفح على تتبع توجيهات جوجل لحل المشكلة
+      };
 
       const [studentResponse, parentResponse] = await Promise.all([
-        // حذفنا الـ headers من هنا واكتفينا بالرابط
-        fetch(`${STUDENT_SCRIPT_URL}?civilId=${encodeURIComponent(civilId.trim())}&t=${cacheBuster}`).catch(() => null),
-        fetch(`${PARENT_SCRIPT_URL}?code=${encodeURIComponent(civilId.trim())}&t=${cacheBuster}`).catch(() => null)
+        fetch(`${STUDENT_SCRIPT_URL}?civilId=${encodeURIComponent(civilId.trim())}&t=${cacheBuster}`, fetchOptions).catch(() => null),
+        fetch(`${PARENT_SCRIPT_URL}?code=${encodeURIComponent(civilId.trim())}&t=${cacheBuster}`, fetchOptions).catch(() => null)
       ]);
 
       let finalData = null;
 
+      // 1. معالجة بيانات الطالب بأمان تام
       if (studentResponse) {
-        const studentResult = await studentResponse.json();
-        if (studentResult.success && studentResult.data) {
-          finalData = { ...studentResult.data };
+        const textData = await studentResponse.text(); // 💉 نقرأ النص أولاً لتجنب انهيار التطبيق
+        try {
+          const studentResult = JSON.parse(textData);
+          // 💉 دعم كل الصيغ لتجنب أي خطأ
+          if ((studentResult.success || studentResult.status === "success") && studentResult.data) {
+            finalData = { ...studentResult.data };
+          }
+        } catch (e) {
+          console.error("خطأ في قراءة بيانات الطالب:", textData);
         }
       }
 
-      if (!finalData) return null;
+      if (!finalData) return null; // لا يمكن الدخول بدون بيانات الطالب
 
-      // 2. معالجة بيانات ولي الأمر (لجلب نقاط الفرسان)
+      // 2. معالجة بيانات ولي الأمر (الفرسان)
       if (parentResponse) {
-        const parentResult = await parentResponse.json();
-        if (parentResult.status === "success" && parentResult.subjects) {
-          let allBehaviors: any[] = [];
-          let totalKnights = 0; 
+        const textData = await parentResponse.text();
+        try {
+          const parentResult = JSON.parse(textData);
+          if (parentResult.status === "success" && parentResult.subjects) {
+            let allBehaviors: any[] = [];
+            let totalKnights = 0;
 
-          parentResult.subjects.forEach((subject: any) => {
-            totalKnights += Number(subject.totalPoints) || 0;
-            if (subject.behaviors && Array.isArray(subject.behaviors)) {
-              allBehaviors = allBehaviors.concat(subject.behaviors);
-            }
-          });
-          
-          finalData.behavior = allBehaviors;
-          finalData.totalKnightsPoints = totalKnights; 
-        } else {
+            parentResult.subjects.forEach((subject: any) => {
+              totalKnights += Number(subject.totalPoints) || 0;
+              if (subject.behaviors && Array.isArray(subject.behaviors)) {
+                allBehaviors = allBehaviors.concat(subject.behaviors);
+              }
+            });
+            
+            finalData.behavior = allBehaviors;
+            finalData.totalKnightsPoints = totalKnights;
+          } else {
+            finalData.behavior = []; 
+            finalData.totalKnightsPoints = 0;
+          }
+        } catch (e) {
+          console.error("خطأ في قراءة بيانات ولي الأمر:", textData);
           finalData.behavior = []; 
           finalData.totalKnightsPoints = 0;
         }
+      } else {
+        finalData.behavior = []; 
+        finalData.totalKnightsPoints = 0;
       }
 
       return finalData;
