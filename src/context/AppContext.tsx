@@ -25,19 +25,16 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
   const activeCivilIdRef = useRef<string | null>(null);
 
-  // 💉 دالة الدمج السحري (محدثة لقنص النقاط الجاهزة + كسر الكاش)
+ // 💉 دالة الدمج السحري (بدون Headers لتجنب حظر جوجل)
   const fetchAndMergeData = async (civilId: string) => {
     try {
-      // 💉 إضافة كاسر الكاش لإجبار الهاتف على جلب البيانات الطازجة
+      // 💉 كاسر الكاش في الرابط فقط (آمن جداً)
       const cacheBuster = new Date().getTime();
 
       const [studentResponse, parentResponse] = await Promise.all([
-        fetch(`${STUDENT_SCRIPT_URL}?civilId=${encodeURIComponent(civilId.trim())}&t=${cacheBuster}`, {
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-        }).catch(() => null),
-        fetch(`${PARENT_SCRIPT_URL}?code=${encodeURIComponent(civilId.trim())}&t=${cacheBuster}`, {
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-        }).catch(() => null)
+        // حذفنا الـ headers من هنا واكتفينا بالرابط
+        fetch(`${STUDENT_SCRIPT_URL}?civilId=${encodeURIComponent(civilId.trim())}&t=${cacheBuster}`).catch(() => null),
+        fetch(`${PARENT_SCRIPT_URL}?code=${encodeURIComponent(civilId.trim())}&t=${cacheBuster}`).catch(() => null)
       ]);
 
       let finalData = null;
@@ -56,19 +53,17 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
         const parentResult = await parentResponse.json();
         if (parentResult.status === "success" && parentResult.subjects) {
           let allBehaviors: any[] = [];
-          let totalKnights = 0; // 💉 العداد الجديد لجمع النقاط الجاهزة
+          let totalKnights = 0; 
 
           parentResult.subjects.forEach((subject: any) => {
-            // 💉 سحب إجمالي النقاط لكل مادة كما هو مسجل في شيت ولي الأمر
             totalKnights += Number(subject.totalPoints) || 0;
-
             if (subject.behaviors && Array.isArray(subject.behaviors)) {
               allBehaviors = allBehaviors.concat(subject.behaviors);
             }
           });
           
           finalData.behavior = allBehaviors;
-          finalData.totalKnightsPoints = totalKnights; // 💉 حقن المجموع الجاهز في بيانات الطالب
+          finalData.totalKnightsPoints = totalKnights; 
         } else {
           finalData.behavior = []; 
           finalData.totalKnightsPoints = 0;
