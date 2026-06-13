@@ -1,15 +1,17 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* =====================================================/* =================================================  color: rgb(var(--text));
-  border: 1px solid rgb(var(--border));
-  border-radius: 1.5rem;
-}
-   Rased Student Light Theme Hardening Layer
-   طبقة تثبيت الهوية الفاتحة لراصد الطالب
+
+/* =====================================================
+   Rased Student Light Theme
+   الهوية الفاتحة الموحدة لراصد الطالب
    ===================================================== */
 
-:root {
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"],
+:root[data-theme="glass"],
+:root[data-theme="ramadan"] {
   color-scheme: light;
 
   --bg: 248 250 252;
@@ -31,12 +33,19 @@
   --danger: 220 38 38;
   --warning: 217 119 6;
   --info: 2 132 199;
+
+  --glow: 79 70 229;
 }
+
+/* =====================================================
+   Base
+   ===================================================== */
 
 html,
 body,
 #root {
   min-height: 100%;
+  margin: 0;
   background: rgb(var(--bg)) !important;
   color: rgb(var(--text)) !important;
 }
@@ -46,10 +55,85 @@ body {
   color: rgb(var(--text)) !important;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* =====================================================
-   إصلاح بقايا الثيم الزجاجي الداكن داخل راصد الطالب فقط
+   Inputs
+   ===================================================== */
+
+input,
+textarea,
+select {
+  background-color: rgb(var(--card));
+  color: rgb(var(--text));
+  border-color: rgb(var(--border));
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgb(var(--muted));
+}
+
+/* =====================================================
+   Scrollbar
+   ===================================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(203 213 225);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(148 163 184);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(203 213 225);
+  border-radius: 999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(148 163 184);
+}
+
+/* =====================================================
+   Safe Area
+   ===================================================== */
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* =====================================================
+   Rased Student Light Scope
+   طبقة تثبيت الهوية داخل راصد الطالب فقط
    ===================================================== */
 
 .rased-student-light {
@@ -57,30 +141,66 @@ body {
   color: rgb(var(--text)) !important;
 }
 
-/* الخلفيات الزجاجية القديمة */
+/* =====================================================
+   Cards / Panels
+   ===================================================== */
+
+.student-card {
+  background: rgb(var(--card));
+  color: rgb(var(--text));
+  border: 1px solid rgb(var(--border));
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.student-panel {
+  background: rgb(var(--glass));
+  color: rgb(var(--text));
+  border: 1px solid rgb(var(--border));
+  border-radius: 1.5rem;
+}
+
+/* =====================================================
+   إصلاح بقايا الثيم الزجاجي الداكن
+   ===================================================== */
+
 .rased-student-light .glass-panel,
 .rased-student-light .glass-card,
-.rased-student-light .glass-button,
-.rased-student-light [class*="bg-white/5"],
-.rased-student-light [class*="bg-white/10"],
-.rased-student-light [class*="bg-white/20"],
-.rased-student-light [class*="bg-black/10"],
-.rased-student-light [class*="bg-black/20"],
-.rased-student-light [class*="bg-black/30"],
-.rased-student-light [class*="bg-black/40"] {
+.rased-student-light .glass-button {
   background: rgb(var(--card)) !important;
   color: rgb(var(--text)) !important;
   border-color: rgb(var(--border)) !important;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
 }
 
-/* الخلفيات الداكنة المباشرة */
+/* خلفيات بيضاء شفافة قديمة */
+.rased-student-light [class*="bg-white/5"],
+.rased-student-light [class*="bg-white/10"],
+.rased-student-light [class*="bg-white/20"],
+.rased-student-light [class*="bg-white/30"] {
+  background-color: rgb(var(--card)) !important;
+  color: rgb(var(--text)) !important;
+  border-color: rgb(var(--border)) !important;
+}
+
+/* خلفيات سوداء شفافة قديمة */
+.rased-student-light [class*="bg-black/10"],
+.rased-student-light [class*="bg-black/20"],
+.rased-student-light [class*="bg-black/30"],
+.rased-student-light [class*="bg-black/40"],
+.rased-student-light [class*="bg-black/50"] {
+  background-color: rgb(var(--glass)) !important;
+  color: rgb(var(--text)) !important;
+  border-color: rgb(var(--border)) !important;
+}
+
+/* خلفيات داكنة مباشرة */
 .rased-student-light [class*="bg-slate-950"],
 .rased-student-light [class*="bg-slate-900"],
 .rased-student-light [class*="bg-slate-800"],
 .rased-student-light [class*="bg-[#020617]"],
 .rased-student-light [class*="bg-[#0f172a]"] {
-  background: rgb(var(--card)) !important;
+  background-color: rgb(var(--card)) !important;
   color: rgb(var(--text)) !important;
   border-color: rgb(var(--border)) !important;
 }
@@ -118,7 +238,7 @@ body {
   color: rgb(var(--text)) !important;
 }
 
-/* النصوص الرمادية الفاتحة جدًا */
+/* النصوص الرمادية القديمة */
 .rased-student-light [class*="text-white/"],
 .rased-student-light [class*="text-indigo-200/"],
 .rased-student-light [class*="text-slate-400"],
@@ -126,13 +246,13 @@ body {
   color: rgb(var(--secondary)) !important;
 }
 
-/* إزالة الزجاج الثقيل */
+/* إزالة تأثير الزجاج الثقيل */
 .rased-student-light [class*="backdrop-blur"] {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
-/* تحسين الحقول */
+/* الحقول داخل راصد الطالب */
 .rased-student-light input,
 .rased-student-light textarea,
 .rased-student-light select {
@@ -157,103 +277,11 @@ body {
 }
 
 /* تقليل البهتان الناتج عن opacity القديمة */
-.rased-student-light button.opacity-60,
 .rased-student-light .opacity-60 {
   opacity: 0.9 !important;
 }
 
-/* كروت موحدة يمكن استخدامها لاحقًا */
-.student-card {
-  background: rgb(var(--card));
-  color: rgb(var(--text));
-  border: 1px solid rgb(var(--border));
-  border-radius: 1.5rem;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+.rased-student-light button.opacity-60 {
+  opacity: 0.9 !important;
 }
-
-.student-panel {
-  background: rgb(var(--glass));
-
-/* =====================================================
-   ☀️ Rased Student Light Base
-   الهوية الفاتحة الموحدة لراصد الطالب
-   ===================================================== */
-
-html,
-body,
-#root {
-  min-height: 100%;
-  margin: 0;
-  background: rgb(var(--bg, 248 250 252));
-  color: rgb(var(--text, 15 23 42));
-}
-
-body {
-  background-color: rgb(var(--bg, 248 250 252)) !important;
-  color: rgb(var(--text, 15 23 42)) !important;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-/* الحقول */
-input,
-textarea,
-select {
-  background-color: rgb(var(--card, 255 255 255));
-  color: rgb(var(--text, 15 23 42));
-  border-color: rgb(var(--border, 226 232 240));
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: rgb(var(--muted, 148 163 184));
-}
-
-/* السكرول العام */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgb(203 213 225);
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgb(148 163 184);
-}
-
-/* السكرول المخصص */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgb(203 213 225);
-  border-radius: 999px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgb(148 163 184);
-}
-
-/* Safe areas للجوال */
-.pt-safe {
-  padding-top: env(safe-area-inset-top);
-}
-
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
-}
+``
