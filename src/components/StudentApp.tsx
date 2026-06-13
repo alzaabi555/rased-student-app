@@ -131,7 +131,7 @@ const StudentApp: React.FC = () => {
   if (!studentData) {
     return (
       <div
-        className="relative h-[100dvh] w-full bg-bgMain text-textPrimary overflow-hidden"
+        className="rased-student-light relative h-[100dvh] w-full bg-bgMain text-textPrimary overflow-hidden"
         dir={dir}
       >
         <div className="absolute inset-0 z-0 pointer-events-none">
@@ -183,7 +183,7 @@ const StudentApp: React.FC = () => {
   // ================= التطبيق الرئيسي للطالب =================
   return (
     <div
-      className="flex flex-col h-[100dvh] w-full overflow-hidden relative text-textPrimary bg-bgMain"
+      className="rased-student-light flex flex-col h-[100dvh] w-full overflow-hidden relative text-textPrimary bg-bgMain"
       dir={dir}
     >
       <div className="absolute inset-0 z-0 pointer-events-none">
@@ -199,7 +199,7 @@ const StudentApp: React.FC = () => {
 
       {/* شريط التنقل السفلي الفاتح */}
       <div className="fixed bottom-0 left-0 right-0 z-[90] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none flex justify-center w-full">
-        <div className="bg-bgCard border border-borderColor rounded-[2rem] p-1.5 w-full max-w-md shadow-elevated pointer-events-auto flex justify-between items-center relative transition-all">
+        <div className="student-bottom-nav bg-bgCard border border-borderColor rounded-[2rem] p-1.5 w-full max-w-md shadow-elevated pointer-events-auto flex justify-between items-center relative transition-all">
           {NAV_ITEMS.map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -207,6 +207,7 @@ const StudentApp: React.FC = () => {
             return (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => setActiveTab(item.id)}
                 className={`flex flex-col items-center justify-center flex-1 h-[56px] rounded-2xl relative transition-all duration-300 z-10 active:scale-95 ${
                   isActive
