@@ -2,16 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =====================================================
+   ☀️ Rased Student Light Base
+   الهوية الفاتحة الموحدة لراصد الطالب
+   ===================================================== */
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+  background: rgb(var(--bg, 248 250 252));
+  color: rgb(var(--text, 15 23 42));
+}
+
 body {
-  background-color: #0f172a;
-  color: white;
+  background-color: rgb(var(--bg, 248 250 252)) !important;
+  color: rgb(var(--text, 15 23 42)) !important;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+/* الحقول */
+input,
+textarea,
+select {
+  background-color: rgb(var(--card, 255 255 255));
+  color: rgb(var(--text, 15 23 42));
+  border-color: rgb(var(--border, 226 232 240));
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgb(var(--muted, 148 163 184));
+}
+
+/* السكرول العام */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(203 213 225);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(148 163 184);
+}
+
+/* السكرول المخصص */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
+  height: 6px;
 }
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
+  background: rgb(203 213 225);
+  border-radius: 999px;
 }
-.pt-safe { padding-top: env(safe-area-inset-top); }
-.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(148 163 184);
+}
+
+/* Safe areas للجوال */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
