@@ -134,6 +134,81 @@ const RamadanTheme: React.FC = () => {
             border: 1px solid rgb(var(--border));
           }
         `}
+        /* ===================================================== */
+/* 🧩 توافق مع بقايا الثيم الداكن القديم في راصد الطالب */
+/* ===================================================== */
+
+.glass-panel,
+.glass-card,
+.glass-button {
+  background: rgb(var(--card)) !important;
+  color: rgb(var(--text)) !important;
+  border-color: rgb(var(--border)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
+}
+
+[class*="bg-white/10"],
+[class*="bg-white/5"],
+[class*="bg-white/20"] {
+  background-color: rgb(var(--card)) !important;
+}
+
+[class*="border-white/10"],
+[class*="border-white/20"],
+[class*="border-white/30"] {
+  border-color: rgb(var(--border)) !important;
+}
+
+[class*="text-white/90"],
+[class*="text-white/80"],
+[class*="text-white/70"],
+[class*="text-white/60"],
+[class*="text-indigo-100"],
+[class*="text-indigo-200"],
+[class*="text-blue-100"],
+[class*="text-blue-200"] {
+  color: rgb(var(--secondary)) !important;
+}
+
+[class*="bg-slate-900"],
+[class*="bg-slate-800"],
+[class*="bg-slate-950"],
+[class*="bg-[#0f172a]"],
+[class*="bg-[#020617]"] {
+  background-color: rgb(var(--card)) !important;
+  color: rgb(var(--text)) !important;
+  border-color: rgb(var(--border)) !important;
+}
+
+[class*="from-[#0f172a]"],
+[class*="via-[#1e1b4b]"],
+[class*="to-[#020617]"],
+[class*="from-slate-900"],
+[class*="via-indigo-950"],
+[class*="to-slate-950"] {
+  background-image: none !important;
+  background-color: rgb(var(--bg)) !important;
+}
+
+.student-bottom-nav,
+.bottom-nav,
+.mobile-nav {
+  background: rgb(var(--card)) !important;
+  border-color: rgb(var(--border)) !important;
+  color: rgb(var(--text)) !important;
+  box-shadow: 0 -12px 35px rgba(15, 23, 42, 0.10) !important;
+}
+
+.student-header,
+.app-header,
+.page-header {
+  background: rgb(var(--card)) !important;
+  color: rgb(var(--text)) !important;
+  border-color: rgb(var(--border)) !important;
+}
+
       </style>
 
       {/* الخلفية الفاتحة الموحدة */}
