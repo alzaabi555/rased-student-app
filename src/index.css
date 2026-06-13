@@ -1,6 +1,178 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* =====================================================/* =================================================  color: rgb(var(--text));
+  border: 1px solid rgb(var(--border));
+  border-radius: 1.5rem;
+}
+   Rased Student Light Theme Hardening Layer
+   طبقة تثبيت الهوية الفاتحة لراصد الطالب
+   ===================================================== */
+
+:root {
+  color-scheme: light;
+
+  --bg: 248 250 252;
+  --card: 255 255 255;
+  --glass: 241 245 249;
+
+  --text: 15 23 42;
+  --secondary: 71 85 105;
+  --muted: 148 163 184;
+
+  --border: 226 232 240;
+  --border-soft: 238 242 247;
+
+  --primary: 79 70 229;
+  --primary-hover: 67 56 202;
+  --primary-soft: 238 242 255;
+
+  --success: 22 163 74;
+  --danger: 220 38 38;
+  --warning: 217 119 6;
+  --info: 2 132 199;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background: rgb(var(--bg)) !important;
+  color: rgb(var(--text)) !important;
+}
+
+body {
+  background-color: rgb(var(--bg)) !important;
+  color: rgb(var(--text)) !important;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* =====================================================
+   إصلاح بقايا الثيم الزجاجي الداكن داخل راصد الطالب فقط
+   ===================================================== */
+
+.rased-student-light {
+  background: rgb(var(--bg)) !important;
+  color: rgb(var(--text)) !important;
+}
+
+/* الخلفيات الزجاجية القديمة */
+.rased-student-light .glass-panel,
+.rased-student-light .glass-card,
+.rased-student-light .glass-button,
+.rased-student-light [class*="bg-white/5"],
+.rased-student-light [class*="bg-white/10"],
+.rased-student-light [class*="bg-white/20"],
+.rased-student-light [class*="bg-black/10"],
+.rased-student-light [class*="bg-black/20"],
+.rased-student-light [class*="bg-black/30"],
+.rased-student-light [class*="bg-black/40"] {
+  background: rgb(var(--card)) !important;
+  color: rgb(var(--text)) !important;
+  border-color: rgb(var(--border)) !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
+}
+
+/* الخلفيات الداكنة المباشرة */
+.rased-student-light [class*="bg-slate-950"],
+.rased-student-light [class*="bg-slate-900"],
+.rased-student-light [class*="bg-slate-800"],
+.rased-student-light [class*="bg-[#020617]"],
+.rased-student-light [class*="bg-[#0f172a]"] {
+  background: rgb(var(--card)) !important;
+  color: rgb(var(--text)) !important;
+  border-color: rgb(var(--border)) !important;
+}
+
+/* التدرجات الداكنة */
+.rased-student-light [class*="from-[#020617]"],
+.rased-student-light [class*="from-[#0f172a]"],
+.rased-student-light [class*="via-[#020617]"],
+.rased-student-light [class*="via-[#1e1b4b]"],
+.rased-student-light [class*="to-[#020617]"],
+.rased-student-light [class*="from-slate-950"],
+.rased-student-light [class*="from-slate-900"],
+.rased-student-light [class*="via-indigo-950"],
+.rased-student-light [class*="to-slate-950"] {
+  background-image: none !important;
+  background-color: rgb(var(--bg)) !important;
+}
+
+/* الحدود البيضاء القديمة */
+.rased-student-light [class*="border-white/5"],
+.rased-student-light [class*="border-white/10"],
+.rased-student-light [class*="border-white/20"],
+.rased-student-light [class*="border-white/30"] {
+  border-color: rgb(var(--border)) !important;
+}
+
+/* النصوص البيضاء والنيلي الفاتح القديمة */
+.rased-student-light [class*="text-white"],
+.rased-student-light [class*="text-indigo-100"],
+.rased-student-light [class*="text-indigo-200"],
+.rased-student-light [class*="text-blue-100"],
+.rased-student-light [class*="text-blue-200"],
+.rased-student-light [class*="text-slate-100"],
+.rased-student-light [class*="text-slate-200"] {
+  color: rgb(var(--text)) !important;
+}
+
+/* النصوص الرمادية الفاتحة جدًا */
+.rased-student-light [class*="text-white/"],
+.rased-student-light [class*="text-indigo-200/"],
+.rased-student-light [class*="text-slate-400"],
+.rased-student-light [class*="text-slate-500"] {
+  color: rgb(var(--secondary)) !important;
+}
+
+/* إزالة الزجاج الثقيل */
+.rased-student-light [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* تحسين الحقول */
+.rased-student-light input,
+.rased-student-light textarea,
+.rased-student-light select {
+  background-color: rgb(var(--card)) !important;
+  color: rgb(var(--text)) !important;
+  border-color: rgb(var(--border)) !important;
+}
+
+.rased-student-light input::placeholder,
+.rased-student-light textarea::placeholder {
+  color: rgb(var(--muted)) !important;
+}
+
+/* شريط التنقل السفلي */
+.rased-student-light .bottom-nav,
+.rased-student-light .student-bottom-nav,
+.rased-student-light .mobile-nav {
+  background: rgb(var(--card)) !important;
+  border-color: rgb(var(--border)) !important;
+  color: rgb(var(--text)) !important;
+  box-shadow: 0 -12px 35px rgba(15, 23, 42, 0.1) !important;
+}
+
+/* تقليل البهتان الناتج عن opacity القديمة */
+.rased-student-light button.opacity-60,
+.rased-student-light .opacity-60 {
+  opacity: 0.9 !important;
+}
+
+/* كروت موحدة يمكن استخدامها لاحقًا */
+.student-card {
+  background: rgb(var(--card));
+  color: rgb(var(--text));
+  border: 1px solid rgb(var(--border));
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.student-panel {
+  background: rgb(var(--glass));
 
 /* =====================================================
    ☀️ Rased Student Light Base
