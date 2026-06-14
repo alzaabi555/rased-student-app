@@ -11,7 +11,7 @@ interface AppContextType {
   dir: 'rtl' | 'ltr';
   studentData: any;
   loading: boolean;
-  login: (civilId: string) => Promise<boolean>;
+  login: (secretCode: string) => Promise<boolean>; // 💉 تعديل civilId إلى secretCode
   logout: () => void;
   refreshData: () => Promise<void>;
 }
@@ -23,11 +23,13 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const [loading, setLoading] = useState(false);
   const [dir] = useState<'rtl' | 'ltr'>('rtl');
 
-  const activeCivilIdRef = useRef<string | null>(null);
+  // 💉 استبدال المرجع الخاص بالرقم المدني ليكون خاصاً بالكود السري
+  const activeSecretCodeRef = useRef<string | null>(null);
 
  // 💉 دالة الدمج السحري (مضادة للصدمات ومحمية بالكامل)
-  const fetchAndMergeData = async (civilId: string) => {
+  const fetchAndMergeData = async (secretCode: string) => {
     try {
+      const sanitizedCode = secretCode.trim().toUpperCase(); // 💉 توحيد الكود إلى أحرف كبيرة
       const cacheBuster = new Date().getTime();
       const fetchOptions: RequestInit = {
         method: 'GET',
@@ -35,8 +37,9 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
       };
 
       const [studentResponse, parentResponse] = await Promise.all([
-        fetch(`${STUDENT_SCRIPT_URL}?civilId=${encodeURIComponent(civilId.trim())}&t=${cacheBuster}`, fetchOptions).catch(() => null),
-        fetch(`${PARENT_SCRIPT_URL}?code=${encodeURIComponent(civilId.trim())}&t=${cacheBuster}`, fetchOptions).catch(() => null)
+        // 💉 إرسال الكود السري للبحث في السحابتين
+        fetch(`${STUDENT_SCRIPT_URL}?code=${encodeURIComponent(sanitizedCode)}&t=${cacheBuster}`, fetchOptions).catch(() => null),
+        fetch(`${PARENT_SCRIPT_URL}?code=${encodeURIComponent(sanitizedCode)}&t=${cacheBuster}`, fetchOptions).catch(() => null)
       ]);
 
       let finalData = null;
@@ -97,8 +100,8 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   };
 
   const refreshData = async () => {
-    if (!activeCivilIdRef.current) return;
-    const mergedData = await fetchAndMergeData(activeCivilIdRef.current);
+    if (!activeSecretCodeRef.current) return;
+    const mergedData = await fetchAndMergeData(activeSecretCodeRef.current);
     if (mergedData) {
       setStudentData(mergedData);
     }
@@ -106,22 +109,24 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
   useEffect(() => {
     if (studentData) {
-      activeCivilIdRef.current = studentData.civilId;
+      // 💉 حفظ الكود السري الحالي للاعتماد عليه في التحديث التلقائي
+      activeSecretCodeRef.current = studentData.rasedId || studentData.secretCode || studentData.civilId || activeSecretCodeRef.current;
       const interval = setInterval(() => { refreshData(); }, 60000); 
       return () => clearInterval(interval);
     } else {
-      activeCivilIdRef.current = null;
+      activeSecretCodeRef.current = null;
     }
   }, [studentData]);
 
-  const login = async (civilId: string): Promise<boolean> => {
+  const login = async (secretCode: string): Promise<boolean> => {
     setLoading(true);
     try {
-      const mergedData = await fetchAndMergeData(civilId);
+      const mergedData = await fetchAndMergeData(secretCode);
 
       if (mergedData) {
         setStudentData(mergedData);
-        localStorage.setItem('last_civil_id', civilId.trim()); 
+        // 💉 تخزين الكود السري في الذاكرة لتسهيل الدخول القادم
+        localStorage.setItem('last_secret_code', secretCode.trim().toUpperCase()); 
         return true;
       }
       return false;
@@ -135,7 +140,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
 
   const logout = () => {
     setStudentData(null);
-    activeCivilIdRef.current = null;
+    activeSecretCodeRef.current = null;
   };
 
   const t = (key: string) => {
@@ -143,9 +148,9 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
       'rasedApp': 'راصد نسخة الطلبة',
       'studentEdition': 'نسخة الطالب',
       'welcomeBack': 'مرحباً بك',
-      'enterCivilIdToStart': 'أدخل رقمك المدني للبدء',
+      'enterCivilIdToStart': 'أدخل كود راصد السري للبدء', // 💉 تعديل الترجمة
       'startAdventure': 'تسجيل الدخول',
-      'civilIdPlaceholder': 'أدخل رقمك المدني هنا...', 
+      'civilIdPlaceholder': 'مثال: RSD-A7X9', // 💉 تعديل الترجمة
       'navHome': 'الرئيسية',
       'navSchedule': 'الجدول',
       'navTasks': 'مهامي',
