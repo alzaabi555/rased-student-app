@@ -25,7 +25,6 @@ const GlassLayout: React.FC<{
       className="rased-student-light flex flex-col h-full bg-bgMain text-textPrimary relative overflow-hidden"
       dir={dir}
     >
-      {/* الهيدر الفاتح */}
       <header className="sticky top-0 z-40 bg-bgCard border-b border-borderColor pt-[max(env(safe-area-inset-top),16px)] pb-4 px-5 shrink-0 shadow-sm transition-all">
         <h1 className="text-xl font-black text-textPrimary flex items-center gap-2 mb-0.5">
           {icon}
@@ -39,7 +38,6 @@ const GlassLayout: React.FC<{
         )}
       </header>
 
-      {/* المحتوى المنزلق */}
       <main className="flex-1 overflow-y-auto custom-scrollbar px-5 pt-5 pb-[100px] space-y-3">
         {children}
       </main>
@@ -55,7 +53,6 @@ const StudentLibrary: React.FC = () => {
 
   const resources = studentData?.resources || [];
 
-  // اختيار الأيقونة واللون حسب نوع المصدر أو الرابط
   const getIconInfo = (type?: string, link?: string) => {
     const safeType = String(type || '').toLowerCase();
     const lowerLink = String(link || '').toLowerCase();
@@ -69,7 +66,6 @@ const StudentLibrary: React.FC = () => {
       return {
         icon: <Youtube className="w-6 h-6 text-rose-600" />,
         bg: 'bg-rose-50 border-rose-200',
-        text: 'text-rose-700',
         hover: 'group-hover:text-rose-700'
       };
     }
@@ -83,7 +79,6 @@ const StudentLibrary: React.FC = () => {
       return {
         icon: <FileText className="w-6 h-6 text-info" />,
         bg: 'bg-sky-50 border-sky-200',
-        text: 'text-info',
         hover: 'group-hover:text-info'
       };
     }
@@ -91,7 +86,6 @@ const StudentLibrary: React.FC = () => {
     return {
       icon: <LinkIcon className="w-6 h-6 text-success" />,
       bg: 'bg-emerald-50 border-emerald-200',
-      text: 'text-success',
       hover: 'group-hover:text-success'
     };
   };
@@ -103,11 +97,18 @@ const StudentLibrary: React.FC = () => {
       icon={<Library className="w-5 h-5 text-primary" />}
     >
       {resources.length > 0 ? (
-        resources.map((res: any) => {
+        resources.map((res: any, index: number) => {
           const styleInfo = getIconInfo(res.type, res.link);
+          const safeLink = res.link || '#';
 
           return (
-            {res.link}
+            <a
+              key={res.id || `${res.title || 'resource'}-${index}`}
+              href={safeLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-bgCard border border-borderColor rounded-[1.5rem] p-3 flex items-center gap-3 hover:border-primary/20 hover:shadow-card transition-all group shadow-sm active:scale-[0.98]"
+            >
               <div
                 className={`shrink-0 w-12 h-12 flex items-center justify-center rounded-xl border ${styleInfo.bg}`}
               >
