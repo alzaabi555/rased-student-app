@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Home,
-  CalendarDays,
+  Target,
   CheckSquare,
   ShieldCheck,
   Library,
@@ -17,24 +17,24 @@ import StudentLogin from './StudentLogin';
 import StudentDashboard from './StudentDashboard';
 import StudentTasks from './StudentTasks';
 import StudentGrades from './StudentGrades';
-import StudentTimetable from './StudentTimetable';
 import StudentLibrary from './StudentLibrary';
+import StudentReviewPlan from './StudentReviewPlan';
 
 const StudentApp: React.FC = () => {
   const { dir, studentData, loading, login } = useApp();
 
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState<
-    'home' | 'timetable' | 'tasks' | 'library' | 'grades'
+    'home' | 'review' | 'tasks' | 'library' | 'grades'
   >('home');
 
-  const handleLogin = async (civilId: string) => {
+  const handleLogin = async (secretCode: string) => {
     setLoginError('');
 
-    const success = await login(civilId);
+    const success = await login(secretCode);
 
     if (!success) {
-      setLoginError('الرقم المدني غير مسجل في النظام أو فشل الاتصال.');
+      setLoginError('الكود السري غير مسجل في النظام أو فشل الاتصال.');
     }
   };
 
@@ -97,10 +97,10 @@ const StudentApp: React.FC = () => {
 
   const NAV_ITEMS = [
     { id: 'home', icon: Home, label: 'الرئيسية' },
-    { id: 'timetable', icon: CalendarDays, label: 'الجدول' },
-    { id: 'library', icon: Library, label: 'مكتبتي' },
     { id: 'tasks', icon: CheckSquare, label: 'مهامي' },
-    { id: 'grades', icon: ShieldCheck, label: 'إتقاني' }
+    { id: 'review', icon: Target, label: 'مراجعتي' },
+    { id: 'grades', icon: ShieldCheck, label: 'إتقاني' },
+    { id: 'library', icon: Library, label: 'مكتبتي' }
   ] as const;
 
   const renderContent = () => {
@@ -110,17 +110,22 @@ const StudentApp: React.FC = () => {
       case 'home':
         return <StudentDashboard student={studentData} currentSemester="1" />;
 
-      case 'timetable':
-        return <StudentTimetable />;
-
-      case 'library':
-        return <StudentLibrary />;
-
       case 'tasks':
         return <StudentTasks />;
 
+      case 'review':
+        return (
+          <StudentReviewPlan
+            student={studentData}
+            currentSemester="1"
+          />
+        );
+
       case 'grades':
         return <StudentGrades student={studentData} currentSemester="1" />;
+
+      case 'library':
+        return <StudentLibrary />;
 
       default:
         return <StudentDashboard student={studentData} currentSemester="1" />;
