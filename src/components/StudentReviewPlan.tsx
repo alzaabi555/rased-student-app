@@ -299,7 +299,7 @@ const StudentReviewPlan: React.FC<StudentReviewPlanProps> = ({
 
   return (
     <div
-      className="rased-student-light flex flex-col h-full bg-bgMain text-textPrimary relative overflow-hidden"
+  className="rased-student-light flex flex-col h-full min-h-0 bg-bgMain text-textPrimary relative overflow-hidden"
       dir={dir}
     >
       {/* الهيدر */}
@@ -315,8 +315,7 @@ const StudentReviewPlan: React.FC<StudentReviewPlanProps> = ({
         </p>
       </header>
 
-      <main className="flex-1 overflow-y-auto custom-scrollbar px-5 pt-5 pb-[100px] space-y-5">
-        {/* ملخص سريع */}
+<main className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar px-5 pt-5 pb-[calc(env(safe-area-inset-bottom)+140px)] space-y-5">        {/* ملخص سريع */}
         <section className="grid grid-cols-2 gap-3">
           <div className="bg-bgCard border border-borderColor rounded-2xl p-3 shadow-sm">
             <div className="w-9 h-9 rounded-xl bg-warning/10 text-warning border border-warning/20 flex items-center justify-center mb-2">
