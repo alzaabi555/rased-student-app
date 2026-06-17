@@ -197,9 +197,12 @@ const StudentApp: React.FC = () => {
 
       {/* الحاوية الرئيسية */}
     <main className="flex-1 flex flex-col min-h-0 h-full overflow-x-hidden overflow-y-hidden relative z-10 pt-[env(safe-area-inset-top)] items-center">
-       <div className="flex-1 min-h-0 w-full max-w-md md:max-w-5xl relative z-10">
-<div className="w-full h-full min-h-0">{renderContent()}</div>     
-       </main>
+  <div className="flex-1 min-h-0 w-full max-w-md md:max-w-5xl relative z-10">
+    <div className="w-full h-full min-h-0">
+      {renderContent()}
+    </div>
+  </div>
+</main>
 
       {/* شريط التنقل السفلي الفاتح */}
       <div className="fixed bottom-0 left-0 right-0 z-[90] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none flex justify-center w-full">
