@@ -330,11 +330,13 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
       );
 
       const status: GameStatus =
-        compatibleQuestions.length >= game.minQuestions
-          ? 'available'
-          : compatibleQuestions.length > 0
-            ? 'needs_questions'
-            : 'coming_soon';
+  game.id === 'snake_ladder'
+    ? 'available'
+    : compatibleQuestions.length >= game.minQuestions
+      ? 'available'
+      : compatibleQuestions.length > 0
+        ? 'needs_questions'
+        : 'coming_soon';
 
       return {
         ...game,
