@@ -479,8 +479,8 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[999] bg-bgMain text-textPrimary flex flex-col" dir="rtl">
-      {/* Header */}
+<div className="fixed inset-0 z-[9999] bg-bgMain text-textPrimary flex flex-col" dir="rtl">
+  {/* Header */}
       <header className="bg-bgCard border-b border-borderColor pt-[max(env(safe-area-inset-top),14px)] px-4 pb-3 shadow-sm shrink-0">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -509,8 +509,7 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
       </header>
 
       {/* Body */}
-      <main className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-4">
-       {!canPlay && (
+<main className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+120px)] space-y-4">       {!canPlay && (
   <section className="bg-warning/10 border border-warning/20 rounded-3xl p-4 text-center shadow-sm">
     <HelpCircle className="w-10 h-10 text-warning mx-auto mb-3" />
 
