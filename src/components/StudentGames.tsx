@@ -18,6 +18,10 @@ import {
   RotateCcw,
   Info
 } from 'lucide-react';
+import StudentSnakeLadderGame, {
+  SnakeLadderQuestion,
+  SnakeLadderResult
+} from './StudentSnakeLadderGame';
 
 // =========================================================================
 // أنواع بيانات مرنة حتى لا يتأثر الملف بتغير مصدر الأسئلة لاحقًا
@@ -56,6 +60,7 @@ interface StudentGamesProps {
 }
 
 type GameStatus = 'available' | 'needs_questions' | 'coming_soon';
+type ActiveGame = 'snake_ladder' | null;
 
 type GameCard = {
   id: string;
@@ -69,6 +74,10 @@ type GameCard = {
   status: GameStatus;
   minQuestions: number;
   estimatedTime: string;
+};
+
+type GameCardWithAvailability = GameCard & {
+  questionCount: number;
 };
 
 const BASE_GAMES: Omit<GameCard, 'status'>[] = [
@@ -225,9 +234,61 @@ const readLocalGameStats = (studentId?: string) => {
   }
 };
 
+const isQuestionCompatibleWithGame = (
+  question: GameQuestion,
+  game: Omit<GameCard, 'status'>
+) => {
+  const byGameType = (question.gameTypes || []).some(type =>
+    game.supportedGameTypes.includes(type)
+  );
+
+  const byQuestionType = question.questionType
+    ? game.supportedQuestionTypes.includes(question.questionType)
+    : false;
+
+  return byGameType || byQuestionType;
+};
+
+const toSnakeLadderQuestions = (
+  questions: GameQuestion[]
+): SnakeLadderQuestion[] => {
+  return questions
+    .filter(question => {
+      if (!question.question) return false;
+      if (question.active === false) return false;
+
+      if (question.questionType === 'true_false') return true;
+
+      const hasOptions = Array.isArray(question.options) && question.options.length >= 2;
+      const hasAnswer = typeof question.correctAnswerIndex === 'number';
+
+      return hasOptions && hasAnswer;
+    })
+    .map(question => ({
+      id: question.id,
+      subject: question.subject,
+      unit: question.unit,
+      lesson: question.lesson,
+      questionType:
+        question.questionType === 'true_false' ? 'true_false' : 'multiple_choice',
+      question: question.question || '',
+      options:
+        question.questionType === 'true_false'
+          ? ['صح', 'خطأ']
+          : question.options || [],
+      correctAnswerIndex: question.correctAnswerIndex ?? 0,
+      correctAnswerText: question.correctAnswerText,
+      explanation: question.explanation,
+      difficulty: question.difficulty,
+      active: question.active
+    }));
+};
+
 const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   const { t, dir } = useApp();
-  const [selectedGame, setSelectedGame] = useState<GameCard | null>(null);
+  const [selectedGame, setSelectedGame] = useState<GameCardWithAvailability | null>(null);
+  const [activeGame, setActiveGame] = useState<ActiveGame>(null);
+  const [statsVersion, setStatsVersion] = useState(0);
 
   const gameQuestions = useMemo(() => {
     const directQuestions = Array.isArray(student?.gameQuestions)
@@ -259,21 +320,13 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
       ...raw,
       completedToday: raw.completedToday && raw.lastPlayedDate === today
     };
-  }, [student]);
+  }, [student, statsVersion]);
 
-  const games = useMemo(() => {
+  const games = useMemo<GameCardWithAvailability[]>(() => {
     return BASE_GAMES.map(game => {
-      const compatibleQuestions = gameQuestions.filter(q => {
-        const byGameType = (q.gameTypes || []).some(type =>
-          game.supportedGameTypes.includes(type)
-        );
-
-        const byQuestionType = q.questionType
-          ? game.supportedQuestionTypes.includes(q.questionType)
-          : false;
-
-        return byGameType || byQuestionType;
-      });
+      const compatibleQuestions = gameQuestions.filter(q =>
+        isQuestionCompatibleWithGame(q, game)
+      );
 
       const status: GameStatus =
         compatibleQuestions.length >= game.minQuestions
@@ -290,8 +343,37 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
     });
   }, [gameQuestions]);
 
+  const snakeLadderGame = BASE_GAMES.find(game => game.id === 'snake_ladder');
+
+  const snakeLadderQuestions = useMemo(() => {
+    if (!snakeLadderGame) return [];
+
+    const compatible = gameQuestions.filter(question =>
+      isQuestionCompatibleWithGame(question, snakeLadderGame)
+    );
+
+    return toSnakeLadderQuestions(compatible);
+  }, [gameQuestions, snakeLadderGame]);
+
   const availableGames = games.filter(g => g.status === 'available');
   const totalQuestions = gameQuestions.length;
+
+  const handleStartGame = (game: GameCardWithAvailability) => {
+    if (game.status !== 'available') return;
+
+    if (game.id === 'snake_ladder') {
+      setSelectedGame(null);
+      setActiveGame('snake_ladder');
+      return;
+    }
+
+    alert('سيتم ربط محرك هذه اللعبة في خطوة لاحقة.');
+  };
+
+  const handleSnakeLadderComplete = (_result: SnakeLadderResult) => {
+    // تحديث إحصائيات الصفحة بعد حفظ نتيجة اللعبة داخل المحرك
+    setStatsVersion(prev => prev + 1);
+  };
 
   return (
     <div
@@ -399,14 +481,13 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             {games.map(game => {
               const tone = getToneClasses(game.color);
               const Icon = game.icon;
-              const questionCount = (game as any).questionCount || 0;
               const isAvailable = game.status === 'available';
 
               return (
                 <button
                   key={game.id}
                   type="button"
-                  onClick={() => setSelectedGame(game as GameCard)}
+                  onClick={() => setSelectedGame(game)}
                   className={`w-full text-start rounded-3xl border p-4 shadow-sm transition-all active:scale-[0.99] ${
                     isAvailable
                       ? 'bg-bgCard border-borderColor hover:border-primary/20 hover:shadow-card'
@@ -428,7 +509,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
 
                         {!isAvailable && (
                           <span className="shrink-0 text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary">
-                            {questionCount > 0 ? 'تحتاج أسئلة أكثر' : 'قريبًا'}
+                            {game.questionCount > 0 ? 'تحتاج أسئلة أكثر' : 'قريبًا'}
                           </span>
                         )}
                       </div>
@@ -440,7 +521,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary flex items-center gap-1">
                           <BookOpen className="w-3 h-3" />
-                          {questionCount} سؤال
+                          {game.questionCount} سؤال
                         </span>
 
                         <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary flex items-center gap-1">
@@ -502,9 +583,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             {(() => {
               const tone = getToneClasses(selectedGame.color);
               const Icon = selectedGame.icon;
-              const selectedGameData = games.find(g => g.id === selectedGame.id);
-              const questionCount = (selectedGameData as any)?.questionCount || 0;
-              const isAvailable = selectedGameData?.status === 'available';
+              const isAvailable = selectedGame.status === 'available';
 
               return (
                 <div>
@@ -520,7 +599,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
                         {selectedGame.title}
                       </h3>
                       <p className="text-[10px] font-bold text-textSecondary">
-                        {questionCount} سؤال متاح · {selectedGame.estimatedTime}
+                        {selectedGame.questionCount} سؤال متاح · {selectedGame.estimatedTime}
                       </p>
                     </div>
                   </div>
@@ -533,10 +612,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
                     <button
                       type="button"
                       className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`}
-                      onClick={() => {
-                        // لاحقًا نفتح محرك اللعبة المناسب هنا
-                        alert('سيتم ربط محرك اللعبة في الخطوة القادمة.');
-                      }}
+                      onClick={() => handleStartGame(selectedGame)}
                     >
                       <Play className="w-5 h-5" />
                       ابدأ اللعبة
@@ -565,6 +641,19 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             })()}
           </div>
         </>
+      )}
+
+      {/* محرك لعبة السلم والثعبان */}
+      {activeGame === 'snake_ladder' && (
+        <StudentSnakeLadderGame
+          questions={snakeLadderQuestions}
+          studentId={student?.civilId}
+          onClose={() => {
+            setActiveGame(null);
+            setStatsVersion(prev => prev + 1);
+          }}
+          onComplete={handleSnakeLadderComplete}
+        />
       )}
     </div>
   );
