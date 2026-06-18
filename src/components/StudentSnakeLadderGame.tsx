@@ -123,7 +123,146 @@ const getTileTone = (tile: number) => {
   if (tile === BOARD_SIZE) return 'bg-warning/10 border-warning/30 text-warning';
   return 'bg-bgCard border-borderColor text-textPrimary';
 };
+const getTileCenter = (tile: number) => {
+  const size = 100;
+  const rowFromBottom = Math.floor((tile - 1) / BOARD_COLUMNS);
+  const colInRow = (tile - 1) % BOARD_COLUMNS;
 
+  const row = BOARD_COLUMNS - 1 - rowFromBottom;
+
+  // نجعل مسار اللوحة متعرجًا
+  const col =
+    rowFromBottom % 2 === 0
+      ? colInRow
+      : BOARD_COLUMNS - 1 - colInRow;
+
+  return {
+    x: col * size + size / 2,
+    y: row * size + size / 2
+  };
+};
+
+const renderLadder = (from: number, to: number) => {
+  const start = getTileCenter(from);
+  const end = getTileCenter(to);
+
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  const nx = -dy / length;
+  const ny = dx / length;
+
+  const railGap = 12;
+
+  const x1a = start.x + nx * railGap;
+  const y1a = start.y + ny * railGap;
+  const x2a = end.x + nx * railGap;
+  const y2a = end.y + ny * railGap;
+
+  const x1b = start.x - nx * railGap;
+  const y1b = start.y - ny * railGap;
+  const x2b = end.x - nx * railGap;
+  const y2b = end.y - ny * railGap;
+
+  const steps = 5;
+
+  return (
+    <g key={`ladder-${from}-${to}`}>
+      <line
+        x1={x1a}
+        y1={y1a}
+        x2={x2a}
+        y2={y2a}
+        stroke="rgb(22 163 74)"
+        strokeWidth="8"
+        strokeLinecap="round"
+      />
+
+      <line
+        x1={x1b}
+        y1={y1b}
+        x2={x2b}
+        y2={y2b}
+        stroke="rgb(22 163 74)"
+        strokeWidth="8"
+        strokeLinecap="round"
+      />
+
+      {Array.from({ length: steps }).map((_, index) => {
+        const t = (index + 1) / (steps + 1);
+
+        const ax = x1a + (x2a - x1a) * t;
+        const ay = y1a + (y2a - y1a) * t;
+        const bx = x1b + (x2b - x1b) * t;
+        const by = y1b + (y2b - y1b) * t;
+
+        return (
+          <line
+            key={`ladder-step-${from}-${index}`}
+            x1={ax}
+            y1={ay}
+            x2={bx}
+            y2={by}
+            stroke="rgb(134 239 172)"
+            strokeWidth="6"
+            strokeLinecap="round"
+          />
+        );
+      })}
+    </g>
+  );
+};
+
+const renderSnake = (from: number, to: number, index: number) => {
+  const start = getTileCenter(from);
+  const end = getTileCenter(to);
+
+  const midX = (start.x + end.x) / 2 + (index % 2 === 0 ? 50 : -50);
+  const midY = (start.y + end.y) / 2;
+
+  return (
+    <g key={`snake-${from}-${to}`}>
+      <path
+        d={`M ${start.x} ${start.y} Q ${midX} ${midY} ${end.x} ${end.y}`}
+        fill="none"
+        stroke="rgb(220 38 38)"
+        strokeWidth="14"
+        strokeLinecap="round"
+      />
+
+      <path
+        d={`M ${start.x} ${start.y} Q ${midX} ${midY} ${end.x} ${end.y}`}
+        fill="none"
+        stroke="rgb(254 202 202)"
+        strokeWidth="5"
+        strokeLinecap="round"
+        strokeDasharray="12 12"
+      />
+
+      <circle
+        cx={start.x}
+        cy={start.y}
+        r="18"
+        fill="rgb(220 38 38)"
+        stroke="white"
+        strokeWidth="4"
+      />
+
+      <circle cx={start.x - 6} cy={start.y - 4} r="3" fill="white" />
+      <circle cx={start.x + 6} cy={start.y - 4} r="3" fill="white" />
+
+      <path
+        d={`M ${start.x - 5} ${start.y + 7} Q ${start.x} ${
+          start.y + 13
+        } ${start.x + 5} ${start.y + 7}`}
+        stroke="white"
+        strokeWidth="2"
+        fill="none"
+        strokeLinecap="round"
+      />
+    </g>
+  );
+};
 const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
   questions,
   studentId,
@@ -421,48 +560,100 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
             />
           </div>
         </section>
+        
+{/* Board */}
+<section className="bg-bgCard border border-borderColor rounded-3xl p-3 shadow-sm">
+  <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-sky-50 via-white to-indigo-50 border border-borderColor">
+    {/* رسومات السلالم والثعابين */}
+    <svg
+      className="absolute inset-0 w-full h-full z-30 pointer-events-none"
+      viewBox="0 0 600 600"
+      preserveAspectRatio="none"
+    >
+      {Object.entries(LADDERS).map(([from, to]) =>
+        renderLadder(Number(from), to)
+      )}
 
-        {/* Board */}
-        <section className="bg-bgCard border border-borderColor rounded-3xl p-3 shadow-sm">
-          <div className="grid grid-cols-6 gap-1.5">
-            {boardTiles.map(tile => {
-              const hasPlayer = tile === position;
-              const ladderTo = LADDERS[tile];
-              const snakeTo = SNAKES[tile];
+      {Object.entries(SNAKES).map(([from, to], index) =>
+        renderSnake(Number(from), to, index)
+      )}
+    </svg>
 
-              return (
-                <div
-                  key={tile}
-                  className={`relative aspect-square rounded-xl border text-[10px] font-black flex items-center justify-center transition-all ${getTileTone(tile)}`}
-                >
-                  <span className="absolute top-1 right-1 text-[8px] opacity-70">
-                    {tile}
-                  </span>
+    {/* مربعات اللوحة */}
+    <div className="relative z-20 grid grid-cols-6 gap-1.5 p-2">
+      {boardTiles.map(tile => {
+        const hasPlayer = tile === position;
+        const ladderTo = LADDERS[tile];
+        const snakeTo = SNAKES[tile];
 
-                  {ladderTo && (
-                    <ArrowUpRight className="w-4 h-4 text-success" />
-                  )}
-                  {snakeTo && (
-                    <ArrowDownLeft className="w-4 h-4 text-danger" />
-                  )}
-                  {tile === BOARD_SIZE && <Trophy className="w-4 h-4 text-warning" />}
+        return (
+          <div
+            key={tile}
+            className={`relative aspect-square rounded-xl border text-[10px] font-black flex items-center justify-center transition-all shadow-sm ${
+              tile === BOARD_SIZE
+                ? 'bg-warning/10 border-warning/30 text-warning'
+                : tile === 1
+                  ? 'bg-primary/10 border-primary/30 text-primary'
+                  : 'bg-white/80 border-borderColor text-textSecondary'
+            }`}
+          >
+            <span className="absolute top-1 right-1 text-[8px] opacity-70">
+              {tile}
+            </span>
 
-                  {hasPlayer && (
-                    <div className="absolute inset-1 rounded-xl bg-primary text-white flex items-center justify-center shadow-card animate-pulse">
-                      <Star className="w-4 h-4" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {tile === 1 && (
+              <span className="text-[9px] font-black text-primary">
+                بداية
+              </span>
+            )}
+
+            {tile === BOARD_SIZE && (
+              <div className="flex flex-col items-center gap-0.5">
+                <Trophy className="w-4 h-4 text-warning" />
+                <span className="text-[8px] font-black">النهاية</span>
+              </div>
+            )}
+
+            {ladderTo && (
+              <span className="absolute bottom-1 left-1 text-[8px] font-black text-success bg-success/10 px-1 rounded">
+                سلم
+              </span>
+            )}
+
+            {snakeTo && (
+              <span className="absolute bottom-1 left-1 text-[8px] font-black text-danger bg-danger/10 px-1 rounded">
+                ثعبان
+              </span>
+            )}
+
+            {hasPlayer && (
+              <div className="absolute inset-1 rounded-xl bg-primary text-white flex items-center justify-center shadow-card animate-pulse z-40">
+                <Star className="w-4 h-4" />
+              </div>
+            )}
           </div>
+        );
+      })}
+    </div>
+  </div>
 
-          <div className="flex items-center justify-center gap-4 mt-4 text-[10px] font-bold text-textSecondary">
-            <span className="flex items-center gap-1"><ArrowUpRight className="w-3 h-3 text-success" /> سلم</span>
-            <span className="flex items-center gap-1"><ArrowDownLeft className="w-3 h-3 text-danger" /> ثعبان</span>
-            <span className="flex items-center gap-1"><Trophy className="w-3 h-3 text-warning" /> النهاية</span>
-          </div>
-        </section>
+  <div className="flex items-center justify-center gap-4 mt-4 text-[10px] font-bold text-textSecondary">
+    <span className="flex items-center gap-1">
+      <ArrowUpRight className="w-3 h-3 text-success" />
+      سلم يصعدك
+    </span>
+
+    <span className="flex items-center gap-1">
+      <ArrowDownLeft className="w-3 h-3 text-danger" />
+      ثعبان ينزلك
+    </span>
+
+    <span className="flex items-center gap-1">
+      <Trophy className="w-3 h-3 text-warning" />
+      النهاية
+    </span>
+  </div>
+</section>
 
         {/* Control */}
         <section className="bg-bgCard border border-borderColor rounded-3xl p-4 shadow-sm text-center">
