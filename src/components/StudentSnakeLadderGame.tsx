@@ -6,7 +6,6 @@ import {
   Trophy,
   HelpCircle,
   Heart,
-  CheckCircle2,
   XCircle,
   RotateCcw,
   Sparkles
@@ -133,7 +132,9 @@ class SnakeLadderScene extends Phaser.Scene {
   private centers: Record<number, { x: number; y: number }> = {};
   private playerToken?: Phaser.GameObjects.Container;
   private diceText?: Phaser.GameObjects.Text;
-  private sparkleGroup?: Phaser.GameObjects.Group;
+  private currentTile = 1;
+  private currentDiceValue: number | null = null;
+  private resizeTimer?: Phaser.Time.TimerEvent;
   public controller?: PhaserController;
 
   constructor() {
@@ -141,18 +142,14 @@ class SnakeLadderScene extends Phaser.Scene {
   }
 
   create() {
-    const width = this.scale.width;
-    const height = this.scale.height;
+    this.renderScene();
 
-    this.cameras.main.setBackgroundColor('#f8fafc');
+    this.scale.on('resize', this.handleResize, this);
 
-    this.drawBackground(width, height);
-    this.drawBoard(width, height);
-    this.drawSnakesAndLadders();
-    this.drawPlayer(1);
-    this.drawDice(null);
-
-    this.sparkleGroup = this.add.group();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('resize', this.handleResize, this);
+      if (this.resizeTimer) this.resizeTimer.remove(false);
+    });
 
     this.controller = {
       movePlayerTo: (tile: number, onDone?: () => void) => this.animateMoveTo(tile, onDone),
@@ -165,61 +162,90 @@ class SnakeLadderScene extends Phaser.Scene {
     this.events.emit('scene-ready', this.controller);
   }
 
+  private renderScene() {
+    this.children.removeAll(true);
+    this.playerToken = undefined;
+    this.diceText = undefined;
+
+    const width = this.scale.width;
+    const height = this.scale.height;
+
+    this.cameras.main.setBackgroundColor('#f8fafc');
+
+    this.drawBackground(width, height);
+    this.drawBoard(width, height);
+    this.drawSnakesAndLadders();
+    this.drawPlayer(this.currentTile);
+    this.drawDice(this.currentDiceValue);
+  }
+
+  private handleResize() {
+    if (this.resizeTimer) {
+      this.resizeTimer.remove(false);
+    }
+
+    this.resizeTimer = this.time.delayedCall(120, () => {
+      this.renderScene();
+    });
+  }
+
   private drawBackground(width: number, height: number) {
     const bg = this.add.graphics();
-bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
-    bg.fillStyle(0x4f46e5, 0.08);
-    bg.fillCircle(width * 0.15, height * 0.12, 120);
-    bg.fillStyle(0x0ea5e9, 0.08);
-    bg.fillCircle(width * 0.88, height * 0.18, 140);
-    bg.fillStyle(0xf59e0b, 0.07);
-    bg.fillCircle(width * 0.12, height * 0.85, 120);
+    bg.fillGradientStyle(0xbfdbfe, 0xc7d2fe, 0xfef3c7, 0xdcfce7, 1);
+    bg.fillRect(0, 0, width, height);
+
+    bg.fillStyle(0x4f46e5, 0.12);
+    bg.fillCircle(width * 0.15, height * 0.12, 130);
+    bg.fillStyle(0x0ea5e9, 0.12);
+    bg.fillCircle(width * 0.88, height * 0.18, 150);
+    bg.fillStyle(0xf59e0b, 0.10);
+    bg.fillCircle(width * 0.12, height * 0.85, 130);
   }
 
   private drawBoard(width: number, height: number) {
-    this.boardWidth = Math.min(width - 28, height - 210, 620);
+    this.boardWidth = Math.max(300, Math.min(width - 24, height - 130, 760));
     this.tileSize = this.boardWidth / BOARD_COLUMNS;
     this.boardX = (width - this.boardWidth) / 2;
-    this.boardY = 26;
+    this.boardY = 22;
     this.centers = buildTileCenters(this.boardX, this.boardY, this.tileSize);
 
     const shadow = this.add.graphics();
-    shadow.fillStyle(0x0f172a, 0.12);
-    shadow.fillRoundedRect(this.boardX + 4, this.boardY + 8, this.boardWidth, this.boardWidth, 28);
+    shadow.fillStyle(0x0f172a, 0.18);
+    shadow.fillRoundedRect(this.boardX + 6, this.boardY + 10, this.boardWidth, this.boardWidth, 30);
 
     const boardBg = this.add.graphics();
     boardBg.fillStyle(0xffffff, 1);
-    boardBg.lineStyle(2, 0xe2e8f0, 1);
-    boardBg.fillRoundedRect(this.boardX, this.boardY, this.boardWidth, this.boardWidth, 28);
-    boardBg.strokeRoundedRect(this.boardX, this.boardY, this.boardWidth, this.boardWidth, 28);
+    boardBg.lineStyle(3, 0x94a3b8, 1);
+    boardBg.fillRoundedRect(this.boardX, this.boardY, this.boardWidth, this.boardWidth, 30);
+    boardBg.strokeRoundedRect(this.boardX, this.boardY, this.boardWidth, this.boardWidth, 30);
 
-    const tileColors = [0xffffff, 0xf8fafc, 0xeef2ff, 0xecfeff];
+    const tileColors = [0xffffff, 0xdbeafe, 0xdcfce7, 0xfef3c7, 0xfce7f3];
 
     for (let tile = 1; tile <= BOARD_SIZE; tile++) {
       const center = this.centers[tile];
-      const x = center.x - this.tileSize / 2 + 4;
-      const y = center.y - this.tileSize / 2 + 4;
-      const tileW = this.tileSize - 8;
-      const color = tile === 1 ? 0xe0f2fe : tile === BOARD_SIZE ? 0xfef3c7 : tileColors[tile % tileColors.length];
+      const x = center.x - this.tileSize / 2 + 5;
+      const y = center.y - this.tileSize / 2 + 5;
+      const tileW = this.tileSize - 10;
+      const color = tile === 1 ? 0xbfdbfe : tile === BOARD_SIZE ? 0xfcd34d : tileColors[tile % tileColors.length];
 
       const g = this.add.graphics();
       g.fillStyle(color, 1);
-      g.lineStyle(1.5, 0xe2e8f0, 1);
-      g.fillRoundedRect(x, y, tileW, tileW, 14);
-      g.strokeRoundedRect(x, y, tileW, tileW, 14);
+      g.lineStyle(2, 0xcbd5e1, 1);
+      g.fillRoundedRect(x, y, tileW, tileW, 16);
+      g.strokeRoundedRect(x, y, tileW, tileW, 16);
 
       this.add.text(x + tileW - 8, y + 7, String(tile), {
         fontFamily: 'Tajawal, Arial',
-        fontSize: '11px',
-        color: '#64748b',
+        fontSize: `${Math.max(10, Math.round(this.tileSize * 0.14))}px`,
+        color: '#334155',
         fontStyle: '900'
       }).setOrigin(1, 0);
 
       if (tile === 1) {
         this.add.text(center.x, center.y + tileW * 0.16, 'بداية', {
           fontFamily: 'Tajawal, Arial',
-          fontSize: '12px',
-          color: '#2563eb',
+          fontSize: `${Math.max(11, Math.round(this.tileSize * 0.16))}px`,
+          color: '#1d4ed8',
           fontStyle: '900'
         }).setOrigin(0.5);
       }
@@ -227,8 +253,8 @@ bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
       if (tile === BOARD_SIZE) {
         this.add.text(center.x, center.y + tileW * 0.16, 'النهاية', {
           fontFamily: 'Tajawal, Arial',
-          fontSize: '12px',
-          color: '#d97706',
+          fontSize: `${Math.max(11, Math.round(this.tileSize * 0.16))}px`,
+          color: '#92400e',
           fontStyle: '900'
         }).setOrigin(0.5);
       }
@@ -243,15 +269,15 @@ bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
     const length = Math.sqrt(dx * dx + dy * dy);
     const nx = -dy / length;
     const ny = dx / length;
-    const railGap = Math.max(10, this.tileSize * 0.13);
+    const railGap = Math.max(12, this.tileSize * 0.14);
     const steps = 5;
 
     const g = this.add.graphics();
-    g.lineStyle(7, 0x16a34a, 1);
+    g.lineStyle(10, 0x15803d, 1);
     g.lineBetween(start.x + nx * railGap, start.y + ny * railGap, end.x + nx * railGap, end.y + ny * railGap);
     g.lineBetween(start.x - nx * railGap, start.y - ny * railGap, end.x - nx * railGap, end.y - ny * railGap);
 
-    g.lineStyle(5, 0x86efac, 1);
+    g.lineStyle(7, 0xbbf7d0, 1);
     for (let index = 1; index <= steps; index++) {
       const t = index / (steps + 1);
       const ax = start.x + nx * railGap + (end.x - start.x) * t;
@@ -265,7 +291,7 @@ bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
   private drawSnake(from: number, to: number, index: number) {
     const start = this.centers[from];
     const end = this.centers[to];
-    const midX = (start.x + end.x) / 2 + (index % 2 === 0 ? this.tileSize * 0.45 : -this.tileSize * 0.45);
+    const midX = (start.x + end.x) / 2 + (index % 2 === 0 ? this.tileSize * 0.50 : -this.tileSize * 0.50);
     const midY = (start.y + end.y) / 2;
 
     const g = this.add.graphics();
@@ -275,15 +301,15 @@ bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
       new Phaser.Math.Vector2(end.x, end.y)
     );
 
-    const points = curve.getPoints(42);
+    const points = curve.getPoints(48);
 
-    g.lineStyle(15, 0xdc2626, 1);
+    g.lineStyle(20, 0xdc2626, 1);
     g.beginPath();
     g.moveTo(points[0].x, points[0].y);
     for (const p of points.slice(1)) g.lineTo(p.x, p.y);
     g.strokePath();
 
-    g.lineStyle(5, 0xfecaca, 1);
+    g.lineStyle(7, 0xffffff, 0.85);
     for (let i = 0; i < points.length - 1; i += 5) {
       const a = points[i];
       const b = points[Math.min(i + 2, points.length - 1)];
@@ -292,16 +318,20 @@ bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
 
     g.fillStyle(0xdc2626, 1);
     g.lineStyle(4, 0xffffff, 1);
-    g.fillCircle(start.x, start.y, this.tileSize * 0.20);
-    g.strokeCircle(start.x, start.y, this.tileSize * 0.20);
+    g.fillCircle(start.x, start.y, this.tileSize * 0.22);
+    g.strokeCircle(start.x, start.y, this.tileSize * 0.22);
 
     g.fillStyle(0xffffff, 1);
-    g.fillCircle(start.x - this.tileSize * 0.07, start.y - this.tileSize * 0.05, 3.5);
-    g.fillCircle(start.x + this.tileSize * 0.07, start.y - this.tileSize * 0.05, 3.5);
+    g.fillCircle(start.x - this.tileSize * 0.075, start.y - this.tileSize * 0.055, 4);
+    g.fillCircle(start.x + this.tileSize * 0.075, start.y - this.tileSize * 0.055, 4);
 
-    g.lineStyle(2, 0xffffff, 1);
+    g.fillStyle(0x111827, 1);
+    g.fillCircle(start.x - this.tileSize * 0.075, start.y - this.tileSize * 0.055, 1.8);
+    g.fillCircle(start.x + this.tileSize * 0.075, start.y - this.tileSize * 0.055, 1.8);
+
+    g.lineStyle(2.5, 0xffffff, 1);
     g.beginPath();
-    g.arc(start.x, start.y + this.tileSize * 0.06, this.tileSize * 0.06, 0.1, Math.PI - 0.1);
+    g.arc(start.x, start.y + this.tileSize * 0.06, this.tileSize * 0.065, 0.1, Math.PI - 0.1);
     g.strokePath();
   }
 
@@ -312,22 +342,22 @@ bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
 
   private drawPlayer(tile: number) {
     const center = this.centers[tile];
-    const tokenSize = Math.max(30, this.tileSize * 0.42);
+    const tokenSize = Math.max(34, this.tileSize * 0.45);
 
     const container = this.add.container(center.x, center.y);
     const glow = this.add.graphics();
-    glow.fillStyle(0x4f46e5, 0.18);
-    glow.fillCircle(0, 0, tokenSize * 0.70);
+    glow.fillStyle(0x4f46e5, 0.22);
+    glow.fillCircle(0, 0, tokenSize * 0.74);
 
     const body = this.add.graphics();
     body.fillStyle(0x4f46e5, 1);
     body.lineStyle(4, 0xffffff, 1);
-    body.fillCircle(0, 0, tokenSize * 0.48);
-    body.strokeCircle(0, 0, tokenSize * 0.48);
+    body.fillCircle(0, 0, tokenSize * 0.50);
+    body.strokeCircle(0, 0, tokenSize * 0.50);
 
     const star = this.add.text(0, -1, '★', {
       fontFamily: 'Arial',
-      fontSize: `${Math.round(tokenSize * 0.55)}px`,
+      fontSize: `${Math.round(tokenSize * 0.58)}px`,
       color: '#ffffff',
       fontStyle: '900'
     }).setOrigin(0.5);
@@ -337,7 +367,7 @@ bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
 
     this.tweens.add({
       targets: container,
-      scale: 1.06,
+      scale: 1.07,
       duration: 700,
       yoyo: true,
       repeat: -1,
@@ -346,7 +376,10 @@ bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
   }
 
   private placePlayer(tile: number) {
+    this.currentTile = tile;
+
     if (!this.playerToken) return;
+
     const center = this.centers[tile];
     this.playerToken.setPosition(center.x, center.y);
   }
@@ -363,9 +396,10 @@ bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
       targets: this.playerToken,
       x: center.x,
       y: center.y,
-      duration: 650,
+      duration: 700,
       ease: 'Back.easeOut',
       onComplete: () => {
+        this.currentTile = tile;
         this.emitSmallSparkles(center.x, center.y, 0x4f46e5);
         onDone?.();
       }
@@ -374,23 +408,25 @@ bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
 
   private drawDice(value: number | null) {
     const x = this.scale.width / 2;
-    const y = this.boardY + this.boardWidth + 54;
+    const y = Math.min(this.boardY + this.boardWidth + 54, this.scale.height - 44);
 
     const box = this.add.graphics();
     box.fillStyle(0xffffff, 1);
-    box.lineStyle(2, 0xe2e8f0, 1);
-    box.fillRoundedRect(x - 42, y - 32, 84, 64, 18);
-    box.strokeRoundedRect(x - 42, y - 32, 84, 64, 18);
+    box.lineStyle(3, 0x94a3b8, 1);
+    box.fillRoundedRect(x - 44, y - 34, 88, 68, 18);
+    box.strokeRoundedRect(x - 44, y - 34, 88, 68, 18);
 
     this.diceText = this.add.text(x, y, value ? String(value) : '?', {
       fontFamily: 'Tajawal, Arial',
-      fontSize: '34px',
+      fontSize: '36px',
       color: '#4f46e5',
       fontStyle: '900'
     }).setOrigin(0.5);
   }
 
   private updateDice(value: number | null) {
+    this.currentDiceValue = value;
+
     if (!this.diceText) return;
 
     this.diceText.setText(value ? String(value) : '?');
@@ -440,6 +476,7 @@ bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
 
   private shakeWrong() {
     this.cameras.main.shake(250, 0.01);
+
     if (this.playerToken) {
       this.tweens.add({
         targets: this.playerToken,
@@ -490,8 +527,8 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
       parent,
-      width: parent.clientWidth || 420,
-      height: Math.max(parent.clientHeight || 560, 560),
+      width: Math.max(parent.clientWidth || 360, 320),
+      height: Math.max(parent.clientHeight || 480, 420),
       backgroundColor: '#f8fafc',
       scene: SnakeLadderScene,
       scale: {
@@ -507,20 +544,17 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
     const game = new Phaser.Game(config);
     gameRef.current = game;
 
-    const attachController = () => {
+    const controllerTimer = window.setInterval(() => {
       const scene = game.scene.getScene('SnakeLadderScene') as SnakeLadderScene;
-      if (!scene) return;
 
-      scene.events.on('scene-ready', (controller: PhaserController) => {
-        controllerRef.current = controller;
-      });
-
-      if (scene.controller) controllerRef.current = scene.controller;
-    };
-
-    game.events.once(Phaser.Core.Events.READY, attachController);
+      if (scene?.controller) {
+        controllerRef.current = scene.controller;
+        window.clearInterval(controllerTimer);
+      }
+    }, 50);
 
     return () => {
+      window.clearInterval(controllerTimer);
       controllerRef.current = null;
       game.destroy(true);
       gameRef.current = null;
@@ -796,10 +830,10 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
           </div>
         </section>
 
-        <section className="rounded-3xl overflow-hidden border border-borderColor shadow-sm bg-bgCard">
+        <section className="rounded-3xl overflow-hidden border border-borderColor shadow-card bg-bgCard">
           <div
             ref={containerRef}
-            className="w-full h-[min(72vh,620px)] min-h-[520px] bg-bgMain"
+            className="w-full h-[calc(100dvh-250px)] min-h-[430px] max-h-[760px] bg-bgMain"
           />
         </section>
 
