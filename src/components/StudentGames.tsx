@@ -361,17 +361,17 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   const availableGames = games.filter(g => g.status === 'available');
   const totalQuestions = gameQuestions.length;
 
-  const handleStartGame = (game: GameCardWithAvailability) => {
-    if (game.status !== 'available') return;
+ const handleStartGame = (game: GameCardWithAvailability) => {
+  if (game.id === 'snake_ladder') {
+    setSelectedGame(null);
+    setActiveGame('snake_ladder');
+    return;
+  }
 
-    if (game.id === 'snake_ladder') {
-      setSelectedGame(null);
-      setActiveGame('snake_ladder');
-      return;
-    }
+  if (game.status !== 'available') return;
 
-    alert('سيتم ربط محرك هذه اللعبة في خطوة لاحقة.');
-  };
+  alert('سيتم ربط محرك هذه اللعبة في خطوة لاحقة.');
+};
 
   const handleSnakeLadderComplete = (_result: SnakeLadderResult) => {
     // تحديث إحصائيات الصفحة بعد حفظ نتيجة اللعبة داخل المحرك
