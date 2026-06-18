@@ -18,7 +18,8 @@ import {
   RotateCcw,
   Info
 } from 'lucide-react';
-import StudentSnakeLadderGame, {
+import StudentSnakeLadderGame from './StudentSnakeLadderGame';
+import type {
   SnakeLadderQuestion,
   SnakeLadderResult
 } from './StudentSnakeLadderGame';
