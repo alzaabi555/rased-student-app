@@ -167,9 +167,7 @@ class SnakeLadderScene extends Phaser.Scene {
 
   private drawBackground(width: number, height: number) {
     const bg = this.add.graphics();
-    bg.fillGradientStyle(0xe0f2fe, 0eef2ff, 0xffffff, 0xf8fafc, 1);
-    bg.fillRect(0, 0, width, height);
-
+bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
     bg.fillStyle(0x4f46e5, 0.08);
     bg.fillCircle(width * 0.15, height * 0.12, 120);
     bg.fillStyle(0x0ea5e9, 0.08);
