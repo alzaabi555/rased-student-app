@@ -572,82 +572,87 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
         </section>
       </main>
 
-      {/* نافذة معلومات اللعبة */}
-      {selectedGame && (
-        <>
-          <button
-            type="button"
-            aria-label="إغلاق تفاصيل اللعبة"
-            onClick={() => setSelectedGame(null)}
-            className="fixed inset-0 z-[100] bg-slate-900/20"
-          />
+     {/* نافذة معلومات اللعبة */}
+{selectedGame && (
+  <>
+    <button
+      type="button"
+      aria-label="إغلاق تفاصيل اللعبة"
+      onClick={() => setSelectedGame(null)}
+      className="fixed inset-0 z-[100] bg-slate-900/20"
+    />
 
-<div className="fixed left-4 right-4 bottom-[calc(env(safe-area-inset-bottom)+7.
-  {(() => {
-              const tone = getToneClasses(selectedGame.color);
-              const Icon = selectedGame.icon;
-              const isAvailable = selectedGame.status === 'available';
+    <div className="fixed left-4 right-4 bottom-[calc(env(safe-area-inset-bottom)+120px)] z-[110] max-w-md mx-auto bg-bgCard border border-borderColor rounded-3xl shadow-elevated p-5 animate-in fade-in slide-in-from-bottom-3 duration-200">
+      {(() => {
+        const tone = getToneClasses(selectedGame.color);
+        const Icon = selectedGame.icon;
+        const isAvailable =
+          selectedGame.status === 'available' ||
+          selectedGame.id === 'snake_ladder';
 
-              return (
-                <div>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div
-                      className={`w-12 h-12 rounded-2xl border flex items-center justify-center ${tone.icon}`}
-                    >
-                      <Icon className="w-6 h-6" />
-                    </div>
+        return (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className={`w-12 h-12 rounded-2xl border flex items-center justify-center ${tone.icon}`}
+              >
+                <Icon className="w-6 h-6" />
+              </div>
 
-                    <div>
-                      <h3 className="text-base font-black text-textPrimary">
-                        {selectedGame.title}
-                      </h3>
-                      <p className="text-[10px] font-bold text-textSecondary">
-                        {selectedGame.questionCount} سؤال متاح · {selectedGame.estimatedTime}
-                      </p>
-                    </div>
-                  </div>
+              <div>
+                <h3 className="text-base font-black text-textPrimary">
+                  {selectedGame.title}
+                </h3>
 
-                  <p className="text-xs font-bold text-textSecondary leading-6 mb-4">
-                    {selectedGame.description}
-                  </p>
+                <p className="text-[10px] font-bold text-textSecondary">
+                  {selectedGame.questionCount} سؤال متاح · {selectedGame.estimatedTime}
+                </p>
+              </div>
+            </div>
 
-              {isAvailable || selectedGame.id === 'snake_ladder' ? (
-                   <button
-  type="button"
-  className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`}
-  onClick={() => handleStartGame(selectedGame)}
->
-  <Play className="w-5 h-5" />
-  {selectedGame.id === 'snake_ladder' && selectedGame.questionCount === 0
-    ? 'فتح اللعبة'
-    : 'ابدأ اللعبة'}
-</button>
-                  ) : (
-                    <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
-                      <p className="text-xs font-black text-textPrimary mb-1">
-                        اللعبة غير متاحة بعد
-                      </p>
-                      <p className="text-[10px] font-bold text-textSecondary leading-5">
-                        ستعمل هذه اللعبة عندما يضيف المعلم عددًا كافيًا من
-                        الأسئلة المناسبة لها من راصد المعلم.
-                      </p>
-                    </div>
-                  )}
+            <p className="text-xs font-bold text-textSecondary leading-6 mb-4">
+              {selectedGame.description}
+            </p>
 
-                  <button
-                    type="button"
-                    onClick={() => setSelectedGame(null)}
-                    className="w-full mt-3 h-10 rounded-2xl font-black text-xs text-textSecondary hover:text-danger transition-colors"
-                  >
-                    إغلاق
-                  </button>
-                </div>
-              );
-            })()}
+            {isAvailable ? (
+              <button
+                type="button"
+                className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`}
+                onClick={() => handleStartGame(selectedGame)}
+              >
+                <Play className="w-5 h-5" />
+
+                {selectedGame.id === 'snake_ladder' &&
+                selectedGame.questionCount === 0
+                  ? 'فتح اللعبة'
+                  : 'ابدأ اللعبة'}
+              </button>
+            ) : (
+              <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
+                <p className="text-xs font-black text-textPrimary mb-1">
+                  اللعبة غير متاحة بعد
+                </p>
+
+                <p className="text-[10px] font-bold text-textSecondary leading-5">
+                  ستعمل هذه اللعبة عندما يضيف المعلم عددًا كافيًا من
+                  الأسئلة المناسبة لها من راصد المعلم.
+                </p>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setSelectedGame(null)}
+              className="w-full mt-3 h-10 rounded-2xl font-black text-xs text-textSecondary hover:text-danger transition-colors"
+            >
+              إغلاق
+            </button>
           </div>
-        </>
-      )}
-
+        );
+      })()}
+    </div>
+  </>
+)}
       {/* محرك لعبة السلم والثعبان */}
       {activeGame === 'snake_ladder' && (
         <StudentSnakeLadderGame
