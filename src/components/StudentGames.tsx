@@ -396,7 +396,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
         </p>
       </header>
 
-      <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar px-5 pt-5 pb-[calc(env(safe-area-inset-bottom)+140px)] space-y-5">
+      <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar px-5 pt-5 pb-[calc(env(safe-area-inset-bottom)+180px)] space-y-5">
         {/* بطاقة التقدم */}
         <section className="bg-bgCard border border-borderColor rounded-3xl p-4 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
@@ -582,8 +582,8 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             className="fixed inset-0 z-[100] bg-slate-900/20"
           />
 
-          <div className="fixed left-4 right-4 bottom-[calc(env(safe-area-inset-bottom)+6rem)] z-[110] max-w-md mx-auto bg-bgCard border border-borderColor rounded-3xl shadow-elevated p-5 animate-in fade-in slide-in-from-bottom-3 duration-200">
-            {(() => {
+<div className="fixed left-4 right-4 bottom-[calc(env(safe-area-inset-bottom)+7.
+  {(() => {
               const tone = getToneClasses(selectedGame.color);
               const Icon = selectedGame.icon;
               const isAvailable = selectedGame.status === 'available';
