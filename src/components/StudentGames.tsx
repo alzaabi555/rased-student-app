@@ -119,17 +119,17 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     estimatedTime: '3 دقائق'
   },
   {
-    id: 'snake_ladder',
-    title: 'السلم والثعبان',
-    shortTitle: 'السلم',
-    description: 'تقدم بالإجابات الصحيحة، واحذر من الثعبان عند الخطأ.',
-    icon: RotateCcw,
-    color: 'primary',
-    supportedGameTypes: ['snake_ladder'],
-    supportedQuestionTypes: ['multiple_choice', 'true_false'],
-    minQuestions: 8,
-    estimatedTime: '5 دقائق'
-  },
+  id: 'snake_ladder',
+  title: 'السلم والثعبان',
+  shortTitle: 'السلم',
+  description: 'لوحة تعليمية ممتعة، والأسئلة تظهر عندما يضيفها المعلم.',
+  icon: RotateCcw,
+  color: 'primary',
+  supportedGameTypes: ['snake_ladder'],
+  supportedQuestionTypes: ['multiple_choice', 'true_false'],
+  minQuestions: 0,
+  estimatedTime: 'حسب عدد الأسئلة'
+}
   {
     id: 'match_cards',
     title: 'طابق المفهوم',
