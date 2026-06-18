@@ -611,15 +611,17 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
                     {selectedGame.description}
                   </p>
 
-                  {isAvailable ? (
-                    <button
-                      type="button"
-                      className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`}
-                      onClick={() => handleStartGame(selectedGame)}
-                    >
-                      <Play className="w-5 h-5" />
-                      ابدأ اللعبة
-                    </button>
+              {isAvailable || selectedGame.id === 'snake_ladder' ? (
+                   <button
+  type="button"
+  className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`}
+  onClick={() => handleStartGame(selectedGame)}
+>
+  <Play className="w-5 h-5" />
+  {selectedGame.id === 'snake_ladder' && selectedGame.questionCount === 0
+    ? 'فتح اللعبة'
+    : 'ابدأ اللعبة'}
+</button>
                   ) : (
                     <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
                       <p className="text-xs font-black text-textPrimary mb-1">
