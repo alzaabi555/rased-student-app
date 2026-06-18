@@ -18,7 +18,7 @@ import StudentDashboard from './StudentDashboard';
 import StudentTasks from './StudentTasks';
 import StudentGrades from './StudentGrades';
 import StudentLibrary from './StudentLibrary';
-import StudentReviewPlan from './StudentReviewPlan';
+import StudentReviewPlan from './StudentGames';
 
 const StudentApp: React.FC = () => {
   const { dir, studentData, loading, login } = useApp();
@@ -98,7 +98,7 @@ const StudentApp: React.FC = () => {
   const NAV_ITEMS = [
     { id: 'home', icon: Home, label: 'الرئيسية' },
     { id: 'tasks', icon: CheckSquare, label: 'مهامي' },
-    { id: 'review', icon: Target, label: 'مراجعتي' },
+    { id: 'review', icon: Target, label: 'العابي' },
     { id: 'grades', icon: ShieldCheck, label: 'إتقاني' },
     { id: 'library', icon: Library, label: 'مكتبتي' }
   ] as const;
