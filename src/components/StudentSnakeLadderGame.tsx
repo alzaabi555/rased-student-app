@@ -193,7 +193,7 @@ bg.fillGradientStyle(0xe0f2fe, 0xeef2ff, 0xffffff, 0xf8fafc, 1);
     boardBg.fillRoundedRect(this.boardX, this.boardY, this.boardWidth, this.boardWidth, 28);
     boardBg.strokeRoundedRect(this.boardX, this.boardY, this.boardWidth, this.boardWidth, 28);
 
-    const tileColors = [0xffffff, 0xf8fafc, 0eef2ff, 0xecfeff];
+    const tileColors = [0xffffff, 0xf8fafc, 0xeef2ff, 0xecfeff];
 
     for (let tile = 1; tile <= BOARD_SIZE; tile++) {
       const center = this.centers[tile];
