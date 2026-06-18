@@ -371,17 +371,20 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
 
       {/* Body */}
       <main className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-4">
-        {!canPlay && (
-          <section className="bg-warning/10 border border-warning/20 rounded-3xl p-4 text-center shadow-sm">
-            <HelpCircle className="w-10 h-10 text-warning mx-auto mb-3" />
-            <h2 className="text-sm font-black text-textPrimary mb-1">
-              لا توجد أسئلة كافية
-            </h2>
-            <p className="text-[10px] font-bold text-textSecondary leading-6">
-              ستعمل اللعبة عندما يضيف المعلم أسئلة مناسبة من راصد المعلم.
-            </p>
-          </section>
-        )}
+       {!canPlay && (
+  <section className="bg-warning/10 border border-warning/20 rounded-3xl p-4 text-center shadow-sm">
+    <HelpCircle className="w-10 h-10 text-warning mx-auto mb-3" />
+
+    <h2 className="text-sm font-black text-textPrimary mb-1">
+      اللعبة جاهزة بانتظار أسئلة المعلم
+    </h2>
+
+    <p className="text-[10px] font-bold text-textSecondary leading-6">
+      ستظهر أسئلة السلم والثعبان هنا تلقائيًا عندما يضيف المعلم محتوى الألعاب من راصد المعلم.
+      يمكنك فتح اللعبة الآن، وسيتم تفعيل اللعب عند توفر الأسئلة.
+    </p>
+  </section>
+)}
 
         {/* Stats */}
         <section className="grid grid-cols-4 gap-2">
@@ -512,7 +515,11 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
                 className="w-full h-12 rounded-2xl bg-primary text-white font-black active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <Dice5 className="w-5 h-5" />
-                {isRolling ? 'جارٍ رمي النرد...' : 'ارمِ النرد'}
+{!canPlay
+  ? 'بانتظار أسئلة المعلم'
+  : isRolling
+    ? 'جارٍ رمي النرد...'
+    : 'ارمِ النرد'}          
               </button>
             </div>
           )}
