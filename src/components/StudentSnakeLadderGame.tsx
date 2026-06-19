@@ -864,8 +864,8 @@ className="w-14 h-14 max-[380px]:w-380px]:h-12 rounded-2xl bg-primary text-white
           <section className="order-1 lg:order-2 rounded-3xl overflow-hidden border border-borderColor shadow-card bg-bgCard min-h-[220px] lg:min-h-0 lg:h-full">
             <div
               ref={containerRef}
-              className="w-full h-[clamp(205px,calc(100dvh-430px),620px)] max-h-[620px] lg:h-full lg:min-h-0 lg:max-h-none bg-bg
-            />
+              className="w-full h-[clamp(205px,calc(100dvh-430px),620px)] max-h-[620px] lg:h-full lg:min-h-0 lg:max-h-none bg-bgMain"
+              />
           </section>
         </div>
       </main>{currentQuestion && (
