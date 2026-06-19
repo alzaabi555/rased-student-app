@@ -452,36 +452,42 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
   };
 
   const resolveShot = (goalScored: boolean) => {
-    if (resolvingShotRef.current) return;
-    resolvingShotRef.current = true;
+  if (resolvingShotRef.current) return;
+  resolvingShotRef.current = true;
 
-   const ok = answerWasCorrectRef.current;
+  const ok = answerWasCorrectRef.current;
 
-// قاعدة تربوية حاسمة:
-// الإجابة الخاطئة لا تتحول إلى هدف، حتى لو دخلت الكرة هندسيًا داخل المرمى.
-// الهدف مسموح فقط بعد إجابة صحيحة.
-const finalGoalSc
-      netPulseRef.current = 1;
-      setGoals(prev => prev + 1);
-      setScore(prev => prev + 220);
-      setFeedback({
-        type: 'goal',
-message: 'هدف! تسديدة معرفية قوية هزّت الشباك.'
-      });
-      createBurst(ballRef.current.x, ballRef.current.y, '#facc15', 34);
-    } else {
-      shakeRef.current = 8;
-      setSaves(prev => prev + 1);
-      setFeedback({
-        type: 'save',
-        message: ok ? 'الحارس تصدى ببراعة!' : 'الحارس قرأ التسديدة وتصدى لها.'
-      });
-      createBurst(ballRef.current.x, ballRef.current.y, '#38bdf8', 24);
-    }
+  // قاعدة تربوية:
+  // الإجابة الخاطئة لا تتحول إلى هدف أبدًا.
+  // حتى لو دخلت الكرة بصريًا في المرمى، النتيجة تكون تصدي.
+  const finalGoalScored = ok ? goalScored : false;
 
-    syncGameState('round_result');
-    window.setTimeout(nextRound, ROUND_RESULT_MS);
-  };
+  ballRef.current.moving = false;
+
+  if (finalGoalScored) {
+    netPulseRef.current = 1;
+    setGoals(prev => prev + 1);
+    setScore(prev => prev + 220);
+    setFeedback({
+      type: 'goal',
+      message: 'هدف! تسديدة معرفية قوية هزّت الشباك.'
+    });
+    createBurst(ballRef.current.x, ballRef.current.y, '#facc15', 34);
+  } else {
+    shakeRef.current = 8;
+    setSaves(prev => prev + 1);
+    setFeedback({
+      type: 'save',
+      message: ok
+        ? 'الحارس تصدى ببراعة!'
+        : 'الحارس قرأ التسديدة لأن الإجابة كانت خاطئة.'
+    });
+    createBurst(ballRef.current.x, ballRef.current.y, '#38bdf8', ok ? 24 : 32);
+  }
+
+  syncGameState('round_result');
+  window.setTimeout(nextRound, ROUND_RESULT_MS);
+};
 
   const drawRoundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
     const radius = Math.min(r, w / 2, h / 2);
