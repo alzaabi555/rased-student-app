@@ -442,6 +442,9 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
 
     keeperRef.current.targetX = goal.x + goal.w * keeperZone.xRatio;
     keeperRef.current.targetY = goal.y + goal.h * keeperZone.yRatio;
+      keeperRef.current.reach = ok
+  ? clamp(goal.w * 0.12, 42, 62)
+  : clamp(goal.w * 0.18, 58, 86);
     keeperRef.current.diving = true;
 
     createBurst(ball.x, ball.y, ok ? '#facc15' : '#94a3b8', ok ? 18 : 8);
@@ -452,16 +455,18 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
     if (resolvingShotRef.current) return;
     resolvingShotRef.current = true;
 
-    const ok = answerWasCorrectRef.current;
-    ballRef.current.moving = false;
+   const ok = answerWasCorrectRef.current;
 
-    if (goalScored) {
+// قاعدة تربوية حاسمة:
+// الإجابة الخاطئة لا تتحول إلى هدف، حتى لو دخلت الكرة هندسيًا داخل المرمى.
+// الهدف مسموح فقط بعد إجابة صحيحة.
+const finalGoalSc
       netPulseRef.current = 1;
       setGoals(prev => prev + 1);
-      setScore(prev => prev + (ok ? 220 : 80));
+      setScore(prev => prev + 220);
       setFeedback({
         type: 'goal',
-        message: ok ? 'هدف! تسديدة معرفية قوية هزّت الشباك.' : 'هدف بصعوبة رغم الإجابة الخاطئة!'
+message: 'هدف! تسديدة معرفية قوية هزّت الشباك.'
       });
       createBurst(ballRef.current.x, ballRef.current.y, '#facc15', 34);
     } else {
