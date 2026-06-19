@@ -562,24 +562,45 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
 
           {(gameState === 'playing' || gameState === 'feedback') && currentQuestion && (
             <section className="space-y-4">
-              <div className="grid grid-cols-4 gap-2">
-                <div className="rounded-2xl bg-slate-950/60 border border-white/15 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.22)]">
-                  <p className="text-[8px] font-bold text-slate-300">النقاط</p>
-                  <p className="text-base font-black text-yellow-200">{score}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-950/60 border border-white/15 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.22)]">
-                  <p className="text-[8px] font-bold text-slate-300">السلسلة</p>
-                  <p className="text-base font-black text-emerald-200 flex items-center justify-center gap-1"><Flame className="w-4 h-4" />{streak}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-950/60 border border-white/15 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.22)]">
-                  <p className="text-[8px] font-bold text-slate-300">الوقت</p>
-                  <p className={`text-base font-black ${timeColor}`}>{timeLeft}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-950/60 border border-white/15 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.22)]">
-                  <p className="text-[8px] font-bold text-slate-300">محاولات</p>
-                  <p className="text-base font-black text-red-200 flex items-center justify-center gap-1"><Heart className="w-4 h-4" />{lives}</p>
-                </div>
-              </div>
+             <div className="grid grid-cols-4 gap-2">
+  <div className="rounded-2xl bg-slate-950/80 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+    <p className="text-[9px] font-black text-slate-100 mb-1">
+      النقاط
+    </p>
+    <p className="text-lg font-black text-yellow-300 drop-shadow">
+      {score}
+    </p>
+  </div>
+
+  <div className="rounded-2xl bg-slate-950/80 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+    <p className="text-[9px] font-black text-slate-100 mb-1">
+      السلسلة
+    </p>
+    <p className="text-lg font-black text-emerald-300 drop-shadow flex items-center justify-center gap-1">
+      <Flame className="w-4 h-4" />
+      {streak}
+    </p>
+  </div>
+
+  <div className="rounded-2xl bg-slate-950/80 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+    <p className="text-[9px] font-black text-slate-100 mb-1">
+      الوقت
+    </p>
+    <p className={`text-lg font-black drop-shadow ${timeColor}`}>
+      {timeLeft}
+    </p>
+  </div>
+
+  <div className="rounded-2xl bg-slate-950/90 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+    <p className="text-[9px] font-black text-slate-100 mb-1">
+      محاولات
+    </p>
+    <p className="text-xl font-black text-red-300 drop-shadow flex items-center justify-center gap-1">
+      <Heart className="w-4 h-4" />
+      {lives}
+    </p>
+  </div>
+</div>
 
               <div className="rounded-full bg-slate-950/55 border border-white/15 h-3 overflow-hidden shadow-inner">
                 <div className={`h-full bg-gradient-to-l ${timeBarColor} transition-all duration-300`} style={{ width: `${Math.max(4, (timeLeft / QUESTION_SECONDS) * 100)}%` }} />
