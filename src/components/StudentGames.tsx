@@ -99,7 +99,7 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     color: 'warning',
     supportedGameTypes: ['race', 'knowledge_race'],
     supportedQuestionTypes: ['multiple_choice'],
-    minQuestions: 5,
+    minQuestions: 1,
     estimatedTime: '3 - 5 دقائق'
   },
   {
@@ -111,7 +111,7 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     color: 'success',
     supportedGameTypes: ['true_false'],
     supportedQuestionTypes: ['true_false'],
-    minQuestions: 5,
+    minQuestions: 1,
     estimatedTime: 'دقيقتان'
   },
   {
@@ -123,7 +123,7 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     color: 'info',
     supportedGameTypes: ['football', 'penalty'],
     supportedQuestionTypes: ['multiple_choice', 'true_false'],
-    minQuestions: 5,
+    minQuestions: 1,
     estimatedTime: '3 دقائق'
   },
   {
@@ -147,7 +147,7 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     color: 'danger',
     supportedGameTypes: ['matching', 'match_cards'],
     supportedQuestionTypes: ['matching'],
-    minQuestions: 4,
+    minQuestions: 1,
     estimatedTime: '3 دقائق'
   },
   {
@@ -159,7 +159,7 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     color: 'primary',
     supportedGameTypes: ['sequence', 'order'],
     supportedQuestionTypes: ['sequence'],
-    minQuestions: 3,
+    minQuestions: 1,
     estimatedTime: '3 دقائق'
   },
   {
@@ -171,7 +171,7 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     color: 'warning',
     supportedGameTypes: ['hints', 'who_am_i'],
     supportedQuestionTypes: ['hints'],
-    minQuestions: 3,
+    minQuestions: 1,
     estimatedTime: 'دقيقتان'
   }
 ];
