@@ -739,21 +739,31 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
     </section>
   );
 
-  const diceFace = (
-    <div
-className={`relative h-14 sm:h-16 rounded-2xl bg-white border-2 border-primary/30 shadow-card flex items-center justify-center gap-1.5 sm:gap-2 shrink-0 overflow-hidden px-2.5 sm:px-3 ${        isRolling ? 'ring-4 ring-primary/10' : ''
+ const diceFace = (
+  <div
+    className={`relative h-14 sm:h-16 min-w-[96px] rounded-[1.25rem] border-2 border-primary/25 bg-white shadow-[0_10px_24px_rgba(79,70,229,0.18)] flex items-center justify-center gap-2 px-3 overflow-hidden shrink-0 ${
+      isRolling ? 'scale-105 ring-4 ring-primary/10' : ''
+    } transition-all duration-200`}
+    aria-label={`نتيجة النرد ${dice || 'غير محددة'}`}
+  >
+    <div className="absolute inset-0 bg-gradient-to-br from-white via-primary/10 to-warning/20" />
+    <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full bg-white/70 blur-sm" />
+    <div className="absolute -bottom-5 -left-5 w-12 h-12 rounded-full bg-primary/10 blur-sm" />
+
+    <span
+      className={`relative text-[28px] sm:text-[34px] leading-none drop-shadow-sm ${
+        isRolling ? 'animate-spin' : ''
       }`}
-      aria-label={`نتيجة النرد ${dice || 'غير محددة'}`}
+      aria-hidden="true"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-white to-warning/10" />
-<span className="relative text-2xl sm:text-3xl leading-none drop-shadow-sm" aria-hidden="true">  
-  🎲
-      </span>
-<span className="relative min-w-5 sm:min-w-6 text-center text-2xl sm:text-3xl font-black text-primary leading-none">    
-  {dice || '?'}
-      </span>
-    </div>
-  );
+      🎲
+    </span>
+
+    <span className="relative min-w-7 text-center text-2xl sm:text-3xl font-black text-primary leading-none drop-shadow-sm">
+      {dice || '?'}
+    </span>
+  </div>
+);
 
   const controlBlock = (
     <section className="bg-bgCard border border-borderColor rounded-3xl p-4 shadow-sm">
@@ -801,14 +811,22 @@ className={`relative h-14 sm:h-16 rounded-2xl bg-white border-2 border-primary/3
             <div className="flex items-center gap-2 shrink-0">
               {diceFace}
               <button
-                type="button"
-                onClick={rollDice}
-                disabled={!canPlay || Boolean(currentQuestion) || isRolling}
-className="w-14 h-14 max-[380px]:w-380px]:h-12 rounded-2xl bg-primary text-white font-black active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-card"                aria-label="ارمِ النرد"
-                title={!canPlay ? 'بانتظار أسئلة المعلم' : 'ارمِ النرد'}
-              >
-                <Dice5 className={`w-6 h-6 ${isRolling ? 'animate-spin' : ''}`} />
-              </button>
+  type="button"
+  onClick={rollDice}
+  disabled={!canPlay || Boolean(currentQuestion) || isRolling}
+  className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-[1.25rem] bg-gradient-to-br from-primary via-primary to-indigo-700 text-white font-black active:scale-95 active:translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-[0_12px_24px_rgba(79,70,229,0.35)] border border-white/20 overflow-hidden"
+  aria-label="ارمِ النرد"
+  title={!canPlay ? 'بانتظار أسئلة المعلم' : 'ارمِ النرد'}
+>
+  <div className="absolute inset-0 bg-gradient-to-br from-white/25 via-transparent to-black/10" />
+  <div className="absolute top-1.5 right-2 w-5 h-5 rounded-full bg-white/25 blur-[1px]" />
+
+  <Dice5
+    className={`relative w-6 h-6 sm:w-7 sm:h-7 drop-shadow-sm ${
+      isRolling ? 'animate-spin' : ''
+    }`}
+  />
+</button>
             </div>
           </div>
 
