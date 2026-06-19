@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import Phaser from 'phaser';
+import React, { useMemo, useState } from 'react';
 import {
   X,
   Dice5,
@@ -8,11 +7,17 @@ import {
   Heart,
   XCircle,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Star
 } from 'lucide-react';
+import SnakeLadderCanvasBoard from './SnakeLadderCanvasBoard';
 
 // =========================================================================
-// 🐍🪜 السلم والثعبان التعليمي - النسخة النهائية المتجاوبة
+// 🐍🪜 السلم والثعبان التعليمي - نسخة Canvas
+// -------------------------------------------------------------------------
+// هذه النسخة تستبدل عرض Phaser بلوحة Canvas مستقلة:
+// - SnakeLadderCanvasBoard يرسم اللوحة والثعابين والسلالم واللاعب.
+// - هذا الملف يحتفظ بمنطق اللعبة: النرد، الأسئلة، الفوز، الحفظ، الإحصائيات.
 // =========================================================================
 
 export interface SnakeLadderQuestion {
@@ -53,14 +58,6 @@ type FeedbackState = {
   message: string;
   explanation?: string;
 } | null;
-
-type PhaserController = {
-  movePlayerTo: (tile: number, onDone?: () => void) => void;
-  setDice: (value: number | null) => void;
-  celebrate: () => void;
-  shakeWrong: () => void;
-  resetPlayer: () => void;
-};
 
 const BOARD_SIZE = 36;
 const BOARD_COLUMNS = 6;
@@ -103,343 +100,7 @@ const shuffleArray = <T,>(arr: T[]) => {
 };
 
 const getTodayKey = () => new Date().toLocaleDateString('en-CA');
-
-const buildTileCenters = (boardX: number, boardY: number, tileSize: number) => {
-  const centers: Record<number, { x: number; y: number }> = {};
-
-  for (let tile = 1; tile <= BOARD_SIZE; tile++) {
-    const rowFromBottom = Math.floor((tile - 1) / BOARD_COLUMNS);
-    const colInRow = (tile - 1) % BOARD_COLUMNS;
-    const visualRow = BOARD_COLUMNS - 1 - rowFromBottom;
-    const visualCol = rowFromBottom % 2 === 0 ? colInRow : BOARD_COLUMNS - 1 - colInRow;
-
-    centers[tile] = {
-      x: boardX + visualCol * tileSize + tileSize / 2,
-      y: boardY + visualRow * tileSize + tileSize / 2
-    };
-  }
-
-  return centers;
-};
-
-class SnakeLadderScene extends Phaser.Scene {
-  private boardWidth = 0;
-  private boardX = 0;
-  private boardY = 0;
-  private tileSize = 0;
-  private centers: Record<number, { x: number; y: number }> = {};
-  private playerToken?: Phaser.GameObjects.Container;
-  private currentTile = 1;
-  private resizeTimer?: Phaser.Time.TimerEvent;
-  public controller?: PhaserController;
-
-  constructor() {
-    super('SnakeLadderScene');
-  }
-
-  create() {
-    this.renderScene();
-    this.scale.on('resize', this.handleResize, this);
-
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.scale.off('resize', this.handleResize, this);
-      if (this.resizeTimer) this.resizeTimer.remove(false);
-    });
-
-    this.controller = {
-      movePlayerTo: (tile: number, onDone?: () => void) => this.animateMoveTo(tile, onDone),
-      setDice: () => undefined,
-      celebrate: () => this.emitCelebration(),
-      shakeWrong: () => this.shakeWrong(),
-      resetPlayer: () => this.placePlayer(1)
-    };
-
-    this.events.emit('scene-ready', this.controller);
-  }
-
-  private renderScene() {
-    this.children.removeAll(true);
-    this.playerToken = undefined;
-
-    const width = this.scale.width;
-    const height = this.scale.height;
-
-    this.cameras.main.setBackgroundColor('#f8fafc');
-    this.drawBackground(width, height);
-    this.drawBoard(width, height);
-    this.drawSnakesAndLadders();
-    this.drawPlayer(this.currentTile);
-  }
-
-  private handleResize() {
-    if (this.resizeTimer) this.resizeTimer.remove(false);
-    this.resizeTimer = this.time.delayedCall(100, () => this.renderScene());
-  }
-
-  private drawBackground(width: number, height: number) {
-    const bg = this.add.graphics();
-    bg.fillGradientStyle(0xbfdbfe, 0xc7d2fe, 0xfef3c7, 0xdcfce7, 1);
-    bg.fillRect(0, 0, width, height);
-
-    const r = Math.min(width, height);
-    bg.fillStyle(0x4f46e5, 0.11);
-    bg.fillCircle(width * 0.13, height * 0.14, r * 0.16);
-    bg.fillStyle(0x0ea5e9, 0.12);
-    bg.fillCircle(width * 0.88, height * 0.18, r * 0.18);
-    bg.fillStyle(0xf59e0b, 0.10);
-    bg.fillCircle(width * 0.14, height * 0.85, r * 0.16);
-  }
-
-  private drawBoard(width: number, height: number) {
-    const isWide = width >= 720;
-    const verticalPadding = isWide ? 24 : 10;
-    const minBoard = isWide ? 300 : 210;
-    const maxBoard = isWide ? 920 : 680;
-
-    this.boardWidth = Math.max(
-      minBoard,
-      Math.min(width - 16, height - verticalPadding * 2, maxBoard)
-    );
-
-    this.tileSize = this.boardWidth / BOARD_COLUMNS;
-    this.boardX = (width - this.boardWidth) / 2;
-    this.boardY = Math.max(verticalPadding, Math.floor((height - this.boardWidth) / 2));
-    this.centers = buildTileCenters(this.boardX, this.boardY, this.tileSize);
-
-    const shadow = this.add.graphics();
-    shadow.fillStyle(0x0f172a, 0.16);
-    shadow.fillRoundedRect(this.boardX + 5, this.boardY + 8, this.boardWidth, this.boardWidth, 28);
-
-    const boardBg = this.add.graphics();
-    boardBg.fillStyle(0xffffff, 1);
-    boardBg.lineStyle(3, 0x94a3b8, 1);
-    boardBg.fillRoundedRect(this.boardX, this.boardY, this.boardWidth, this.boardWidth, 28);
-    boardBg.strokeRoundedRect(this.boardX, this.boardY, this.boardWidth, this.boardWidth, 28);
-
-    const tileColors = [0xffffff, 0xdbeafe, 0xdcfce7, 0xfef3c7, 0xfce7f3];
-
-    for (let tile = 1; tile <= BOARD_SIZE; tile++) {
-      const center = this.centers[tile];
-      const gap = Math.max(4, this.tileSize * 0.07);
-      const x = center.x - this.tileSize / 2 + gap;
-      const y = center.y - this.tileSize / 2 + gap;
-      const tileW = this.tileSize - gap * 2;
-      const color = tile === 1 ? 0xbfdbfe : tile === BOARD_SIZE ? 0xfcd34d : tileColors[tile % tileColors.length];
-
-      const g = this.add.graphics();
-      g.fillStyle(color, 1);
-      g.lineStyle(2, 0xcbd5e1, 1);
-      g.fillRoundedRect(x, y, tileW, tileW, Math.max(8, this.tileSize * 0.13));
-      g.strokeRoundedRect(x, y, tileW, tileW, Math.max(8, this.tileSize * 0.13));
-
-      this.add.text(x + tileW - 6, y + 5, String(tile), {
-        fontFamily: 'Tajawal, Arial',
-        fontSize: `${Math.max(9, Math.round(this.tileSize * 0.13))}px`,
-        color: '#334155',
-        fontStyle: '900'
-      }).setOrigin(1, 0);
-
-      if (tile === 1) {
-        this.add.text(center.x, center.y + tileW * 0.16, 'بداية', {
-          fontFamily: 'Tajawal, Arial',
-          fontSize: `${Math.max(9, Math.round(this.tileSize * 0.15))}px`,
-          color: '#1d4ed8',
-          fontStyle: '900'
-        }).setOrigin(0.5);
-      }
-
-      if (tile === BOARD_SIZE) {
-        this.add.text(center.x, center.y + tileW * 0.16, 'النهاية', {
-          fontFamily: 'Tajawal, Arial',
-          fontSize: `${Math.max(9, Math.round(this.tileSize * 0.15))}px`,
-          color: '#92400e',
-          fontStyle: '900'
-        }).setOrigin(0.5);
-      }
-    }
-  }
-
-  private drawLadder(from: number, to: number) {
-    const start = this.centers[from];
-    const end = this.centers[to];
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const length = Math.sqrt(dx * dx + dy * dy) || 1;
-    const nx = -dy / length;
-    const ny = dx / length;
-    const railGap = Math.max(10, this.tileSize * 0.14);
-    const steps = 5;
-
-    const g = this.add.graphics();
-    g.lineStyle(Math.max(7, this.tileSize * 0.09), 0x15803d, 1);
-    g.lineBetween(start.x + nx * railGap, start.y + ny * railGap, end.x + nx * railGap, end.y + ny * railGap);
-    g.lineBetween(start.x - nx * railGap, start.y - ny * railGap, end.x - nx * railGap, end.y - ny * railGap);
-
-    g.lineStyle(Math.max(4, this.tileSize * 0.055), 0xbbf7d0, 1);
-    for (let index = 1; index <= steps; index++) {
-      const t = index / (steps + 1);
-      const ax = start.x + nx * railGap + (end.x - start.x) * t;
-      const ay = start.y + ny * railGap + (end.y - start.y) * t;
-      const bx = start.x - nx * railGap + (end.x - start.x) * t;
-      const by = start.y - ny * railGap + (end.y - start.y) * t;
-      g.lineBetween(ax, ay, bx, by);
-    }
-  }
-
-  private drawSnake(from: number, to: number, index: number) {
-    const start = this.centers[from];
-    const end = this.centers[to];
-    const midX = (start.x + end.x) / 2 + (index % 2 === 0 ? this.tileSize * 0.5 : -this.tileSize * 0.5);
-    const midY = (start.y + end.y) / 2;
-
-    const curve = new Phaser.Curves.QuadraticBezier(
-      new Phaser.Math.Vector2(start.x, start.y),
-      new Phaser.Math.Vector2(midX, midY),
-      new Phaser.Math.Vector2(end.x, end.y)
-    );
-
-    const points = curve.getPoints(48);
-    const g = this.add.graphics();
-
-    g.lineStyle(Math.max(12, this.tileSize * 0.15), 0xdc2626, 1);
-    g.beginPath();
-    g.moveTo(points[0].x, points[0].y);
-    for (const p of points.slice(1)) g.lineTo(p.x, p.y);
-    g.strokePath();
-
-    g.lineStyle(Math.max(4, this.tileSize * 0.05), 0xffffff, 0.85);
-    for (let i = 0; i < points.length - 1; i += 5) {
-      const a = points[i];
-      const b = points[Math.min(i + 2, points.length - 1)];
-      g.lineBetween(a.x, a.y, b.x, b.y);
-    }
-
-    g.fillStyle(0xdc2626, 1);
-    g.lineStyle(4, 0xffffff, 1);
-    g.fillCircle(start.x, start.y, this.tileSize * 0.21);
-    g.strokeCircle(start.x, start.y, this.tileSize * 0.21);
-
-    g.fillStyle(0xffffff, 1);
-    g.fillCircle(start.x - this.tileSize * 0.07, start.y - this.tileSize * 0.055, Math.max(3, this.tileSize * 0.032));
-    g.fillCircle(start.x + this.tileSize * 0.07, start.y - this.tileSize * 0.055, Math.max(3, this.tileSize * 0.032));
-
-    g.fillStyle(0x111827, 1);
-    g.fillCircle(start.x - this.tileSize * 0.07, start.y - this.tileSize * 0.055, Math.max(1.4, this.tileSize * 0.015));
-    g.fillCircle(start.x + this.tileSize * 0.07, start.y - this.tileSize * 0.055, Math.max(1.4, this.tileSize * 0.015));
-  }
-
-  private drawSnakesAndLadders() {
-    Object.entries(LADDERS).forEach(([from, to]) => this.drawLadder(Number(from), to));
-    Object.entries(SNAKES).forEach(([from, to], index) => this.drawSnake(Number(from), to, index));
-  }
-
-  private drawPlayer(tile: number) {
-    const center = this.centers[tile];
-    const tokenSize = Math.max(28, this.tileSize * 0.45);
-
-    const container = this.add.container(center.x, center.y);
-    const glow = this.add.graphics();
-    glow.fillStyle(0x4f46e5, 0.22);
-    glow.fillCircle(0, 0, tokenSize * 0.74);
-
-    const body = this.add.graphics();
-    body.fillStyle(0x4f46e5, 1);
-    body.lineStyle(4, 0xffffff, 1);
-    body.fillCircle(0, 0, tokenSize * 0.50);
-    body.strokeCircle(0, 0, tokenSize * 0.50);
-
-    const star = this.add.text(0, -1, '★', {
-      fontFamily: 'Arial',
-      fontSize: `${Math.round(tokenSize * 0.58)}px`,
-      color: '#ffffff',
-      fontStyle: '900'
-    }).setOrigin(0.5);
-
-    container.add([glow, body, star]);
-    this.playerToken = container;
-
-    this.tweens.add({
-      targets: container,
-      scale: 1.07,
-      duration: 700,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
-  }
-
-  private placePlayer(tile: number) {
-    this.currentTile = tile;
-    if (!this.playerToken) return;
-    const center = this.centers[tile];
-    this.playerToken.setPosition(center.x, center.y);
-  }
-
-  private animateMoveTo(tile: number, onDone?: () => void) {
-    if (!this.playerToken) {
-      onDone?.();
-      return;
-    }
-
-    const center = this.centers[tile];
-    this.tweens.add({
-      targets: this.playerToken,
-      x: center.x,
-      y: center.y,
-      duration: 700,
-      ease: 'Back.easeOut',
-      onComplete: () => {
-        this.currentTile = tile;
-        this.emitSmallSparkles(center.x, center.y, 0x4f46e5);
-        onDone?.();
-      }
-    });
-  }
-
-  private emitSmallSparkles(x: number, y: number, color: number) {
-    for (let i = 0; i < 12; i++) {
-      const particle = this.add.circle(x, y, 4, color, 0.9);
-      this.tweens.add({
-        targets: particle,
-        x: x + Phaser.Math.Between(-45, 45),
-        y: y + Phaser.Math.Between(-45, 45),
-        alpha: 0,
-        scale: 0.2,
-        duration: 520,
-        ease: 'Cubic.easeOut',
-        onComplete: () => particle.destroy()
-      });
-    }
-  }
-
-  private emitCelebration() {
-    const x = this.scale.width / 2;
-    const y = this.boardY + 40;
-
-    for (let i = 0; i < 35; i++) {
-      const color = Phaser.Display.Color.GetColor(
-        Phaser.Math.Between(50, 245),
-        Phaser.Math.Between(120, 245),
-        Phaser.Math.Between(50, 245)
-      );
-      this.emitSmallSparkles(x + Phaser.Math.Between(-120, 120), y + Phaser.Math.Between(0, 140), color);
-    }
-  }
-
-  private shakeWrong() {
-    this.cameras.main.shake(250, 0.01);
-    if (this.playerToken) {
-      this.tweens.add({
-        targets: this.playerToken,
-        x: this.playerToken.x + 8,
-        duration: 55,
-        yoyo: true,
-        repeat: 3,
-        ease: 'Sine.easeInOut'
-      });
-    }
-  }
-}
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
   questions,
@@ -447,10 +108,6 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
   onClose,
   onComplete
 }) => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const gameRef = useRef<Phaser.Game | null>(null);
-  const controllerRef = useRef<PhaserController | null>(null);
-
   const usableQuestions = useMemo(() => normalizeQuestions(questions), [questions]);
   const questionDeck = useMemo(() => shuffleArray(usableQuestions), [usableQuestions]);
 
@@ -467,50 +124,10 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
   const [lives, setLives] = useState(3);
   const [completed, setCompleted] = useState(false);
   const [weakQuestionIds, setWeakQuestionIds] = useState<string[]>([]);
+  const [lastMoveLabel, setLastMoveLabel] = useState('استعد للعب');
 
   const canPlay = usableQuestions.length > 0;
   const correctToWin = Math.min(MIN_CORRECT_TO_WIN, Math.max(1, usableQuestions.length));
-
-  useEffect(() => {
-    if (!containerRef.current || gameRef.current) return;
-
-    const parent = containerRef.current;
-
-    const config: Phaser.Types.Core.GameConfig = {
-      type: Phaser.AUTO,
-      parent,
-      width: Math.max(parent.clientWidth || 320, 260),
-      height: Math.max(parent.clientHeight || 300, 220),
-      backgroundColor: '#f8fafc',
-      scene: SnakeLadderScene,
-      scale: {
-        mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.CENTER_BOTH
-      },
-      render: {
-        antialias: true,
-        pixelArt: false
-      }
-    };
-
-    const game = new Phaser.Game(config);
-    gameRef.current = game;
-
-    const controllerTimer = window.setInterval(() => {
-      const scene = game.scene.getScene('SnakeLadderScene') as SnakeLadderScene;
-      if (scene?.controller) {
-        controllerRef.current = scene.controller;
-        window.clearInterval(controllerTimer);
-      }
-    }, 50);
-
-    return () => {
-      window.clearInterval(controllerTimer);
-      controllerRef.current = null;
-      game.destroy(true);
-      gameRef.current = null;
-    };
-  }, []);
 
   const pickQuestion = () => {
     if (questionDeck.length === 0) return null;
@@ -563,7 +180,7 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
       console.error('Failed to save snake ladder result', error);
     }
 
-    if (onComplete) onComplete(result);
+    onComplete?.(result);
   };
 
   const rollDice = () => {
@@ -571,6 +188,7 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
 
     setIsRolling(true);
     setFeedback(null);
+    setLastMoveLabel('جارٍ رمي النرد...');
 
     let rolls = 0;
     const interval = window.setInterval(() => {
@@ -585,51 +203,25 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
         setPendingMove(finalDice);
         setCurrentQuestion(pickQuestion());
         setIsRolling(false);
+        setLastMoveLabel(`رميت ${finalDice}، أجب لتتحرك`);
       }
     }, 80);
   };
 
-  const resolveMove = (isCorrect: boolean) => {
-    if (!currentQuestion) return;
-
-    if (!isCorrect) {
-      const nextWrong = wrong + 1;
-      const nextLives = lives - 1;
-      const nextWeakIds = Array.from(new Set([...weakQuestionIds, currentQuestion.id]));
-
-      setWrong(nextWrong);
-      setLives(nextLives);
-      setWeakQuestionIds(nextWeakIds);
-      controllerRef.current?.shakeWrong();
-      setFeedback({
-        type: 'wrong',
-        message: 'إجابة غير صحيحة، حاول مرة أخرى في السؤال القادم.',
-        explanation: currentQuestion.explanation
-      });
-
-      setTimeout(() => {
-        setCurrentQuestion(null);
-        setFeedback(null);
-        setQuestionIndex(prev => prev + 1);
-
-        if (nextLives <= 0) {
-          saveResult(false, score, correct, nextWrong, nextWeakIds, position);
-        }
-      }, 1700);
-
-      return;
-    }
-
+  const completeCorrectMove = (question: SnakeLadderQuestion) => {
     const rawPosition = Math.min(position + pendingMove, BOARD_SIZE);
     let finalPosition = rawPosition;
     let bonusMessage = 'إجابة صحيحة! تقدمت في اللوحة.';
+    let moveLabel = `تقدمت إلى الخانة ${rawPosition}`;
 
     if (LADDERS[rawPosition]) {
       finalPosition = LADDERS[rawPosition];
       bonusMessage = 'إجابة صحيحة! صعدت السلم للأعلى.';
+      moveLabel = `سلم رائع من ${rawPosition} إلى ${finalPosition}`;
     } else if (SNAKES[rawPosition]) {
       finalPosition = SNAKES[rawPosition];
       bonusMessage = 'إجابة صحيحة، لكنك وصلت إلى ثعبان ونزلت قليلًا.';
+      moveLabel = `ثعبان من ${rawPosition} إلى ${finalPosition}`;
     }
 
     const nextScore = score + 100 + pendingMove * 10 + (LADDERS[rawPosition] ? 50 : 0);
@@ -638,31 +230,65 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
     if (finalPosition >= BOARD_SIZE && nextCorrect < correctToWin) {
       finalPosition = BOARD_SIZE - 1;
       bonusMessage = `اقتربت من الفوز! أجب عن ${correctToWin - nextCorrect} سؤال/أسئلة صحيحة إضافية لإنهاء التحدي.`;
+      moveLabel = 'اقتربت من النهاية، تحتاج إجابات أكثر';
     }
 
     setScore(nextScore);
     setCorrect(nextCorrect);
+    setPosition(finalPosition);
+    setLastMoveLabel(moveLabel);
     setFeedback({
       type: 'correct',
       message: bonusMessage,
-      explanation: currentQuestion.explanation
+      explanation: question.explanation
     });
 
-    controllerRef.current?.movePlayerTo(finalPosition, () => {
-      setPosition(finalPosition);
+    window.setTimeout(() => {
+      setCurrentQuestion(null);
+      setFeedback(null);
+      setQuestionIndex(prev => prev + 1);
 
-      setTimeout(() => {
-        setCurrentQuestion(null);
-        setFeedback(null);
-        setQuestionIndex(prev => prev + 1);
+      if (finalPosition >= BOARD_SIZE && nextCorrect >= correctToWin) {
+        setCompleted(true);
+        setLastMoveLabel('مبروك! وصلت إلى النهاية');
+        saveResult(true, nextScore, nextCorrect, wrong, weakQuestionIds, finalPosition);
+      }
+    }, 1250);
+  };
 
-        if (finalPosition >= BOARD_SIZE && nextCorrect >= correctToWin) {
-          setCompleted(true);
-          controllerRef.current?.celebrate();
-          saveResult(true, nextScore, nextCorrect, wrong, weakQuestionIds, finalPosition);
-        }
-      }, 700);
+  const completeWrongMove = (question: SnakeLadderQuestion) => {
+    const nextWrong = wrong + 1;
+    const nextLives = lives - 1;
+    const nextWeakIds = Array.from(new Set([...weakQuestionIds, question.id]));
+
+    setWrong(nextWrong);
+    setLives(nextLives);
+    setWeakQuestionIds(nextWeakIds);
+    setLastMoveLabel('إجابة خاطئة، لم تتحرك هذه الجولة');
+    setFeedback({
+      type: 'wrong',
+      message: 'إجابة غير صحيحة، حاول مرة أخرى في السؤال القادم.',
+      explanation: question.explanation
     });
+
+    window.setTimeout(() => {
+      setCurrentQuestion(null);
+      setFeedback(null);
+      setQuestionIndex(prev => prev + 1);
+
+      if (nextLives <= 0) {
+        saveResult(false, score, correct, nextWrong, nextWeakIds, position);
+      }
+    }, 1450);
+  };
+
+  const resolveMove = (isCorrect: boolean) => {
+    if (!currentQuestion) return;
+    if (isCorrect) {
+      completeCorrectMove(currentQuestion);
+    } else {
+      completeWrongMove(currentQuestion);
+    }
   };
 
   const handleAnswer = (answerIndex: number) => {
@@ -691,7 +317,7 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
     setLives(3);
     setCompleted(false);
     setWeakQuestionIds([]);
-    controllerRef.current?.resetPlayer();
+    setLastMoveLabel('استعد للعب');
   };
 
   const renderOptions = () => {
@@ -739,31 +365,24 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
     </section>
   );
 
- const diceFace = (
-  <div
-    className={`relative h-14 sm:h-16 min-w-[96px] rounded-[1.25rem] border-2 border-primary/25 bg-white shadow-[0_10px_24px_rgba(79,70,229,0.18)] flex items-center justify-center gap-2 px-3 overflow-hidden shrink-0 ${
-      isRolling ? 'scale-105 ring-4 ring-primary/10' : ''
-    } transition-all duration-200`}
-    aria-label={`نتيجة النرد ${dice || 'غير محددة'}`}
-  >
-    <div className="absolute inset-0 bg-gradient-to-br from-white via-primary/10 to-warning/20" />
-    <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full bg-white/70 blur-sm" />
-    <div className="absolute -bottom-5 -left-5 w-12 h-12 rounded-full bg-primary/10 blur-sm" />
-
-    <span
-      className={`relative text-[28px] sm:text-[34px] leading-none drop-shadow-sm ${
-        isRolling ? 'animate-spin' : ''
-      }`}
-      aria-hidden="true"
+  const diceFace = (
+    <div
+      className={`relative h-14 sm:h-16 min-w-[96px] rounded-[1.25rem] border-2 border-primary/25 bg-white shadow-[0_10px_24px_rgba(79,70,229,0.18)] flex items-center justify-center gap-2 px-3 overflow-hidden shrink-0 ${
+        isRolling ? 'scale-105 ring-4 ring-primary/10' : ''
+      } transition-all duration-200`}
+      aria-label={`نتيجة النرد ${dice || 'غير محددة'}`}
     >
-      🎲
-    </span>
-
-    <span className="relative min-w-7 text-center text-2xl sm:text-3xl font-black text-primary leading-none drop-shadow-sm">
-      {dice || '?'}
-    </span>
-  </div>
-);
+      <div className="absolute inset-0 bg-gradient-to-br from-white via-primary/10 to-warning/20" />
+      <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full bg-white/70 blur-sm" />
+      <div className="absolute -bottom-5 -left-5 w-12 h-12 rounded-full bg-primary/10 blur-sm" />
+      <span className={`relative text-[28px] sm:text-[34px] leading-none drop-shadow-sm ${isRolling ? 'animate-spin' : ''}`} aria-hidden="true">
+        🎲
+      </span>
+      <span className="relative min-w-7 text-center text-2xl sm:text-3xl font-black text-primary leading-none drop-shadow-sm">
+        {dice || '?'}
+      </span>
+    </div>
+  );
 
   const controlBlock = (
     <section className="bg-bgCard border border-borderColor rounded-3xl p-4 shadow-sm">
@@ -811,22 +430,16 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
             <div className="flex items-center gap-2 shrink-0">
               {diceFace}
               <button
-  type="button"
-  onClick={rollDice}
-  disabled={!canPlay || Boolean(currentQuestion) || isRolling}
-  className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-[1.25rem] bg-gradient-to-br from-primary via-primary to-indigo-700 text-white font-black active:scale-95 active:translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-[0_12px_24px_rgba(79,70,229,0.35)] border border-white/20 overflow-hidden"
-  aria-label="ارمِ النرد"
-  title={!canPlay ? 'بانتظار أسئلة المعلم' : 'ارمِ النرد'}
->
-  <div className="absolute inset-0 bg-gradient-to-br from-white/25 via-transparent to-black/10" />
-  <div className="absolute top-1.5 right-2 w-5 h-5 rounded-full bg-white/25 blur-[1px]" />
-
-  <Dice5
-    className={`relative w-6 h-6 sm:w-7 sm:h-7 drop-shadow-sm ${
-      isRolling ? 'animate-spin' : ''
-    }`}
-  />
-</button>
+                type="button"
+                onClick={rollDice}
+                disabled={!canPlay || Boolean(currentQuestion) || isRolling}
+                className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-[1.25rem] bg-gradient-to-br from-primary via-primary to-indigo-700 text-white font-black active:scale-95 active:translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-[0_12px_24px_rgba(79,70,229,0.35)] border border-white/20 overflow-hidden"
+                aria-label="ارمِ النرد"
+                title={!canPlay ? 'بانتظار أسئلة المعلم' : 'ارمِ النرد'}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/25 via-transparent to-black/10" />
+                <Dice5 className={`relative w-6 h-6 sm:w-7 sm:h-7 drop-shadow-sm ${isRolling ? 'animate-spin' : ''}`} />
+              </button>
             </div>
           </div>
 
@@ -848,7 +461,7 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
             </div>
             <div className="min-w-0">
               <h1 className="text-base font-black text-textPrimary truncate">السلم والثعبان التعليمي</h1>
-              <p className="text-[10px] font-bold text-textSecondary truncate">لعبة تفاعلية مرتبطة بأسئلة المعلم 🐍🪜</p>
+              <p className="text-[10px] font-bold text-textSecondary truncate">لوحة Canvas تفاعلية مرتبطة بأسئلة المعلم 🐍🪜</p>
             </div>
           </div>
 
@@ -863,8 +476,9 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
         </div>
       </header>
 
-<main className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden overscroll-contain custom-scrollbar p-2.5 sm:p-4 pb-[calc(env(safe-area-inset-bottom)+180px)] lg:pb-4">        <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)] gap-3 sm:gap-4" dir="rtl">
-         <aside className="order-2 lg:order-1 space-y-2.5 lg:h-full lg:min-h-0 lg:overflow-y-auto custom-scrollbar lg:pb-2">
+      <main className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden overscroll-contain custom-scrollbar p-3 sm:p-4 pb-[calc(env(safe-area-inset-bottom)+168px)] lg:pb-4">
+        <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)] gap-3 sm:gap-4" dir="rtl">
+          <aside className="order-2 lg:order-1 space-y-3 lg:h-full lg:min-h-0 lg:overflow-y-auto custom-scrollbar lg:pb-2">
             {!canPlay && (
               <section className="bg-warning/10 border border-warning/20 rounded-3xl p-4 text-center shadow-sm">
                 <HelpCircle className="w-10 h-10 text-warning mx-auto mb-3" />
@@ -876,62 +490,58 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
             )}
 
             {statsBlock}
+
+            <section className="bg-bgCard border border-borderColor rounded-3xl p-3 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
+                  <Star className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-bold text-textSecondary">آخر حركة</p>
+                  <p className="text-xs font-black text-textPrimary truncate">{lastMoveLabel}</p>
+                </div>
+              </div>
+            </section>
+
             {controlBlock}
           </aside>
 
-          <section className="order-1 lg:order-2 rounded-3xl overflow-hidden border border-borderColor shadow-card bg-bgCard min-h-[220px] lg:min-h-0 lg:h-full">
-            <div
-              ref={containerRef}
-              className="w-full h-[clamp(205px,calc(100dvh-430px),620px)] max-h-[620px] lg:h-full lg:min-h-0 lg:max-h-none bg-bgMain"
+          <section className="order-1 lg:order-2 rounded-3xl overflow-hidden border border-borderColor shadow-card bg-bgCard min-h-[230px] lg:min-h-0 lg:h-full">
+            <div className="w-full h-[clamp(230px,calc(100dvh-390px),680px)] max-h-[680px] lg:h-full lg:min-h-0 lg:max-h-none bg-bgMain">
+              <SnakeLadderCanvasBoard
+                currentTile={position}
+                boardSize={BOARD_SIZE}
+                columns={BOARD_COLUMNS}
+                ladders={LADDERS}
+                snakes={SNAKES}
+                showLabels
+                animateToken
               />
+            </div>
           </section>
         </div>
-      </main>{currentQuestion && (
+      </main>
+
+      {currentQuestion && (
         <div className="fixed inset-0 z-[100000] bg-slate-900/30 flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-bgCard border border-borderColor rounded-3xl p-5 shadow-elevated animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
                 <HelpCircle className="w-5 h-5" />
               </div>
-
               <div>
-                <h2 className="text-sm font-black text-textPrimary">
-                  سؤال قبل التحرك
-                </h2>
-
-                <p className="text-[10px] font-bold text-textSecondary">
-                  أجب بشكل صحيح لتتقدم {pendingMove} خانات
-                </p>
+                <h2 className="text-sm font-black text-textPrimary">سؤال قبل التحرك</h2>
+                <p className="text-[10px] font-bold text-textSecondary">أجب بشكل صحيح لتتقدم {pendingMove} خانات</p>
               </div>
             </div>
 
-            <h3 className="text-base font-black text-textPrimary leading-7">
-              {currentQuestion.question}
-            </h3>
-
+            <h3 className="text-base font-black text-textPrimary leading-7">{currentQuestion.question}</h3>
             {renderOptions()}
 
             {feedback && (
-              <div
-                className={`mt-4 rounded-2xl border p-3 ${
-                  feedback.type === 'correct'
-                    ? 'bg-success/10 border-success/20'
-                    : 'bg-danger/10 border-danger/20'
-                }`}
-              >
-                <p
-                  className={`text-xs font-black mb-1 ${
-                    feedback.type === 'correct' ? 'text-success' : 'text-danger'
-                  }`}
-                >
-                  {feedback.message}
-                </p>
-
-                {feedback.explanation && (
-                  <p className="text-[10px] font-bold text-textSecondary leading-5">
-                    {feedback.explanation}
-                  </p>
-                )}
+              <div className={`mt-4 rounded-2xl border p-3 ${feedback.type === 'correct' ? 'bg-success/10 border-success/20' : 'bg-danger/10 border-danger/20'}`}>
+                <p className={`text-xs font-black mb-1 ${feedback.type === 'correct' ? 'text-success' : 'text-danger'}`}>{feedback.message}</p>
+                {feedback.explanation && <p className="text-[10px] font-bold text-textSecondary leading-5">{feedback.explanation}</p>}
               </div>
             )}
           </div>
