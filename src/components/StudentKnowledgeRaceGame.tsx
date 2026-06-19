@@ -930,8 +930,8 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
   const speedColor = speedDisplay > 280 ? 'text-sky-400' : speedDisplay < 50 ? 'text-slate-300' : 'text-warning';
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-slate-950 text-white overflow-hidden" dir="rtl">
-      <div ref={wrapperRef} className="absolute inset-0">
+<div className="fixed inset-0 z-[2147483647] bg-slate-950 text-white overflow-hidden" dir="rtl">
+  <div ref={wrapperRef} className="absolute inset-0">
         <canvas ref={canvasRef} className="block w-full h-full" />
       </div>
 
@@ -960,20 +960,18 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
         </div>
       </div>
 
-      <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+24px)] right-4 z-20 w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-black/70 backdrop-blur-md border-4 border-slate-700 flex flex-col items-center justify-center shadow-2xl pointer-events-none">
-        <div className={`text-2xl sm:text-3xl font-black leading-none ${speedColor}`}>{speedDisplay}</div>
+<div className="fixed bottom-[calc(env(safe-area-inset-bottom)+118px)] right-4 z-[2147483647] w-20 h-20 sm:w-28 sm:h-28 rounded-full bg-black/70 backdrop-blur-md border-4 border-slate-700 flex flex-col items-center justify-center shadow-2xl pointer-events-none">        <div className={`text-2xl sm:text-3xl font-black leading-none ${speedColor}`}>{speedDisplay}</div>
         <div className="text-[9px] font-bold text-slate-300">KM/H</div>
       </div>
 
-      <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+24px)] left-4 z-20 flex gap-3">
-        <button
+<div className="fixed bottom-[calc(env(safe-area-inset-bottom)+118px)] left-4 z-[2147483647] flex gap-3 pointer-events-auto">   
+  <button
           type="button"
           onPointerDown={() => { keysRef.current.left = true; }}
           onPointerUp={() => { keysRef.current.left = false; }}
           onPointerCancel={() => { keysRef.current.left = false; }}
           onPointerLeave={() => { keysRef.current.left = false; }}
-          className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-white/10 backdrop-blur-md border border-white/30 text-white flex items-center justify-center active:scale-95 active:bg-white/25 shadow-xl"
-          aria-label="يسار"
+className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/30 text-white flex items-center justify-center active:scale-95 active:bg-white/25 shadow-xl"          aria-label="يسار"
         >
           <ArrowRight className="w-7 h-7" />
         </button>
@@ -983,8 +981,7 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
           onPointerUp={() => { keysRef.current.right = false; }}
           onPointerCancel={() => { keysRef.current.right = false; }}
           onPointerLeave={() => { keysRef.current.right = false; }}
-          className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-white/10 backdrop-blur-md border border-white/30 text-white flex items-center justify-center active:scale-95 active:bg-white/25 shadow-xl"
-          aria-label="يمين"
+className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/30 text-white flex items-center justify-center active:scale-95 active:bg-white/25 shadow-xl"          aria-label="يمين"
         >
           <ArrowLeft className="w-7 h-7" />
         </button>
