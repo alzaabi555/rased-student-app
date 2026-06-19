@@ -1022,9 +1022,8 @@ return (
       >
         <ArrowRight className="w-7 h-7" />
       </button>
-      </div>
 
-     {gameState === 'menu' && (
+      {gameState === 'menu' && (
         <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[2rem] border border-warning/30 bg-slate-900/90 shadow-2xl p-7 text-center animate-in fade-in zoom-in-95 duration-200">
             <div className="text-6xl mb-3">🏎️</div>
