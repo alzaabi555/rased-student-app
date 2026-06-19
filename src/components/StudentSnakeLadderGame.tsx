@@ -741,17 +741,16 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
 
   const diceFace = (
     <div
-      className={`relative h-16 rounded-2xl bg-white border-2 border-primary/30 shadow-card flex items-center justify-center gap-2 shrink-0 overflow-hidden px-3 ${
-        isRolling ? 'ring-4 ring-primary/10' : ''
+className={`relative h-14 sm:h-16 rounded-2xl bg-white border-2 border-primary/30 shadow-card flex items-center justify-center gap-1.5 sm:gap-2 shrink-0 overflow-hidden px-2.5 sm:px-3 ${        isRolling ? 'ring-4 ring-primary/10' : ''
       }`}
       aria-label={`نتيجة النرد ${dice || 'غير محددة'}`}
     >
       <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-white to-warning/10" />
-      <span className="relative text-3xl leading-none drop-shadow-sm" aria-hidden="true">
-        🎲
+<span className="relative text-2xl sm:text-3xl leading-none drop-shadow-sm" aria-hidden="true">  
+  🎲
       </span>
-      <span className="relative min-w-6 text-center text-3xl font-black text-primary leading-none">
-        {dice || '?'}
+<span className="relative min-w-5 sm:min-w-6 text-center text-2xl sm:text-3xl font-black text-primary leading-none">    
+  {dice || '?'}
       </span>
     </div>
   );
@@ -805,8 +804,7 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
                 type="button"
                 onClick={rollDice}
                 disabled={!canPlay || Boolean(currentQuestion) || isRolling}
-                className="w-14 h-14 rounded-2xl bg-primary text-white font-black active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-card"
-                aria-label="ارمِ النرد"
+className="w-14 h-14 max-[380px]:w-380px]:h-12 rounded-2xl bg-primary text-white font-black active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-card"                aria-label="ارمِ النرد"
                 title={!canPlay ? 'بانتظار أسئلة المعلم' : 'ارمِ النرد'}
               >
                 <Dice5 className={`w-6 h-6 ${isRolling ? 'animate-spin' : ''}`} />
@@ -847,9 +845,8 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden overscroll-contain custom-scrollbar p-3 sm:p-4 pb-[calc(env(safe-area-inset-bottom)+168px)] lg:pb-4">
-        <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)] gap-3 sm:gap-4" dir="rtl">
-          <aside className="order-2 lg:order-1 space-y-3 lg:h-full lg:min-h-0 lg:overflow-y-auto custom-scrollbar lg:pb-2">
+<main className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden overscroll-contain custom-scrollbar p-2.5 sm:p-4 pb-[calc(env(safe-area-inset-bottom)+180px)] lg:pb-4">        <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)] gap-3 sm:gap-4" dir="rtl">
+         <aside className="order-2 lg:order-1 space-y-2.5 lg:h-full lg:min-h-0 lg:overflow-y-auto custom-scrollbar lg:pb-2">
             {!canPlay && (
               <section className="bg-warning/10 border border-warning/20 rounded-3xl p-4 text-center shadow-sm">
                 <HelpCircle className="w-10 h-10 text-warning mx-auto mb-3" />
@@ -867,7 +864,7 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
           <section className="order-1 lg:order-2 rounded-3xl overflow-hidden border border-borderColor shadow-card bg-bgCard min-h-[220px] lg:min-h-0 lg:h-full">
             <div
               ref={containerRef}
-              className="w-full h-[clamp(220px,calc(100dvh-390px),620px)] max-h-[620px] lg:h-full lg:min-h-0 lg:max-h-none bg-bgMain"
+              className="w-full h-[clamp(205px,calc(100dvh-430px),620px)] max-h-[620px] lg:h-full lg:min-h-0 lg:max-h-none bg-bg
             />
           </section>
         </div>
