@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 // =========================================================================
-// 🐍🪜 السلم والثعبان التعليمي - نسخة Phaser محسّنة للشاشات والجوال والتابلت
+// 🐍🪜 السلم والثعبان التعليمي - نسخة Phaser محسّنة للجوال والتابلت والويندوز
 // =========================================================================
 
 export interface SnakeLadderQuestion {
@@ -132,9 +132,7 @@ class SnakeLadderScene extends Phaser.Scene {
   private tileSize = 0;
   private centers: Record<number, { x: number; y: number }> = {};
   private playerToken?: Phaser.GameObjects.Container;
-  private diceText?: Phaser.GameObjects.Text;
   private currentTile = 1;
-  private currentDiceValue: number | null = null;
   private resizeTimer?: Phaser.Time.TimerEvent;
   public controller?: PhaserController;
 
@@ -154,7 +152,7 @@ class SnakeLadderScene extends Phaser.Scene {
 
     this.controller = {
       movePlayerTo: (tile: number, onDone?: () => void) => this.animateMoveTo(tile, onDone),
-      setDice: (value: number | null) => this.updateDice(value),
+      setDice: () => undefined,
       celebrate: () => this.emitCelebration(),
       shakeWrong: () => this.shakeWrong(),
       resetPlayer: () => this.placePlayer(1)
@@ -166,7 +164,6 @@ class SnakeLadderScene extends Phaser.Scene {
   private renderScene() {
     this.children.removeAll(true);
     this.playerToken = undefined;
-    this.diceText = undefined;
 
     const width = this.scale.width;
     const height = this.scale.height;
@@ -177,7 +174,6 @@ class SnakeLadderScene extends Phaser.Scene {
     this.drawBoard(width, height);
     this.drawSnakesAndLadders();
     this.drawPlayer(this.currentTile);
-    this.drawDice(this.currentDiceValue);
   }
 
   private handleResize() {
@@ -203,17 +199,17 @@ class SnakeLadderScene extends Phaser.Scene {
 
   private drawBoard(width: number, height: number) {
     const isWide = width >= 720;
-    const reservedForDice = isWide ? 96 : 112;
-    const maxBoard = isWide ? 880 : 680;
+    const maxBoard = isWide ? 920 : 680;
+    const verticalPadding = isWide ? 24 : 18;
 
     this.boardWidth = Math.max(
       300,
-      Math.min(width - 24, height - reservedForDice, maxBoard)
+      Math.min(width - 24, height - verticalPadding * 2, maxBoard)
     );
 
     this.tileSize = this.boardWidth / BOARD_COLUMNS;
     this.boardX = (width - this.boardWidth) / 2;
-    this.boardY = Math.max(12, Math.floor((height - this.boardWidth - reservedForDice) / 2));
+    this.boardY = Math.max(verticalPadding, Math.floor((height - this.boardWidth) / 2));
     this.centers = buildTileCenters(this.boardX, this.boardY, this.tileSize);
 
     const shadow = this.add.graphics();
@@ -408,44 +404,6 @@ class SnakeLadderScene extends Phaser.Scene {
     });
   }
 
-  private drawDice(value: number | null) {
-    const x = this.scale.width / 2;
-    const y = Math.min(this.boardY + this.boardWidth + 54, this.scale.height - 44);
-
-    const box = this.add.graphics();
-    box.fillStyle(0xffffff, 1);
-    box.lineStyle(3, 0x94a3b8, 1);
-    box.fillRoundedRect(x - 44, y - 34, 88, 68, 18);
-    box.strokeRoundedRect(x - 44, y - 34, 88, 68, 18);
-
-    this.diceText = this.add.text(x, y, value ? String(value) : '?', {
-      fontFamily: 'Tajawal, Arial',
-      fontSize: '36px',
-      color: '#4f46e5',
-      fontStyle: '900'
-    }).setOrigin(0.5);
-  }
-
-  private updateDice(value: number | null) {
-    this.currentDiceValue = value;
-
-    if (!this.diceText) return;
-
-    this.diceText.setText(value ? String(value) : '?');
-    this.tweens.add({
-      targets: this.diceText,
-      scale: 1.25,
-      angle: 10,
-      duration: 110,
-      yoyo: true,
-      ease: 'Sine.easeInOut',
-      onComplete: () => {
-        this.diceText?.setScale(1);
-        this.diceText?.setAngle(0);
-      }
-    });
-  }
-
   private emitSmallSparkles(x: number, y: number, color: number) {
     for (let i = 0; i < 12; i++) {
       const particle = this.add.circle(x, y, 4, color, 0.9);
@@ -506,7 +464,7 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
   const questionDeck = useMemo(() => shuffleArray(usableQuestions), [usableQuestions]);
 
   const [position, setPosition] = useState(1);
-  const [, setDice] = useState<number | null>(null);
+  const [dice, setDice] = useState<number | null>(null);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState<SnakeLadderQuestion | null>(null);
   const [pendingMove, setPendingMove] = useState(0);
@@ -629,13 +587,11 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
       rolls++;
       const rollingValue = 1 + Math.floor(Math.random() * 6);
       setDice(rollingValue);
-      controllerRef.current?.setDice(rollingValue);
 
       if (rolls >= 10) {
         window.clearInterval(interval);
         const finalDice = 1 + Math.floor(Math.random() * 6);
         setDice(finalDice);
-        controllerRef.current?.setDice(finalDice);
         setPendingMove(finalDice);
         setCurrentQuestion(pickQuestion());
         setIsRolling(false);
@@ -745,7 +701,6 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
     setLives(3);
     setCompleted(false);
     setWeakQuestionIds([]);
-    controllerRef.current?.setDice(null);
     controllerRef.current?.resetPlayer();
   };
 
@@ -776,86 +731,108 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
 
   const statsBlock = (
     <section className="grid grid-cols-4 lg:grid-cols-2 gap-2">
-      <div className="bg-bgCard border border-borderColor rounded-2xl p-3 text-center shadow-sm">
+      <div className="bg-bgCard border border-borderColor rounded-2xl p-2.5 text-center shadow-sm">
         <p className="text-[8px] font-bold text-textSecondary mb-1">النقاط</p>
-        <p className="text-lg font-black text-primary">{score}</p>
+        <p className="text-base font-black text-primary">{score}</p>
       </div>
-      <div className="bg-bgCard border border-borderColor rounded-2xl p-3 text-center shadow-sm">
+      <div className="bg-bgCard border border-borderColor rounded-2xl p-2.5 text-center shadow-sm">
         <p className="text-[8px] font-bold text-textSecondary mb-1">صحيح</p>
-        <p className="text-lg font-black text-success">{correct}</p>
+        <p className="text-base font-black text-success">{correct}</p>
       </div>
-      <div className="bg-bgCard border border-borderColor rounded-2xl p-3 text-center shadow-sm">
+      <div className="bg-bgCard border border-borderColor rounded-2xl p-2.5 text-center shadow-sm">
         <p className="text-[8px] font-bold text-textSecondary mb-1">خطأ</p>
-        <p className="text-lg font-black text-danger">{wrong}</p>
+        <p className="text-base font-black text-danger">{wrong}</p>
       </div>
-      <div className="bg-bgCard border border-borderColor rounded-2xl p-3 text-center shadow-sm">
+      <div className="bg-bgCard border border-borderColor rounded-2xl p-2.5 text-center shadow-sm">
         <p className="text-[8px] font-bold text-textSecondary mb-1">محاولات</p>
-        <p className="text-lg font-black text-warning flex items-center justify-center gap-1">
+        <p className="text-base font-black text-warning flex items-center justify-center gap-1">
           <Heart className="w-4 h-4" /> {lives}
         </p>
       </div>
     </section>
   );
 
+  const diceFace = (
+    <div className="relative w-16 h-16 rounded-2xl bg-white border-2 border-primary/30 shadow-card flex items-center justify-center shrink-0 overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-white to-warning/10" />
+      <span className="relative text-3xl font-black text-primary leading-none">
+        {dice || '?'}
+      </span>
+    </div>
+  );
+
   const controlBlock = (
-    <section className="bg-bgCard border border-borderColor rounded-3xl p-4 shadow-sm text-center">
+    <section className="bg-bgCard border border-borderColor rounded-3xl p-4 shadow-sm">
       {completed ? (
-        <div>
-          <Trophy className="w-12 h-12 text-warning mx-auto mb-3" />
-          <h2 className="text-lg font-black text-textPrimary mb-1">فزت بالتحدي!</h2>
-          <p className="text-[10px] font-bold text-textSecondary mb-4">
+        <div className="text-center">
+          <Trophy className="w-11 h-11 text-warning mx-auto mb-2" />
+          <h2 className="text-base font-black text-textPrimary mb-1">فزت بالتحدي!</h2>
+          <p className="text-[10px] font-bold text-textSecondary mb-3">
             وصلت إلى نهاية اللوحة وجمعت {score} نقطة.
           </p>
           <button
             type="button"
             onClick={resetGame}
-            className="w-full h-12 rounded-2xl bg-primary text-white font-black active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="mx-auto w-14 h-14 rounded-2xl bg-primary text-white font-black active:scale-95 transition-all flex items-center justify-center shadow-card"
+            aria-label="لعبة جديدة"
           >
-            <RotateCcw className="w-5 h-5" />
-            لعبة جديدة
+            <RotateCcw className="w-6 h-6" />
           </button>
         </div>
       ) : lives <= 0 ? (
-        <div>
-          <XCircle className="w-12 h-12 text-danger mx-auto mb-3" />
-          <h2 className="text-lg font-black text-textPrimary mb-1">انتهت المحاولات</h2>
-          <p className="text-[10px] font-bold text-textSecondary mb-4">
+        <div className="text-center">
+          <XCircle className="w-11 h-11 text-danger mx-auto mb-2" />
+          <h2 className="text-base font-black text-textPrimary mb-1">انتهت المحاولات</h2>
+          <p className="text-[10px] font-bold text-textSecondary mb-3">
             راجع الأسئلة التي أخطأت فيها ثم حاول مرة أخرى.
           </p>
           <button
             type="button"
             onClick={resetGame}
-            className="w-full h-12 rounded-2xl bg-danger text-white font-black active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="mx-auto w-14 h-14 rounded-2xl bg-danger text-white font-black active:scale-95 transition-all flex items-center justify-center shadow-card"
+            aria-label="إعادة المحاولة"
           >
-            <RotateCcw className="w-5 h-5" />
-            إعادة المحاولة
+            <RotateCcw className="w-6 h-6" />
           </button>
         </div>
       ) : (
         <div>
-          <div className="flex items-center justify-center gap-2 mb-3 text-[10px] font-bold text-textSecondary">
-            <Sparkles className="w-4 h-4 text-warning" />
-            أجب عن السؤال بعد رمي النرد لتتحرك على اللوحة
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 text-start">
+              <div className="flex items-center gap-1.5 text-[10px] font-black text-textPrimary mb-1">
+                <Sparkles className="w-4 h-4 text-warning" />
+                رمية النرد
+              </div>
+              <p className="text-[9px] font-bold text-textSecondary leading-5">
+                الفوز يحتاج {correctToWin} إجابة صحيحة على الأقل.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {diceFace}
+              <button
+                type="button"
+                onClick={rollDice}
+                disabled={!canPlay || Boolean(currentQuestion) || isRolling}
+                className="w-14 h-14 rounded-2xl bg-primary text-white font-black active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-card"
+                aria-label="ارمِ النرد"
+                title={!canPlay ? 'بانتظار أسئلة المعلم' : 'ارمِ النرد'}
+              >
+                <Dice5 className={`w-6 h-6 ${isRolling ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           </div>
-          <p className="text-[9px] font-bold text-textSecondary mb-3">
-            الفوز يحتاج {correctToWin} إجابة صحيحة على الأقل.
+
+          <p className="mt-3 text-center text-[10px] font-black text-primary">
+            {!canPlay ? 'بانتظار أسئلة المعلم' : isRolling ? 'جارٍ رمي النرد...' : 'اضغط أيقونة النرد للعب'}
           </p>
-          <button
-            type="button"
-            onClick={rollDice}
-            disabled={!canPlay || Boolean(currentQuestion) || isRolling}
-            className="w-full h-12 rounded-2xl bg-primary text-white font-black active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            <Dice5 className="w-5 h-5" />
-            {!canPlay ? 'بانتظار أسئلة المعلم' : isRolling ? 'جارٍ رمي النرد...' : 'ارمِ النرد'}
-          </button>
         </div>
       )}
     </section>
   );
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-bgMain text-textPrimary flex flex-col" dir="rtl">
+    <div className="fixed inset-0 z-[99999] bg-bgMain text-textPrimary flex flex-col" dir="rtl">
       <header className="bg-bgCard border-b border-borderColor pt-[max(env(safe-area-inset-top),14px)] px-4 pb-3 shadow-sm shrink-0">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -881,16 +858,9 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden overscroll-contain custom-scrollbar p-4 pb-[calc(env(safe-area-inset-bottom)+112px)] lg:pb-4">
-        <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_420px] gap-4">
-          <section className="rounded-3xl overflow-hidden border border-borderColor shadow-card bg-bgCard min-h-[430px] lg:min-h-0 lg:h-full">
-            <div
-              ref={containerRef}
-              className="w-full h-[calc(100dvh-310px)] min-h-[430px] max-h-[760px] lg:h-full lg:min-h-0 lg:max-h-none bg-bgMain"
-            />
-          </section>
-
-          <aside className="space-y-4 lg:h-full lg:min-h-0 lg:overflow-y-auto custom-scrollbar lg:pb-2">
+      <main className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden overscroll-contain custom-scrollbar p-4 pb-[calc(env(safe-area-inset-bottom)+150px)] lg:pb-4">
+        <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)] gap-4" dir="rtl">
+          <aside className="order-2 lg:order-1 space-y-4 lg:h-full lg:min-h-0 lg:overflow-y-auto custom-scrollbar lg:pb-2">
             {!canPlay && (
               <section className="bg-warning/10 border border-warning/20 rounded-3xl p-4 text-center shadow-sm">
                 <HelpCircle className="w-10 h-10 text-warning mx-auto mb-3" />
@@ -906,11 +876,18 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
             {statsBlock}
             {controlBlock}
           </aside>
+
+          <section className="order-1 lg:order-2 rounded-3xl overflow-hidden border border-borderColor shadow-card bg-bgCard min-h-[320px] lg:min-h-0 lg:h-full">
+            <div
+              ref={containerRef}
+              className="w-full h-[min(58dvh,620px)] min-h-[320px] max-h-[640px] lg:h-full lg:min-h-0 lg:max-h-none bg-bgMain"
+            />
+          </section>
         </div>
       </main>
 
       {currentQuestion && (
-        <div className="fixed inset-0 z-[10000] bg-slate-900/30 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100000] bg-slate-900/30 flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-bgCard border border-borderColor rounded-3xl p-5 shadow-elevated animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
