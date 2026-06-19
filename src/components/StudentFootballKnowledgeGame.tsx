@@ -437,8 +437,8 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
     ball.moving = true;
 
     const keeperZone = ok
-      ? SHOT_ZONES[Math.floor(Math.random() * SHOT_ZONES.length)]
-      : zone;
+  ? SHOT_ZONES.find(z => z.id !== zone.id) || SHOT_ZONES[0]
+  : zone;
 
     keeperRef.current.targetX = goal.x + goal.w * keeperZone.xRatio;
 keeperRef.current.targetY = goal.y + goal.h * keeperZone.yRatio;
@@ -463,8 +463,7 @@ keeperRef.current.diving = true;
   // قاعدة تربوية:
   // الإجابة الخاطئة لا تتحول إلى هدف أبدًا.
   // حتى لو دخلت الكرة بصريًا في المرمى، النتيجة تكون تصدي.
-  const finalGoalScored = ok ? goalScored : false;
-
+const finalGoalScored = ok;
   ballRef.current.moving = false;
 
   if (finalGoalScored) {
