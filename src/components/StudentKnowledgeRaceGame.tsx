@@ -929,7 +929,7 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
 
   const speedColor = speedDisplay > 280 ? 'text-sky-400' : speedDisplay < 50 ? 'text-slate-300' : 'text-warning';
 
-  return (
+return (
 <div className="fixed inset-0 z-[2147483647] bg-slate-950 text-white overflow-hidden" dir="rtl">
   <div ref={wrapperRef} className="absolute inset-0">
         <canvas ref={canvasRef} className="block w-full h-full" />
@@ -1017,7 +1017,7 @@ className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/10 backdrop-blur-md bo
         </button>
       </div>
 
-      {gameState === 'menu' && (
+     {gameState === 'menu' && (
         <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[2rem] border border-warning/30 bg-slate-900/90 shadow-2xl p-7 text-center animate-in fade-in zoom-in-95 duration-200">
             <div className="text-6xl mb-3">🏎️</div>
