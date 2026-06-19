@@ -868,59 +868,57 @@ className="w-14 h-14 max-[380px]:w-380px]:h-12 rounded-2xl bg-primary text-white
             />
           </section>
         </div>
-      </main>
+      </main>{currentQuestion && (
+        <div className="fixed inset-0 z-[100000] bg-slate-900/30 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-bgCard border border-borderColor rounded-3xl p-5 shadow-elevated animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
+                <HelpCircle className="w-5 h-5" />
+              </div>
 
-   {currentQuestion && (
-  <div className="fixed inset-0 z-[100000] bg-slate-900/30 flex items-center justify-center p-4">
-    <div className="w-full max-w-md bg-bgCard border border-borderColor rounded-3xl p-5 shadow-elevated animate-in fade-in zoom-in-95 duration-200">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
-          <HelpCircle className="w-5 h-5" />
-        </div>
+              <div>
+                <h2 className="text-sm font-black text-textPrimary">
+                  سؤال قبل التحرك
+                </h2>
 
-        <div>
-          <h2 className="text-sm font-black text-textPrimary">
-            سؤال قبل التحرك
-          </h2>
+                <p className="text-[10px] font-bold text-textSecondary">
+                  أجب بشكل صحيح لتتقدم {pendingMove} خانات
+                </p>
+              </div>
+            </div>
 
-          <p className="text-[10px] font-bold text-textSecondary">
-            أجب بشكل صحيح لتتقدم {pendingMove} خانات
-          </p>
-        </div>
-      </div>
+            <h3 className="text-base font-black text-textPrimary leading-7">
+              {currentQuestion.question}
+            </h3>
 
-      <h3 className="text-base font-black text-textPrimary leading-7">
-        {currentQuestion.question}
-      </h3>
+            {renderOptions()}
 
-      {renderOptions()}
+            {feedback && (
+              <div
+                className={`mt-4 rounded-2xl border p-3 ${
+                  feedback.type === 'correct'
+                    ? 'bg-success/10 border-success/20'
+                    : 'bg-danger/10 border-danger/20'
+                }`}
+              >
+                <p
+                  className={`text-xs font-black mb-1 ${
+                    feedback.type === 'correct' ? 'text-success' : 'text-danger'
+                  }`}
+                >
+                  {feedback.message}
+                </p>
 
-      {feedback && (
-        <div
-          className={`mt-4 rounded-2xl border p-3 ${
-            feedback.type === 'correct'
-              ? 'bg-success/10 border-success/20'
-              : 'bg-danger/10 border-danger/20'
-          }`}
-        >
-          <p
-            className={`text-xs font-black mb-1 ${
-              feedback.type === 'correct' ? 'text-success' : 'text-danger'
-            }`}
-          >
-            {feedback.message}
-          </p>
-
-          {feedback.explanation && (
-            <p className="text-[10px] font-bold text-textSecondary leading-5">
-              {feedback.explanation}
-            </p>
-          )}
+                {feedback.explanation && (
+                  <p className="text-[10px] font-bold text-textSecondary leading-5">
+                    {feedback.explanation}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
-    </div>
-  </div>
-)}
     </div>
   );
 };
