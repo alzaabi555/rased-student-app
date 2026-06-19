@@ -31,8 +31,18 @@ import type {
   KnowledgeRaceResult
 } from './StudentKnowledgeRaceGame';
 
+import StudentFootballKnowledgeGame from './StudentFootballKnowledgeGame';
+import type {
+  FootballKnowledgeQuestion,
+  FootballKnowledgeResult
+} from './StudentFootballKnowledgeGame';
+
 // =========================================================================
 // مركز ألعاب الطالب - يقرأ gameQuestions القادمة من راصد المعلم/السحابة
+// الألعاب المربوطة حاليًا:
+// ✅ السلم والثعبان
+// ✅ سباق المعرفة / طريق المعرفة
+// ✅ ركلات المعرفة
 // =========================================================================
 
 export interface GameQuestion {
@@ -69,7 +79,7 @@ interface StudentGamesProps {
 }
 
 type GameStatus = 'available' | 'needs_questions' | 'coming_soon';
-type ActiveGame = 'snake_ladder' | 'knowledge_race' | null;
+type ActiveGame = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | null;
 
 type GameCard = {
   id: string;
@@ -98,30 +108,18 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     icon: Car,
     color: 'warning',
     supportedGameTypes: ['race', 'knowledge_race'],
-    supportedQuestionTypes: ['multiple_choice'],
+    supportedQuestionTypes: ['multiple_choice', 'true_false'],
     minQuestions: 1,
     estimatedTime: '3 - 5 دقائق'
-  },
-  {
-    id: 'true_false',
-    title: 'صح أم خطأ',
-    shortTitle: 'صح/خطأ',
-    description: 'أجب بسرعة على العبارات وتعلم من التفسير بعد كل إجابة.',
-    icon: CheckCircle2,
-    color: 'success',
-    supportedGameTypes: ['true_false'],
-    supportedQuestionTypes: ['true_false'],
-    minQuestions: 1,
-    estimatedTime: 'دقيقتان'
   },
   {
     id: 'football_quiz',
     title: 'ركلات المعرفة',
     shortTitle: 'الكرة',
-    description: 'كل إجابة صحيحة تتحول إلى تسديدة نحو المرمى.',
+    description: 'أجب عن السؤال، اختر زاوية التسديد، وسجل الأهداف.',
     icon: Goal,
     color: 'info',
-    supportedGameTypes: ['football', 'penalty'],
+    supportedGameTypes: ['football', 'penalty', 'football_quiz'],
     supportedQuestionTypes: ['multiple_choice', 'true_false'],
     minQuestions: 1,
     estimatedTime: '3 دقائق'
@@ -139,6 +137,18 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     estimatedTime: 'حسب عدد الأسئلة'
   },
   {
+    id: 'true_false',
+    title: 'صح أم خطأ',
+    shortTitle: 'صح/خطأ',
+    description: 'أجب بسرعة على العبارات وتعلم من التفسير بعد كل إجابة.',
+    icon: CheckCircle2,
+    color: 'success',
+    supportedGameTypes: ['true_false'],
+    supportedQuestionTypes: ['true_false'],
+    minQuestions: 5,
+    estimatedTime: 'دقيقتان'
+  },
+  {
     id: 'match_cards',
     title: 'طابق المفهوم',
     shortTitle: 'المطابقة',
@@ -147,7 +157,7 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     color: 'danger',
     supportedGameTypes: ['matching', 'match_cards'],
     supportedQuestionTypes: ['matching'],
-    minQuestions: 1,
+    minQuestions: 4,
     estimatedTime: '3 دقائق'
   },
   {
@@ -159,7 +169,7 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     color: 'primary',
     supportedGameTypes: ['sequence', 'order'],
     supportedQuestionTypes: ['sequence'],
-    minQuestions: 1,
+    minQuestions: 3,
     estimatedTime: '3 دقائق'
   },
   {
@@ -171,7 +181,7 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     color: 'warning',
     supportedGameTypes: ['hints', 'who_am_i'],
     supportedQuestionTypes: ['hints'],
-    minQuestions: 1,
+    minQuestions: 3,
     estimatedTime: 'دقيقتان'
   }
 ];
@@ -257,64 +267,74 @@ const isQuestionCompatibleWithGame = (
   return byGameType || byQuestionType;
 };
 
+const filterPlayableQuestions = (questions: GameQuestion[]) => {
+  return questions.filter(question => {
+    if (!question.question) return false;
+    if (question.active === false) return false;
+    if (question.questionType === 'true_false') return true;
+
+    const hasOptions = Array.isArray(question.options) && question.options.length >= 2;
+    const hasAnswer = typeof question.correctAnswerIndex === 'number';
+
+    return hasOptions && hasAnswer;
+  });
+};
+
 const toSnakeLadderQuestions = (
   questions: GameQuestion[]
 ): SnakeLadderQuestion[] => {
-  return questions
-    .filter(question => {
-      if (!question.question) return false;
-      if (question.active === false) return false;
-      if (question.questionType === 'true_false') return true;
-
-      const hasOptions = Array.isArray(question.options) && question.options.length >= 2;
-      const hasAnswer = typeof question.correctAnswerIndex === 'number';
-
-      return hasOptions && hasAnswer;
-    })
-    .map(question => ({
-      id: question.id,
-      subject: question.subject,
-      unit: question.unit,
-      lesson: question.lesson,
-      questionType: question.questionType === 'true_false' ? 'true_false' : 'multiple_choice',
-      question: question.question || '',
-      options: question.questionType === 'true_false' ? ['صح', 'خطأ'] : question.options || [],
-      correctAnswerIndex: question.correctAnswerIndex ?? 0,
-      correctAnswerText: question.correctAnswerText,
-      explanation: question.explanation,
-      difficulty: question.difficulty,
-      active: question.active
-    }));
+  return filterPlayableQuestions(questions).map(question => ({
+    id: question.id,
+    subject: question.subject,
+    unit: question.unit,
+    lesson: question.lesson,
+    questionType: question.questionType === 'true_false' ? 'true_false' : 'multiple_choice',
+    question: question.question || '',
+    options: question.questionType === 'true_false' ? ['صح', 'خطأ'] : question.options || [],
+    correctAnswerIndex: question.correctAnswerIndex ?? 0,
+    correctAnswerText: question.correctAnswerText,
+    explanation: question.explanation,
+    difficulty: question.difficulty,
+    active: question.active
+  }));
 };
 
 const toKnowledgeRaceQuestions = (
   questions: GameQuestion[]
 ): KnowledgeRaceQuestion[] => {
-  return questions
-    .filter(question => {
-      if (!question.question) return false;
-      if (question.active === false) return false;
-      if (question.questionType === 'true_false') return true;
+  return filterPlayableQuestions(questions).map(question => ({
+    id: question.id,
+    subject: question.subject,
+    unit: question.unit,
+    lesson: question.lesson,
+    questionType: question.questionType === 'true_false' ? 'true_false' : 'multiple_choice',
+    question: question.question || '',
+    options: question.questionType === 'true_false' ? ['صح', 'خطأ'] : question.options || [],
+    correctAnswerIndex: question.correctAnswerIndex ?? 0,
+    correctAnswerText: question.correctAnswerText,
+    explanation: question.explanation,
+    difficulty: question.difficulty,
+    active: question.active
+  }));
+};
 
-      const hasOptions = Array.isArray(question.options) && question.options.length >= 2;
-      const hasAnswer = typeof question.correctAnswerIndex === 'number';
-
-      return hasOptions && hasAnswer;
-    })
-    .map(question => ({
-      id: question.id,
-      subject: question.subject,
-      unit: question.unit,
-      lesson: question.lesson,
-      questionType: question.questionType === 'true_false' ? 'true_false' : 'multiple_choice',
-      question: question.question || '',
-      options: question.questionType === 'true_false' ? ['صح', 'خطأ'] : question.options || [],
-      correctAnswerIndex: question.correctAnswerIndex ?? 0,
-      correctAnswerText: question.correctAnswerText,
-      explanation: question.explanation,
-      difficulty: question.difficulty,
-      active: question.active
-    }));
+const toFootballKnowledgeQuestions = (
+  questions: GameQuestion[]
+): FootballKnowledgeQuestion[] => {
+  return filterPlayableQuestions(questions).map(question => ({
+    id: question.id,
+    subject: question.subject,
+    unit: question.unit,
+    lesson: question.lesson,
+    questionType: question.questionType === 'true_false' ? 'true_false' : 'multiple_choice',
+    question: question.question || '',
+    options: question.questionType === 'true_false' ? ['صح', 'خطأ'] : question.options || [],
+    correctAnswerIndex: question.correctAnswerIndex ?? 0,
+    correctAnswerText: question.correctAnswerText,
+    explanation: question.explanation,
+    difficulty: question.difficulty,
+    active: question.active
+  }));
 };
 
 const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
@@ -404,6 +424,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
 
   const snakeLadderGame = BASE_GAMES.find(game => game.id === 'snake_ladder');
   const knowledgeRaceGame = BASE_GAMES.find(game => game.id === 'knowledge_race');
+  const footballGame = BASE_GAMES.find(game => game.id === 'football_quiz');
 
   const snakeLadderQuestions = useMemo(() => {
     if (!snakeLadderGame) return [];
@@ -420,6 +441,14 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
     );
     return toKnowledgeRaceQuestions(compatible);
   }, [gameQuestions, knowledgeRaceGame]);
+
+  const footballQuestions = useMemo(() => {
+    if (!footballGame) return [];
+    const compatible = gameQuestions.filter(question =>
+      isQuestionCompatibleWithGame(question, footballGame)
+    );
+    return toFootballKnowledgeQuestions(compatible);
+  }, [gameQuestions, footballGame]);
 
   const availableGames = games.filter(g => g.status === 'available');
   const totalQuestions = gameQuestions.length;
@@ -438,6 +467,13 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
       return;
     }
 
+    if (game.id === 'football_quiz') {
+      if (footballQuestions.length === 0) return;
+      setSelectedGame(null);
+      setActiveGame('football_quiz');
+      return;
+    }
+
     if (game.status !== 'available') return;
 
     alert('سيتم ربط محرك هذه اللعبة في خطوة لاحقة.');
@@ -448,6 +484,10 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   };
 
   const handleKnowledgeRaceComplete = (_result: KnowledgeRaceResult) => {
+    setStatsVersion(prev => prev + 1);
+  };
+
+  const handleFootballComplete = (_result: FootballKnowledgeResult) => {
     setStatsVersion(prev => prev + 1);
   };
 
@@ -488,15 +528,21 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
           <div className="relative z-10 grid grid-cols-3 gap-2 mt-4">
             <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
               <p className="text-[9px] font-bold text-textSecondary mb-1">أفضل نتيجة</p>
-              <p className="text-lg font-black text-primary">{stats.bestScore || stats.knowledgeRaceBestScore || 0}</p>
+              <p className="text-lg font-black text-primary">
+                {stats.bestScore || stats.knowledgeRaceBestScore || stats.footballBestScore || 0}
+              </p>
             </div>
             <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
               <p className="text-[9px] font-bold text-textSecondary mb-1">آخر نتيجة</p>
-              <p className="text-lg font-black text-textPrimary">{stats.lastScore || stats.knowledgeRaceLastScore || 0}</p>
+              <p className="text-lg font-black text-textPrimary">
+                {stats.lastScore || stats.knowledgeRaceLastScore || stats.footballLastScore || 0}
+              </p>
             </div>
             <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
               <p className="text-[9px] font-bold text-textSecondary mb-1">المحاولات</p>
-              <p className="text-lg font-black text-success">{stats.attempts || stats.knowledgeRaceAttempts || 0}</p>
+              <p className="text-lg font-black text-success">
+                {stats.attempts || stats.knowledgeRaceAttempts || stats.footballAttempts || 0}
+              </p>
             </div>
           </div>
         </section>
@@ -572,9 +618,10 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
                       </div>
                     </div>
 
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
-                      isAvailable ? tone.button : 'bg-bgSoft text-textMuted border border-borderColor'
-                    }`}
+                    <div
+                      className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                        isAvailable ? tone.button : 'bg-bgSoft text-textMuted border border-borderColor'
+                      }`}
                     >
                       {isAvailable ? <Play className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
                     </div>
@@ -685,6 +732,18 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             setStatsVersion(prev => prev + 1);
           }}
           onComplete={handleKnowledgeRaceComplete}
+        />
+      )}
+
+      {activeGame === 'football_quiz' && (
+        <StudentFootballKnowledgeGame
+          questions={footballQuestions}
+          studentId={studentKey}
+          onClose={() => {
+            setActiveGame(null);
+            setStatsVersion(prev => prev + 1);
+          }}
+          onComplete={handleFootballComplete}
         />
       )}
     </div>
