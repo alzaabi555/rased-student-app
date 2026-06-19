@@ -441,11 +441,14 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
       : zone;
 
     keeperRef.current.targetX = goal.x + goal.w * keeperZone.xRatio;
-    keeperRef.current.targetY = goal.y + goal.h * keeperZone.yRatio;
-      keeperRef.current.reach = ok
+keeperRef.current.targetY = goal.y + goal.h * keeperZone.yRatio;
+
+// إذا كانت الإجابة خاطئة، نوسّع مدى الحارس حتى يكون التصدي مضمونًا ومنطقيًا بصريًا.
+keeperRef.current.reach = ok
   ? clamp(goal.w * 0.12, 42, 62)
   : clamp(goal.w * 0.18, 58, 86);
-    keeperRef.current.diving = true;
+
+keeperRef.current.diving = true;
 
     createBurst(ball.x, ball.y, ok ? '#facc15' : '#94a3b8', ok ? 18 : 8);
     syncGameState('shooting');
