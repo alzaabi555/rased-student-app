@@ -58,7 +58,13 @@ export interface GameQuestion {
   explanation?: string;
   difficulty?: 'easy' | 'medium' | 'hard';
   active?: boolean;
-  pairs?: Array<{ term: string; definition: string }>;
+pairs?: Array<{
+  term?: string;
+  definition?: string;
+  left?: string;
+  right?: string;
+}>;
+
 }
 
 export interface StudentGamesStudent {
