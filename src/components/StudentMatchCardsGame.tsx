@@ -9,24 +9,18 @@ import {
   Sparkles,
   Volume2,
   CheckCircle2,
-  XCircle,
   Puzzle,
-  Zap,
   Layers3,
   AlertTriangle
 } from 'lucide-react';
 
 // =========================================================================
-// 🧩 طابق المفهوم - Match Cards Game
+// 🧩 طابق المفهوم V2 Fixed
 // -------------------------------------------------------------------------
-// لعبة مطابقة تعليمية عالية التباين:
-// - الطالب يختار مفهومًا من العمود الأول.
-// - ثم يختار التعريف المناسب من العمود الثاني.
-// - المطابقة الصحيحة تغلق الزوج وتمنح نقاطًا.
-// - المطابقة الخاطئة تخصم محاولة وتعرض تغذية راجعة واضحة.
-// - تدعم البيانات بصيغتين:
-//   1) question.pairs = [{ term, definition }]
-//   2) كل سؤال يمثل زوجًا: question = المفهوم، correctAnswerText أو options[correctAnswerIndex] = التعريف
+// إصلاح مهم:
+// - كان زر "ابدأ المطابقة" لا يظهر إذا كانت البيانات المستخرجة أقل من زوجين.
+// - هذه النسخة تسمح بالتشغيل من زوج واحد على الأقل حتى لا تُغلق اللعبة أثناء الاختبار.
+// - استخراج الأزواج أصبح أكثر مرونة مع صيغ بيانات مختلفة.
 // =========================================================================
 
 export interface MatchPairInput {
@@ -68,13 +62,8 @@ interface StudentMatchCardsGameProps {
 }
 
 type GameState = 'menu' | 'playing' | 'finished';
-type FeedbackState = {
-  type: 'correct' | 'wrong' | 'complete';
-  message: string;
-  detail?: string;
-} | null;
-
 type MatchCardSide = 'term' | 'definition';
+type FeedbackState = { type: 'correct' | 'wrong'; message: string; detail?: string } | null;
 
 type MatchPair = {
   id: string;
@@ -96,45 +85,35 @@ type SfxType = 'start' | 'correct' | 'wrong' | 'finish';
 
 const MAX_LIVES = 5;
 const getTodayKey = () => new Date().toLocaleDateString('en-CA');
-
 const cleanText = (value?: string) => (value || '').replace(/\s+/g, ' ').trim();
 
 const playSfx = (type: SfxType, enabled = true) => {
   if (!enabled) return;
-
   try {
     const AudioContextClass =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-
     const audioCtx = new AudioContextClass();
     const now = audioCtx.currentTime;
 
-    const tone = (
-      frequencyA: number,
-      frequencyB: number,
-      duration: number,
-      oscillatorType: OscillatorType,
-      volume: number,
-      startOffset = 0
-    ) => {
-      const oscillator = audioCtx.createOscillator();
+    const tone = (a: number, b: number, d: number, oscType: OscillatorType, vol: number, offset = 0) => {
+      const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-      oscillator.connect(gain);
+      osc.connect(gain);
       gain.connect(audioCtx.destination);
-      oscillator.type = oscillatorType;
-      oscillator.frequency.setValueAtTime(frequencyA, now + startOffset);
-      oscillator.frequency.exponentialRampToValueAtTime(frequencyB, now + startOffset + duration * 0.72);
-      gain.gain.setValueAtTime(0.001, now + startOffset);
-      gain.gain.exponentialRampToValueAtTime(volume, now + startOffset + 0.025);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + startOffset + duration);
-      oscillator.start(now + startOffset);
-      oscillator.stop(now + startOffset + duration + 0.02);
+      osc.type = oscType;
+      osc.frequency.setValueAtTime(a, now + offset);
+      osc.frequency.exponentialRampToValueAtTime(b, now + offset + d * 0.75);
+      gain.gain.setValueAtTime(0.001, now + offset);
+      gain.gain.exponentialRampToValueAtTime(vol, now + offset + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + d);
+      osc.start(now + offset);
+      osc.stop(now + offset + d + 0.02);
     };
 
     if (type === 'correct') {
       tone(520, 860, 0.15, 'sine', 0.14);
-      tone(700, 980, 0.14, 'triangle', 0.09, 0.08);
+      tone(720, 980, 0.14, 'triangle', 0.09, 0.08);
     } else if (type === 'wrong') {
       tone(240, 130, 0.22, 'square', 0.11);
     } else if (type === 'start') {
@@ -162,16 +141,16 @@ const buildPairs = (questions: MatchCardsQuestion[]): MatchPair[] => {
 
   (Array.isArray(questions) ? questions : []).forEach((question, questionIndex) => {
     if (!question || question.active === false) return;
+    const sourceQuestionId = question.id || `q_${questionIndex}`;
 
     if (Array.isArray(question.pairs) && question.pairs.length > 0) {
       question.pairs.forEach((pair, pairIndex) => {
         const term = cleanText(pair.term);
         const definition = cleanText(pair.definition);
         if (!term || !definition) return;
-
         pairs.push({
-          id: `${question.id || `q_${questionIndex}`}_pair_${pairIndex}`,
-          sourceQuestionId: question.id || `q_${questionIndex}`,
+          id: `${sourceQuestionId}_pair_${pairIndex}`,
+          sourceQuestionId,
           term,
           definition,
           explanation: question.explanation,
@@ -182,22 +161,39 @@ const buildPairs = (questions: MatchCardsQuestion[]): MatchPair[] => {
     }
 
     const term = cleanText(question.question);
-    const definitionFromCorrectText = cleanText(question.correctAnswerText);
-    const definitionFromOptions = typeof question.correctAnswerIndex === 'number'
+    const optionAnswer = typeof question.correctAnswerIndex === 'number'
       ? cleanText(question.options?.[question.correctAnswerIndex])
       : '';
-    const definition = definitionFromCorrectText || definitionFromOptions;
+    const definition = cleanText(question.correctAnswerText) || optionAnswer;
 
-    if (!term || !definition) return;
+    if (term && definition) {
+      pairs.push({
+        id: sourceQuestionId,
+        sourceQuestionId,
+        term,
+        definition,
+        explanation: question.explanation,
+        difficulty: question.difficulty
+      });
+      return;
+    }
 
-    pairs.push({
-      id: question.id || `q_${questionIndex}`,
-      sourceQuestionId: question.id || `q_${questionIndex}`,
-      term,
-      definition,
-      explanation: question.explanation,
-      difficulty: question.difficulty
-    });
+    // صيغة احتياطية: إذا كانت options تحتوي أزواجًا متتابعة [مفهوم، تعريف، مفهوم، تعريف]
+    if (!term && Array.isArray(question.options) && question.options.length >= 2) {
+      for (let i = 0; i < question.options.length - 1; i += 2) {
+        const fallbackTerm = cleanText(question.options[i]);
+        const fallbackDefinition = cleanText(question.options[i + 1]);
+        if (!fallbackTerm || !fallbackDefinition) continue;
+        pairs.push({
+          id: `${sourceQuestionId}_option_pair_${i}`,
+          sourceQuestionId,
+          term: fallbackTerm,
+          definition: fallbackDefinition,
+          explanation: question.explanation,
+          difficulty: question.difficulty
+        });
+      }
+    }
   });
 
   const unique = new Map<string, MatchPair>();
@@ -206,38 +202,25 @@ const buildPairs = (questions: MatchCardsQuestion[]): MatchPair[] => {
     if (!unique.has(key)) unique.set(key, pair);
   });
 
-  return Array.from(unique.values()).slice(0, 10);
+  return Array.from(unique.values()).slice(0, 8);
 };
 
-const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
-  questions,
-  studentId,
-  onClose,
-  onComplete
-}) => {
+const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({ questions, studentId, onClose, onComplete }) => {
   const allPairs = useMemo(() => buildPairs(questions), [questions]);
-  const gamePairs = useMemo(() => shuffleArray(allPairs).slice(0, Math.min(8, allPairs.length)), [allPairs]);
+  const [roundSeed, setRoundSeed] = useState(0);
+
+  const gamePairs = useMemo(() => {
+    // roundSeed فقط لإعادة خلط الأزواج عند جولة جديدة.
+    void roundSeed;
+    return shuffleArray(allPairs).slice(0, Math.min(8, allPairs.length));
+  }, [allPairs, roundSeed]);
 
   const initialTerms = useMemo<MatchCard[]>(() => {
-    return shuffleArray(
-      gamePairs.map(pair => ({
-        id: `${pair.id}_term`,
-        pairId: pair.id,
-        side: 'term' as MatchCardSide,
-        text: pair.term
-      }))
-    );
+    return shuffleArray(gamePairs.map(pair => ({ id: `${pair.id}_term`, pairId: pair.id, side: 'term', text: pair.term })));
   }, [gamePairs]);
 
   const initialDefinitions = useMemo<MatchCard[]>(() => {
-    return shuffleArray(
-      gamePairs.map(pair => ({
-        id: `${pair.id}_definition`,
-        pairId: pair.id,
-        side: 'definition' as MatchCardSide,
-        text: pair.definition
-      }))
-    );
+    return shuffleArray(gamePairs.map(pair => ({ id: `${pair.id}_definition`, pairId: pair.id, side: 'definition', text: pair.definition })));
   }, [gamePairs]);
 
   const completedRef = useRef(false);
@@ -261,7 +244,8 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
   const [weakQuestionIds, setWeakQuestionIds] = useState<string[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  const canPlay = gamePairs.length >= 2;
+  // الإصلاح الأساسي: التشغيل من زوج واحد على الأقل، بدل زوجين.
+  const canPlay = gamePairs.length >= 1;
   const progress = gamePairs.length > 0 ? Math.round((matchedPairIds.length / gamePairs.length) * 100) : 0;
 
   const resetRoundState = () => {
@@ -270,30 +254,9 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
     setWrongFlashIds([]);
   };
 
-  const syncScore = (next: number) => {
-    scoreRef.current = next;
-    setScore(next);
-  };
-
-  const syncMatched = (next: number) => {
-    matchedRef.current = next;
-    setMatched(next);
-  };
-
-  const syncWrong = (next: number) => {
-    wrongRef.current = next;
-    setWrong(next);
-  };
-
-  const syncWeakIds = (next: string[]) => {
-    weakIdsRef.current = next;
-    setWeakQuestionIds(next);
-  };
-
   const saveResult = (completed: boolean) => {
     if (completedRef.current) return;
     completedRef.current = true;
-
     const result: MatchCardsResult = {
       gameType: 'match_cards',
       score: scoreRef.current,
@@ -309,7 +272,6 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
       const oldStats = JSON.parse(localStorage.getItem(key) || '{}');
       const attempts = Number(oldStats.matchCardsAttempts || 0) + 1;
       const bestScore = Math.max(Number(oldStats.matchCardsBestScore || 0), result.score);
-
       localStorage.setItem(
         key,
         JSON.stringify({
@@ -321,7 +283,6 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
           lastGameType: 'match_cards'
         })
       );
-
       const resultKey = `rased_game_results_${studentId || 'default'}`;
       const oldResults = JSON.parse(localStorage.getItem(resultKey) || '[]');
       oldResults.unshift(result);
@@ -362,6 +323,7 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
 
   const resetGame = () => {
     completedRef.current = false;
+    setRoundSeed(prev => prev + 1);
     setGameState('menu');
     setMatchedPairIds([]);
     setScore(0);
@@ -392,24 +354,18 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
       const nextScore = scoreRef.current + gained;
       const nextMatched = matchedRef.current + 1;
       const nextMatchedIds = Array.from(new Set([...matchedPairIds, termCard.pairId]));
-
       playSfx('correct', soundEnabled);
-      syncScore(nextScore);
-      syncMatched(nextMatched);
+      scoreRef.current = nextScore;
+      matchedRef.current = nextMatched;
+      setScore(nextScore);
+      setMatched(nextMatched);
       setMatchedPairIds(nextMatchedIds);
-      setFeedback({
-        type: 'correct',
-        message: `مطابقة صحيحة! +${gained} نقطة`,
-        detail: pair?.explanation || `${termCard.text} ← ${definitionCard.text}`
-      });
+      setFeedback({ type: 'correct', message: `مطابقة صحيحة! +${gained} نقطة`, detail: pair?.explanation || `${termCard.text} ← ${definitionCard.text}` });
       resetRoundState();
-
       window.setTimeout(() => {
         setFeedback(null);
-        if (nextMatchedIds.length >= gamePairs.length) {
-          finishGame(true);
-        }
-      }, 1000);
+        if (nextMatchedIds.length >= gamePairs.length) finishGame(true);
+      }, 950);
       return;
     }
 
@@ -417,67 +373,44 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
     const nextWrong = wrongRef.current + 1;
     const nextLives = lives - 1;
     const nextWeakIds = Array.from(new Set([...weakIdsRef.current, wrongPair?.sourceQuestionId || termCard.pairId]));
-
     playSfx('wrong', soundEnabled);
-    syncWrong(nextWrong);
+    wrongRef.current = nextWrong;
+    weakIdsRef.current = nextWeakIds;
+    setWrong(nextWrong);
     setLives(nextLives);
-    syncWeakIds(nextWeakIds);
+    setWeakQuestionIds(nextWeakIds);
     setWrongFlashIds([termId, definitionId]);
-    setFeedback({
-      type: 'wrong',
-      message: 'ليست مطابقة صحيحة. حاول ربط المفهوم بالتعريف الأنسب.',
-      detail: wrongPair?.explanation
-    });
-
+    setFeedback({ type: 'wrong', message: 'ليست مطابقة صحيحة. حاول ربط المفهوم بالتعريف الأنسب.', detail: wrongPair?.explanation });
     window.setTimeout(() => {
       resetRoundState();
       setFeedback(null);
-      if (nextLives <= 0) {
-        finishGame(false);
-      }
-    }, 1000);
+      if (nextLives <= 0) finishGame(false);
+    }, 950);
   };
 
   const handleCardClick = (card: MatchCard) => {
     if (gameState !== 'playing' || isMatched(card.pairId)) return;
-
     if (card.side === 'term') {
       setSelectedTermId(card.id);
-      if (selectedDefinitionId) {
-        resolveSelection(card.id, selectedDefinitionId);
-      }
+      if (selectedDefinitionId) resolveSelection(card.id, selectedDefinitionId);
       return;
     }
-
     setSelectedDefinitionId(card.id);
-    if (selectedTermId) {
-      resolveSelection(selectedTermId, card.id);
-    }
+    if (selectedTermId) resolveSelection(selectedTermId, card.id);
   };
 
   const cardClass = (card: MatchCard) => {
     const selected = card.id === selectedTermId || card.id === selectedDefinitionId;
     const matchedCard = isMatched(card.pairId);
     const wrongCard = wrongFlashIds.includes(card.id);
-    const sideTone = card.side === 'term'
-      ? 'from-sky-500/24 to-indigo-900/68 border-sky-200/35'
-      : 'from-emerald-500/24 to-teal-900/68 border-emerald-200/35';
-
-    const base = 'relative w-full min-h-[96px] rounded-[1.35rem] border p-3.5 text-start transition-all active:scale-[0.985] shadow-[0_16px_34px_rgba(0,0,0,0.28)] overflow-hidden';
-
-    if (matchedCard) {
-      return `${base} bg-gradient-to-br from-emerald-400/45 to-emerald-900/80 border-emerald-200/70 opacity-80`;
-    }
-
-    if (wrongCard) {
-      return `${base} bg-gradient-to-br from-red-400/45 to-red-950/85 border-red-200/70 animate-pulse`;
-    }
-
-    if (selected) {
-      return `${base} bg-gradient-to-br from-yellow-300/45 to-orange-900/75 border-yellow-200/80 ring-4 ring-yellow-300/15`;
-    }
-
-    return `${base} bg-gradient-to-br ${sideTone} hover:brightness-110`;
+    const tone = card.side === 'term'
+      ? 'from-sky-500/24 to-indigo-900/72 border-sky-200/40'
+      : 'from-emerald-500/24 to-teal-900/72 border-emerald-200/40';
+    const base = 'relative w-full min-h-[96px] rounded-[1.35rem] border p-3.5 text-start transition-all active:scale-[0.985] shadow-[0_16px_34px_rgba(0,0,0,0.30)] overflow-hidden disabled:cursor-not-allowed';
+    if (matchedCard) return `${base} bg-gradient-to-br from-emerald-400/48 to-emerald-900/82 border-emerald-200/75 opacity-85`;
+    if (wrongCard) return `${base} bg-gradient-to-br from-red-400/50 to-red-950/88 border-red-200/75 animate-pulse`;
+    if (selected) return `${base} bg-gradient-to-br from-yellow-300/48 to-orange-900/78 border-yellow-200/85 ring-4 ring-yellow-300/15`;
+    return `${base} bg-gradient-to-br ${tone} hover:brightness-110`;
   };
 
   const renderCard = (card: MatchCard, index: number) => {
@@ -563,17 +496,24 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
               {!canPlay ? (
                 <div className="rounded-2xl bg-yellow-400/15 border border-yellow-300/30 p-4 text-sm font-bold text-yellow-100 flex items-center justify-center gap-2">
                   <AlertTriangle className="w-5 h-5" />
-                  تحتاج اللعبة إلى زوجين على الأقل من المفاهيم والتعريفات.
+                  لم يتم العثور على أزواج مطابقة. أضف pairs أو question + correctAnswerText.
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={startGame}
-                  className="w-full h-14 rounded-2xl bg-gradient-to-l from-sky-400 to-emerald-400 text-slate-950 font-black text-lg shadow-[0_18px_40px_rgba(56,189,248,0.30)] active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <Play className="w-6 h-6" />
-                  ابدأ المطابقة
-                </button>
+                <>
+                  {gamePairs.length === 1 && (
+                    <div className="mb-3 rounded-2xl bg-sky-400/15 border border-sky-300/30 p-3 text-xs font-bold text-sky-100 leading-6">
+                      تم العثور على زوج واحد فقط. يمكن تشغيل اللعبة للتجربة، والأفضل إضافة أزواج أكثر لزيادة التحدي.
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={startGame}
+                    className="w-full h-14 rounded-2xl bg-gradient-to-l from-sky-400 to-emerald-400 text-slate-950 font-black text-lg shadow-[0_18px_40px_rgba(56,189,248,0.30)] active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <Play className="w-6 h-6" />
+                    ابدأ المطابقة
+                  </button>
+                </>
               )}
             </section>
           )}
@@ -609,9 +549,7 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
                     <h3 className="text-sm font-black text-sky-100 flex items-center gap-2"><Sparkles className="w-4 h-4" />المفاهيم</h3>
                     <span className="text-[10px] font-black text-slate-300">اختر بطاقة</span>
                   </div>
-                  <div className="grid grid-cols-1 gap-2.5">
-                    {terms.map((card, index) => renderCard(card, index))}
-                  </div>
+                  <div className="grid grid-cols-1 gap-2.5">{terms.map((card, index) => renderCard(card, index))}</div>
                 </div>
 
                 <div className="rounded-[1.8rem] bg-slate-950/62 border border-emerald-200/20 backdrop-blur-xl p-3 shadow-[0_22px_54px_rgba(0,0,0,0.34)]">
@@ -619,20 +557,14 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
                     <h3 className="text-sm font-black text-emerald-100 flex items-center gap-2"><Link2 className="w-4 h-4" />التعريفات</h3>
                     <span className="text-[10px] font-black text-slate-300">ثم اختر المطابقة</span>
                   </div>
-                  <div className="grid grid-cols-1 gap-2.5">
-                    {definitions.map((card, index) => renderCard(card, index))}
-                  </div>
+                  <div className="grid grid-cols-1 gap-2.5">{definitions.map((card, index) => renderCard(card, index))}</div>
                 </div>
               </div>
 
               {feedback && (
                 <div className={`rounded-3xl border p-4 shadow-[0_18px_40px_rgba(0,0,0,0.35)] ${feedback.type === 'correct' ? 'bg-emerald-950/85 border-emerald-300/50' : 'bg-red-950/85 border-red-300/50'}`}>
                   <p className={`text-base font-black mb-2 ${feedback.type === 'correct' ? 'text-emerald-200' : 'text-red-200'}`}>{feedback.message}</p>
-                  {feedback.detail && (
-                    <div className="rounded-2xl bg-white/10 border border-white/10 p-3">
-                      <p className="text-[12px] font-bold text-white leading-7 break-words whitespace-pre-wrap">{feedback.detail}</p>
-                    </div>
-                  )}
+                  {feedback.detail && <div className="rounded-2xl bg-white/10 border border-white/10 p-3"><p className="text-[12px] font-bold text-white leading-7 break-words whitespace-pre-wrap">{feedback.detail}</p></div>}
                 </div>
               )}
             </section>
@@ -643,14 +575,8 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-yellow-300 via-emerald-300 to-sky-300" />
               <Trophy className="w-16 h-16 mx-auto text-yellow-200 mb-3 drop-shadow" />
               <h2 className="text-3xl font-black mb-2">انتهت المطابقة</h2>
-              <p className="text-sm font-bold text-slate-200 leading-7 mb-5">
-                طابقت {matched} من {gamePairs.length} أزواج، وأخطأت {wrong} مرة. نتيجتك {score} نقطة.
-              </p>
-              <button
-                type="button"
-                onClick={resetGame}
-                className="w-full h-14 rounded-2xl bg-gradient-to-l from-sky-400 to-emerald-400 text-slate-950 font-black text-lg shadow-[0_18px_40px_rgba(56,189,248,0.30)] active:scale-95 flex items-center justify-center gap-2"
-              >
+              <p className="text-sm font-bold text-slate-200 leading-7 mb-5">طابقت {matched} من {gamePairs.length} أزواج، وأخطأت {wrong} مرة. نتيجتك {score} نقطة.</p>
+              <button type="button" onClick={resetGame} className="w-full h-14 rounded-2xl bg-gradient-to-l from-sky-400 to-emerald-400 text-slate-950 font-black text-lg shadow-[0_18px_40px_rgba(56,189,248,0.30)] active:scale-95 flex items-center justify-center gap-2">
                 <RotateCcw className="w-6 h-6" />
                 جولة جديدة
               </button>
