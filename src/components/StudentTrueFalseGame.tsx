@@ -551,7 +551,7 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
                 <button
                   type="button"
                   onClick={startGame}
-                  className="w-full h-14 rounded-2xl bg-gradient-to-l from-emerald-400 to-sky-500 text-slate-950 font-black text-lg shadow-[0_18px_40px_rgba(16,185,129,0.30)] active:scale-95 flex items-center justify-center gap-2"
+                  className="w-full h-14 rounded-2xl bg-gradient-to-l from-emerald-400 to-sky-500 text-slate-950 font-black text-xl shadow-[0_18px_40px_rgba(16,185,129,0.30)] active:scale-95 flex items-center justify-center gap-2"
                 >
                   <Play className="w-6 h-6" />
                   ابدأ التحدي
@@ -563,11 +563,11 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
           {(gameState === 'playing' || gameState === 'feedback') && currentQuestion && (
             <section className="space-y-4">
              <div className="grid grid-cols-4 gap-2">
-  <div className="rounded-2xl bg-slate-950/80 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+  <div className="rounded-2xl bg-slate-950/90 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
     <p className="text-[9px] font-black text-slate-100 mb-1">
       النقاط
     </p>
-    <p className="text-lg font-black text-yellow-300 drop-shadow">
+    <p className="text-xl font-black text-yellow-300 drop-shadow">
       {score}
     </p>
   </div>
@@ -576,7 +576,7 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
     <p className="text-[9px] font-black text-slate-100 mb-1">
       السلسلة
     </p>
-    <p className="text-lg font-black text-emerald-300 drop-shadow flex items-center justify-center gap-1">
+    <p className="text-xl font-black text-emerald-300 drop-shadow flex items-center justify-center gap-1">
       <Flame className="w-4 h-4" />
       {streak}
     </p>
@@ -586,7 +586,7 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
     <p className="text-[9px] font-black text-slate-100 mb-1">
       الوقت
     </p>
-    <p className={`text-lg font-black drop-shadow ${timeColor}`}>
+    <p className={`text-xl font-black drop-shadow ${timeColor}`}>
       {timeLeft}
     </p>
   </div>
@@ -687,7 +687,7 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
               <button
                 type="button"
                 onClick={resetGame}
-                className="w-full h-14 rounded-2xl bg-gradient-to-l from-emerald-400 to-sky-500 text-slate-950 font-black text-lg shadow-[0_18px_40px_rgba(16,185,129,0.30)] active:scale-95 flex items-center justify-center gap-2"
+                className="w-full h-14 rounded-2xl bg-gradient-to-l from-emerald-400 to-sky-500 text-slate-950 font-black text-xl shadow-[0_18px_40px_rgba(16,185,129,0.30)] active:scale-95 flex items-center justify-center gap-2"
               >
                 <RotateCcw className="w-6 h-6" />
                 جولة جديدة
