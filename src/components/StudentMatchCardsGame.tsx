@@ -392,7 +392,7 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
     if (termCard.pairId === definitionCard.pairId) {
       const pair = getPair(termCard.pairId);
       const difficultyBonus = pair?.difficulty === 'hard' ? 40 : pair?.difficulty === 'medium' ? 25 : 10;
-      const gained = 120 + difficultyBonus;
+      const gained = 10 + difficultyBonus;
       const nextScore = scoreRef.current + gained;
       const nextMatched = matchedRef.current + 1;
       const nextMatchedIds = Array.from(new Set([...matchedPairIds, termCard.pairId]));
