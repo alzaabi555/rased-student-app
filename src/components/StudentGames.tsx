@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   Puzzle,
   ListOrdered,
-  HelpCircle,
   Goal,
   Sparkles,
   BookOpen,
@@ -89,6 +88,14 @@ interface StudentGamesProps {
 
 type GameStatus = 'available' | 'needs_questions' | 'coming_soon';
 type ActiveGame = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'true_false' | 'match_cards' | 'sequence_order' | null;
+
+type UnifiedGameResult =
+  | SnakeLadderResult
+  | KnowledgeRaceResult
+  | FootballKnowledgeResult
+  | TrueFalseResult
+  | MatchCardsResult
+  | SequenceOrderResult;
 
 type GameCard = {
   id: string;
@@ -178,7 +185,7 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     color: 'primary',
     supportedGameTypes: ['sequence', 'order'],
     supportedQuestionTypes: ['sequence'],
-    minQuestions: 3,
+    minQuestions: 1,
     estimatedTime: '3 دقائق'
   }
 ];
@@ -279,7 +286,6 @@ const toTrueFalseQuestions = (questions: GameQuestion[]): TrueFalseQuestion[] =>
     }));
 };
 
-
 const toMatchCardsQuestions = (questions: GameQuestion[]): MatchCardsQuestion[] => {
   return questions
     .filter(question => {
@@ -333,6 +339,7 @@ const toSequenceOrderQuestions = (questions: GameQuestion[]): SequenceOrderQuest
       active: question.active
     }));
 };
+
 
 const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   const { t, dir } = useApp();
@@ -489,12 +496,26 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   };
 
   const refreshStats = () => setStatsVersion(prev => prev + 1);
-  const handleSnakeLadderComplete = (_result: SnakeLadderResult) => refreshStats();
-  const handleKnowledgeRaceComplete = (_result: KnowledgeRaceResult) => refreshStats();
-  const handleFootballComplete = (_result: FootballKnowledgeResult) => refreshStats();
-  const handleTrueFalseComplete = (_result: TrueFalseResult) => refreshStats();
-  const handleMatchCardsComplete = (_result: MatchCardsResult) => refreshStats();
-  const handleSequenceOrderComplete = (_result: SequenceOrderResult) => refreshStats();
+
+  const handleGameComplete = (result: UnifiedGameResult) => {
+    refreshStats();
+
+    try {
+      const key = `rased_student_latest_game_result_${studentKey}`;
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          ...result,
+          studentId: studentKey,
+          savedAt: new Date().toISOString()
+        })
+      );
+    } catch (error) {
+      console.error('Failed to cache latest game result', error);
+    }
+
+    // لاحقًا يتم استبدال التخزين المحلي هنا برفع النتيجة إلى السحابة / راصد المعلم.
+  };
 
   return (
     <div className="rased-student-light flex flex-col h-full min-h-0 bg-bgMain text-textPrimary relative overflow-hidden" dir={dir}>
@@ -695,7 +716,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             setActiveGame(null);
             refreshStats();
           }}
-          onComplete={handleSnakeLadderComplete}
+          onComplete={handleGameComplete}
         />
       )}
 
@@ -707,7 +728,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             setActiveGame(null);
             refreshStats();
           }}
-          onComplete={handleKnowledgeRaceComplete}
+          onComplete={handleGameComplete}
         />
       )}
 
@@ -719,7 +740,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             setActiveGame(null);
             refreshStats();
           }}
-          onComplete={handleFootballComplete}
+          onComplete={handleGameComplete}
         />
       )}
 
@@ -731,7 +752,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             setActiveGame(null);
             refreshStats();
           }}
-          onComplete={handleTrueFalseComplete}
+          onComplete={handleGameComplete}
         />
       )}
 
@@ -743,7 +764,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             setActiveGame(null);
             refreshStats();
           }}
-          onComplete={handleMatchCardsComplete}
+          onComplete={handleGameComplete}
         />
       )}
 
@@ -755,7 +776,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             setActiveGame(null);
             refreshStats();
           }}
-          onComplete={handleSequenceOrderComplete}
+          onComplete={handleGameComplete}
         />
       )}
     </div>
