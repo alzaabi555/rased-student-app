@@ -343,7 +343,7 @@ const StudentSequenceOrderGame: React.FC<StudentSequenceOrderGameProps> = ({
 
     if (ok) {
       const difficultyBonus = currentRound.difficulty === 'hard' ? 60 : currentRound.difficulty === 'medium' ? 35 : 15;
-      const gained = 160 + difficultyBonus + Math.max(0, lives) * 12;
+      const gained = 10 + difficultyBonus + Math.max(0, lives) * 12;
       const nextScore = scoreRef.current + gained;
       const nextCorrect = correctRef.current + 1;
 
