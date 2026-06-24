@@ -30,16 +30,21 @@ import type { FootballKnowledgeQuestion, FootballKnowledgeResult } from './Stude
 
 import StudentTrueFalseGame from './StudentTrueFalseGame';
 import type { TrueFalseQuestion, TrueFalseResult } from './StudentTrueFalseGame';
+
 import StudentMatchCardsGame from './StudentMatchCardsGame';
 import type { MatchCardsQuestion, MatchCardsResult } from './StudentMatchCardsGame';
 
+import StudentSequenceOrderGame from './StudentSequenceOrderGame';
+import type { SequenceOrderQuestion, SequenceOrderResult } from './StudentSequenceOrderGame';
+
 // =========================================================================
-// مركز ألعاب الطالب - نسخة مرتبطة بالألعاب الأربع:
+// مركز ألعاب الطالب - نسخة مرتبطة بالألعاب الست:
 // ✅ السلم والثعبان
 // ✅ سباق المعرفة
 // ✅ ركلات المعرفة
 // ✅ صح أم خطأ
 // ✅ طابق المفهوم
+// ✅ رتّب الأحداث
 // =========================================================================
 
 export interface GameQuestion {
@@ -58,13 +63,13 @@ export interface GameQuestion {
   explanation?: string;
   difficulty?: 'easy' | 'medium' | 'hard';
   active?: boolean;
-pairs?: Array<{
-  term?: string;
-  definition?: string;
-  left?: string;
-  right?: string;
-}>;
-
+  pairs?: Array<{
+    term?: string;
+    definition?: string;
+    left?: string;
+    right?: string;
+  }>;
+  sequence?: string[];
 }
 
 export interface StudentGamesStudent {
@@ -83,7 +88,7 @@ interface StudentGamesProps {
 }
 
 type GameStatus = 'available' | 'needs_questions' | 'coming_soon';
-type ActiveGame = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'true_false' | 'match_cards' | null;
+type ActiveGame = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'true_false' | 'match_cards' | 'sequence_order' | null;
 
 type GameCard = {
   id: string;
@@ -175,18 +180,6 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     supportedQuestionTypes: ['sequence'],
     minQuestions: 3,
     estimatedTime: '3 دقائق'
-  },
-  {
-    id: 'who_am_i',
-    title: 'من أنا؟',
-    shortTitle: 'من أنا',
-    description: 'اكتشف الإجابة من التلميحات المتدرجة.',
-    icon: HelpCircle,
-    color: 'warning',
-    supportedGameTypes: ['hints', 'who_am_i'],
-    supportedQuestionTypes: ['hints'],
-    minQuestions: 3,
-    estimatedTime: 'دقيقتان'
   }
 ];
 
@@ -316,6 +309,31 @@ const toMatchCardsQuestions = (questions: GameQuestion[]): MatchCardsQuestion[] 
     }));
 };
 
+const toSequenceOrderQuestions = (questions: GameQuestion[]): SequenceOrderQuestion[] => {
+  return questions
+    .filter(question => {
+      if (question.active === false) return false;
+      return (
+        question.questionType === 'sequence' &&
+        Array.isArray(question.sequence) &&
+        question.sequence.map(item => item.trim()).filter(Boolean).length >= 2
+      );
+    })
+    .map(question => ({
+      id: question.id,
+      subject: question.subject,
+      unit: question.unit,
+      lesson: question.lesson,
+      questionType: 'sequence',
+      question: question.question,
+      options: question.options,
+      sequence: question.sequence,
+      explanation: question.explanation,
+      difficulty: question.difficulty,
+      active: question.active
+    }));
+};
+
 const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   const { t, dir } = useApp();
   const [selectedGame, setSelectedGame] = useState<GameCardWithAvailability | null>(null);
@@ -415,6 +433,12 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
     return toMatchCardsQuestions(gameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
   }, [gameQuestions]);
 
+  const sequenceOrderQuestions = useMemo(() => {
+    const game = findBaseGame('sequence_order');
+    if (!game) return [];
+    return toSequenceOrderQuestions(gameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
+  }, [gameQuestions]);
+
   const availableGames = games.filter(g => g.status === 'available');
   const totalQuestions = gameQuestions.length;
 
@@ -453,6 +477,13 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
       return;
     }
 
+    if (game.id === 'sequence_order') {
+      if (sequenceOrderQuestions.length === 0) return;
+      setSelectedGame(null);
+      setActiveGame('sequence_order');
+      return;
+    }
+
     if (game.status !== 'available') return;
     alert('سيتم ربط محرك هذه اللعبة في خطوة لاحقة.');
   };
@@ -463,6 +494,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   const handleFootballComplete = (_result: FootballKnowledgeResult) => refreshStats();
   const handleTrueFalseComplete = (_result: TrueFalseResult) => refreshStats();
   const handleMatchCardsComplete = (_result: MatchCardsResult) => refreshStats();
+  const handleSequenceOrderComplete = (_result: SequenceOrderResult) => refreshStats();
 
   return (
     <div className="rased-student-light flex flex-col h-full min-h-0 bg-bgMain text-textPrimary relative overflow-hidden" dir={dir}>
@@ -498,19 +530,19 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
               <p className="text-[9px] font-bold text-textSecondary mb-1">أفضل نتيجة</p>
               <p className="text-lg font-black text-primary">
-                {stats.bestScore || stats.knowledgeRaceBestScore || stats.footballBestScore || stats.trueFalseBestScore || stats.matchCardsBestScore || 0}
+                {stats.bestScore || stats.knowledgeRaceBestScore || stats.footballBestScore || stats.trueFalseBestScore || stats.matchCardsBestScore || stats.sequenceOrderBestScore || 0}
               </p>
             </div>
             <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
               <p className="text-[9px] font-bold text-textSecondary mb-1">آخر نتيجة</p>
               <p className="text-lg font-black text-textPrimary">
-                {stats.lastScore || stats.knowledgeRaceLastScore || stats.footballLastScore || stats.trueFalseLastScore || stats.matchCardsLastScore || 0}
+                {stats.lastScore || stats.knowledgeRaceLastScore || stats.footballLastScore || stats.trueFalseLastScore || stats.matchCardsLastScore || stats.sequenceOrderLastScore || 0}
               </p>
             </div>
             <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
               <p className="text-[9px] font-bold text-textSecondary mb-1">المحاولات</p>
               <p className="text-lg font-black text-success">
-                {stats.attempts || stats.knowledgeRaceAttempts || stats.footballAttempts || stats.trueFalseAttempts || stats.matchCardsAttempts || 0}
+                {stats.attempts || stats.knowledgeRaceAttempts || stats.footballAttempts || stats.trueFalseAttempts || stats.matchCardsAttempts || stats.sequenceOrderAttempts || 0}
               </p>
             </div>
           </div>
@@ -712,6 +744,18 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             refreshStats();
           }}
           onComplete={handleMatchCardsComplete}
+        />
+      )}
+
+      {activeGame === 'sequence_order' && (
+        <StudentSequenceOrderGame
+          questions={sequenceOrderQuestions}
+          studentId={studentKey}
+          onClose={() => {
+            setActiveGame(null);
+            refreshStats();
+          }}
+          onComplete={handleSequenceOrderComplete}
         />
       )}
     </div>
