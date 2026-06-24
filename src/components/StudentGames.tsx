@@ -35,7 +35,7 @@ import type { MatchCardsQuestion, MatchCardsResult } from './StudentMatchCardsGa
 
 import StudentSequenceOrderGame from './StudentSequenceOrderGame';
 import type { SequenceOrderQuestion, SequenceOrderResult } from './StudentSequenceOrderGame';
-
+const STUDENT_APP_URL = 'https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6po82-XePyAWBd9FMNCTgY7WlYaOH6pn1kTazLqxEfvremqsSk_dU/exec';
 // =========================================================================
 // مركز ألعاب الطالب - نسخة مرتبطة بالألعاب الست + سجل نتائج موحد:
 // ✅ السلم والثعبان
@@ -51,6 +51,9 @@ import type { SequenceOrderQuestion, SequenceOrderResult } from './StudentSequen
 
 export interface GameQuestion {
   id: string;
+  schoolCode?: string;
+teacherId?: string;
+semester?: string;
   subject?: string;
   grade?: string;
   className?: string;
@@ -570,6 +573,69 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   };
 
   const refreshStats = () => setStatsVersion(prev => prev + 1);
+const getResultCloudMeta = () => {
+  const firstQuestionWithMeta = gameQuestions.find(
+    question => question.schoolCode || question.teacherId
+  );
+
+  return {
+    schoolCode:
+      firstQuestionWithMeta?.schoolCode ||
+      localStorage.getItem('rased_student_school_code') ||
+      localStorage.getItem('rased_admin_school_code') ||
+      '',
+    teacherId:
+      firstQuestionWithMeta?.teacherId ||
+      localStorage.getItem('rased_student_teacher_id') ||
+      localStorage.getItem('rased_teacher_civil_id') ||
+      '',
+    className: student?.classes?.[0] || '',
+    grade: student?.grade || '',
+    studentName: student?.name || ''
+  };
+};
+
+const syncGameResultToCloud = async (logEntry: StudentGameResultLogEntry) => {
+  const meta = getResultCloudMeta();
+
+  if (!STUDENT_APP_URL) {
+    console.warn('STUDENT_APP_URL غير مضبوط، تم حفظ النتيجة محليًا فقط.');
+    return false;
+  }
+
+  if (!meta.schoolCode) {
+    console.warn('schoolCode غير متوفر، قد لا تظهر النتيجة في راصد المعلم.');
+  }
+
+  try {
+    const response = await fetch(STUDENT_APP_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'studentGameResult',
+        schoolCode: meta.schoolCode,
+        teacherId: meta.teacherId,
+        studentId: logEntry.studentId,
+        studentName: logEntry.studentName || meta.studentName,
+        className: logEntry.className || meta.className,
+        grade: logEntry.grade || meta.grade,
+        gameResult: {
+          ...logEntry,
+          schoolCode: meta.schoolCode,
+          teacherId: meta.teacherId,
+          studentName: logEntry.studentName || meta.studentName,
+          className: logEntry.className || meta.className,
+          grade: logEntry.grade || meta.grade
+        }
+      })
+    });
+
+    const data = await response.json().catch(() => null);
+    return Boolean(data?.success);
+  } catch (error) {
+    console.error('Failed to sync game result to cloud', error);
+    return false;
+  }
+};
 
   const handleGameComplete = (result: UnifiedGameResult) => {
     refreshStats();
@@ -589,6 +655,25 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
       localStorage.setItem(latestKey, JSON.stringify(logEntry));
       localStorage.setItem(logKey, JSON.stringify(nextLog));
       localStorage.setItem(pendingSyncKey, JSON.stringify(nextPending));
+        syncGameResultToCloud(logEntry).then(success => {
+  if (!success) return;
+
+  try {
+    const oldPendingAfterSync =
+      readJsonArray<StudentGameResultLogEntry>(pendingSyncKey);
+
+    const nextPendingAfterSync = oldPendingAfterSync.filter(
+      item => item.id !== logEntry.id
+    );
+
+    localStorage.setItem(
+      pendingSyncKey,
+      JSON.stringify(nextPendingAfterSync)
+    );
+  } catch (error) {
+    console.error('Failed to update pending game results after sync', error);
+  }
+});
     } catch (error) {
       console.error('Failed to cache game result log', error);
     }
