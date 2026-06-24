@@ -394,7 +394,7 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
 
     if (ok) {
       setCorrect(prev => prev + 1);
-      setScore(prev => prev + 120);
+      setScore(prev => prev + 10);
       setFeedback({
         type: 'correct',
         message: 'إجابة صحيحة! اللاعب يستعد لتسديدة قوية.',
