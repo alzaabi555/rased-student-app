@@ -30,7 +30,6 @@ import type { FootballKnowledgeQuestion, FootballKnowledgeResult } from './Stude
 
 import StudentTrueFalseGame from './StudentTrueFalseGame';
 import type { TrueFalseQuestion, TrueFalseResult } from './StudentTrueFalseGame';
-
 import StudentMatchCardsGame from './StudentMatchCardsGame';
 import type { MatchCardsQuestion, MatchCardsResult } from './StudentMatchCardsGame';
 
@@ -156,7 +155,7 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     color: 'danger',
     supportedGameTypes: ['matching', 'match_cards'],
     supportedQuestionTypes: ['matching'],
-    minQuestions: 2,
+    minQuestions: 1,
     estimatedTime: '3 دقائق'
   },
   {
@@ -287,8 +286,12 @@ const toMatchCardsQuestions = (questions: GameQuestion[]): MatchCardsQuestion[] 
     .filter(question => {
       if (question.active === false) return false;
       const hasPairs = Array.isArray(question.pairs) && question.pairs.length > 0;
-      const hasSinglePair = Boolean(question.question) && Boolean(question.correctAnswerText || (typeof question.correctAnswerIndex === 'number' && question.options?.[question.correctAnswerIndex]));
-      return hasPairs || hasSinglePair;
+      const hasSinglePair = Boolean(question.question) && Boolean(
+        question.correctAnswerText ||
+        (typeof question.correctAnswerIndex === 'number' && question.options?.[question.correctAnswerIndex])
+      );
+      const hasFallbackOptionPairs = !question.question && Array.isArray(question.options) && question.options.length >= 2;
+      return hasPairs || hasSinglePair || hasFallbackOptionPairs;
     })
     .map(question => ({
       id: question.id,
@@ -438,7 +441,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
     }
 
     if (game.id === 'match_cards') {
-      if (matchCardsQuestions.length < 2) return;
+      if (matchCardsQuestions.length === 0) return;
       setSelectedGame(null);
       setActiveGame('match_cards');
       return;
