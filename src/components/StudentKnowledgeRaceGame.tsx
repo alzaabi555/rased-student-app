@@ -429,8 +429,8 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
         explanation: question.explanation
       });
 
-      updateScore(scoreRef.current + 220);
-      playerRef.current.boostTimer = 210;
+      updateScore(scoreRef.current + 10);
+      playerRef.current.boostTimer = 10;
       createSparks(playerRef.current.x, playerRef.current.y + 20);
 
       window.setTimeout(() => {
