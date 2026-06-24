@@ -30,9 +30,9 @@ import {
 // =========================================================================
 
 export interface MatchPairInput {
-  term: string;
-  definition: string;
-}
+  term?: string;
+  definition?: string;
+
 
 export interface MatchCardsQuestion {
   id: string;
@@ -165,8 +165,8 @@ const buildPairs = (questions: MatchCardsQuestion[]): MatchPair[] => {
 
     if (Array.isArray(question.pairs) && question.pairs.length > 0) {
       question.pairs.forEach((pair, pairIndex) => {
-        const term = cleanText(pair.term);
-        const definition = cleanText(pair.definition);
+       const term = cleanText(pair.term || pair.left);
+const definition = cleanText(pair.definition || pair.right);
         if (!term || !definition) return;
 
         pairs.push({
