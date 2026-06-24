@@ -401,7 +401,7 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
       const difficultyBonus = currentQuestion.difficulty === 'hard' ? 40 : currentQuestion.difficulty === 'medium' ? 25 : 10;
       const timeBonus = Math.max(0, timeLeft) * 3;
       const streakBonus = Math.min(nextStreak * 12, 72);
-      const gained = 100 + difficultyBonus + timeBonus + streakBonus;
+      const gained = 10 + difficultyBonus + timeBonus + streakBonus;
       const nextMaxStreak = Math.max(maxStreakRef.current, nextStreak);
 
       updateScore(prev => prev + gained);
