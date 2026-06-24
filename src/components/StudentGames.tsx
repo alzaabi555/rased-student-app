@@ -37,13 +37,16 @@ import StudentSequenceOrderGame from './StudentSequenceOrderGame';
 import type { SequenceOrderQuestion, SequenceOrderResult } from './StudentSequenceOrderGame';
 
 // =========================================================================
-// مركز ألعاب الطالب - نسخة مرتبطة بالألعاب الست:
+// مركز ألعاب الطالب - نسخة مرتبطة بالألعاب الست + سجل نتائج موحد:
 // ✅ السلم والثعبان
 // ✅ سباق المعرفة
 // ✅ ركلات المعرفة
 // ✅ صح أم خطأ
 // ✅ طابق المفهوم
 // ✅ رتّب الأحداث
+// -------------------------------------------------------------------------
+// هذه النسخة لا تغير واجهة الصفحة؛ فقط تضيف سجل نتائج موحد لكل الألعاب
+// تمهيدًا لرفعه لاحقًا إلى السحابة / راصد المعلم.
 // =========================================================================
 
 export interface GameQuestion {
@@ -96,6 +99,32 @@ type UnifiedGameResult =
   | TrueFalseResult
   | MatchCardsResult
   | SequenceOrderResult;
+
+type UnifiedGameType =
+  | 'snake_ladder'
+  | 'knowledge_race'
+  | 'football_quiz'
+  | 'true_false'
+  | 'match_cards'
+  | 'sequence_order';
+
+export interface StudentGameResultLogEntry {
+  id: string;
+  studentId: string;
+  studentName?: string;
+  className?: string;
+  grade?: string;
+  gameType: UnifiedGameType | string;
+  score: number;
+  correct: number;
+  wrong: number;
+  completed: boolean;
+  weakQuestionIds: string[];
+  playedAt: string;
+  savedAt: string;
+  syncStatus: 'local_only' | 'pending_sync' | 'synced';
+  rawResult: UnifiedGameResult;
+}
 
 type GameCard = {
   id: string;
@@ -216,6 +245,17 @@ const readLocalGameStats = (studentId?: string) => {
   }
 };
 
+const readJsonArray = <T,>(key: string): T[] => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 const isQuestionCompatibleWithGame = (question: GameQuestion, game: Omit<GameCard, 'status'>) => {
   const byGameType = (question.gameTypes || []).some(type => game.supportedGameTypes.includes(type));
   const byQuestionType = question.questionType ? game.supportedQuestionTypes.includes(question.questionType) : false;
@@ -311,7 +351,7 @@ const toMatchCardsQuestions = (questions: GameQuestion[]): MatchCardsQuestion[] 
       explanation: question.explanation,
       difficulty: question.difficulty,
       active: question.active,
-      pairs: question.pairs
+      pairs: question.pairs as MatchCardsQuestion['pairs']
     }));
 };
 
@@ -340,6 +380,40 @@ const toSequenceOrderQuestions = (questions: GameQuestion[]): SequenceOrderQuest
     }));
 };
 
+const getResultNumber = (result: UnifiedGameResult, key: string, fallback = 0) => {
+  const value = (result as unknown as Record<string, unknown>)[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+};
+
+const buildGameResultLogEntry = (
+  result: UnifiedGameResult,
+  student: StudentGamesStudent,
+  studentKey: string
+): StudentGameResultLogEntry => {
+  const raw = result as unknown as Record<string, unknown>;
+  const savedAt = new Date().toISOString();
+  const playedAt = typeof raw.playedAt === 'string' ? raw.playedAt : savedAt;
+  const gameType = typeof raw.gameType === 'string' ? raw.gameType : 'unknown_game';
+  const weakQuestionIds = Array.isArray(raw.weakQuestionIds) ? raw.weakQuestionIds.filter((id): id is string => typeof id === 'string') : [];
+
+  return {
+    id: `sgr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    studentId: studentKey,
+    studentName: student?.name,
+    className: student?.classes?.[0],
+    grade: student?.grade,
+    gameType,
+    score: getResultNumber(result, 'score'),
+    correct: getResultNumber(result, 'correct', getResultNumber(result, 'matched')),
+    wrong: getResultNumber(result, 'wrong'),
+    completed: Boolean(raw.completed),
+    weakQuestionIds,
+    playedAt,
+    savedAt,
+    syncStatus: 'pending_sync',
+    rawResult: result
+  };
+};
 
 const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   const { t, dir } = useApp();
@@ -501,17 +575,22 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
     refreshStats();
 
     try {
-      const key = `rased_student_latest_game_result_${studentKey}`;
-      localStorage.setItem(
-        key,
-        JSON.stringify({
-          ...result,
-          studentId: studentKey,
-          savedAt: new Date().toISOString()
-        })
-      );
+      const logEntry = buildGameResultLogEntry(result, student, studentKey);
+      const latestKey = `rased_student_latest_game_result_${studentKey}`;
+      const logKey = `rased_student_game_results_log_${studentKey}`;
+      const pendingSyncKey = `rased_student_game_results_pending_sync_${studentKey}`;
+
+      const oldLog = readJsonArray<StudentGameResultLogEntry>(logKey);
+      const nextLog = [logEntry, ...oldLog].slice(0, 100);
+
+      const oldPending = readJsonArray<StudentGameResultLogEntry>(pendingSyncKey);
+      const nextPending = [logEntry, ...oldPending].slice(0, 100);
+
+      localStorage.setItem(latestKey, JSON.stringify(logEntry));
+      localStorage.setItem(logKey, JSON.stringify(nextLog));
+      localStorage.setItem(pendingSyncKey, JSON.stringify(nextPending));
     } catch (error) {
-      console.error('Failed to cache latest game result', error);
+      console.error('Failed to cache game result log', error);
     }
 
     // لاحقًا يتم استبدال التخزين المحلي هنا برفع النتيجة إلى السحابة / راصد المعلم.
