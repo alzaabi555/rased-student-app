@@ -31,12 +31,16 @@ import type { FootballKnowledgeQuestion, FootballKnowledgeResult } from './Stude
 import StudentTrueFalseGame from './StudentTrueFalseGame';
 import type { TrueFalseQuestion, TrueFalseResult } from './StudentTrueFalseGame';
 
+import StudentMatchCardsGame from './StudentMatchCardsGame';
+import type { MatchCardsQuestion, MatchCardsResult } from './StudentMatchCardsGame';
+
 // =========================================================================
 // مركز ألعاب الطالب - نسخة مرتبطة بالألعاب الأربع:
 // ✅ السلم والثعبان
 // ✅ سباق المعرفة
 // ✅ ركلات المعرفة
 // ✅ صح أم خطأ
+// ✅ طابق المفهوم
 // =========================================================================
 
 export interface GameQuestion {
@@ -55,6 +59,7 @@ export interface GameQuestion {
   explanation?: string;
   difficulty?: 'easy' | 'medium' | 'hard';
   active?: boolean;
+  pairs?: Array<{ term: string; definition: string }>;
 }
 
 export interface StudentGamesStudent {
@@ -73,7 +78,7 @@ interface StudentGamesProps {
 }
 
 type GameStatus = 'available' | 'needs_questions' | 'coming_soon';
-type ActiveGame = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'true_false' | null;
+type ActiveGame = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'true_false' | 'match_cards' | null;
 
 type GameCard = {
   id: string;
@@ -151,7 +156,7 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     color: 'danger',
     supportedGameTypes: ['matching', 'match_cards'],
     supportedQuestionTypes: ['matching'],
-    minQuestions: 4,
+    minQuestions: 2,
     estimatedTime: '3 دقائق'
   },
   {
@@ -276,6 +281,32 @@ const toTrueFalseQuestions = (questions: GameQuestion[]): TrueFalseQuestion[] =>
     }));
 };
 
+
+const toMatchCardsQuestions = (questions: GameQuestion[]): MatchCardsQuestion[] => {
+  return questions
+    .filter(question => {
+      if (question.active === false) return false;
+      const hasPairs = Array.isArray(question.pairs) && question.pairs.length > 0;
+      const hasSinglePair = Boolean(question.question) && Boolean(question.correctAnswerText || (typeof question.correctAnswerIndex === 'number' && question.options?.[question.correctAnswerIndex]));
+      return hasPairs || hasSinglePair;
+    })
+    .map(question => ({
+      id: question.id,
+      subject: question.subject,
+      unit: question.unit,
+      lesson: question.lesson,
+      questionType: 'matching',
+      question: question.question,
+      options: question.options,
+      correctAnswerIndex: question.correctAnswerIndex,
+      correctAnswerText: question.correctAnswerText,
+      explanation: question.explanation,
+      difficulty: question.difficulty,
+      active: question.active,
+      pairs: question.pairs
+    }));
+};
+
 const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   const { t, dir } = useApp();
   const [selectedGame, setSelectedGame] = useState<GameCardWithAvailability | null>(null);
@@ -369,6 +400,12 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
     return toTrueFalseQuestions(gameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
   }, [gameQuestions]);
 
+  const matchCardsQuestions = useMemo(() => {
+    const game = findBaseGame('match_cards');
+    if (!game) return [];
+    return toMatchCardsQuestions(gameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
+  }, [gameQuestions]);
+
   const availableGames = games.filter(g => g.status === 'available');
   const totalQuestions = gameQuestions.length;
 
@@ -400,6 +437,13 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
       return;
     }
 
+    if (game.id === 'match_cards') {
+      if (matchCardsQuestions.length < 2) return;
+      setSelectedGame(null);
+      setActiveGame('match_cards');
+      return;
+    }
+
     if (game.status !== 'available') return;
     alert('سيتم ربط محرك هذه اللعبة في خطوة لاحقة.');
   };
@@ -409,6 +453,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   const handleKnowledgeRaceComplete = (_result: KnowledgeRaceResult) => refreshStats();
   const handleFootballComplete = (_result: FootballKnowledgeResult) => refreshStats();
   const handleTrueFalseComplete = (_result: TrueFalseResult) => refreshStats();
+  const handleMatchCardsComplete = (_result: MatchCardsResult) => refreshStats();
 
   return (
     <div className="rased-student-light flex flex-col h-full min-h-0 bg-bgMain text-textPrimary relative overflow-hidden" dir={dir}>
@@ -444,19 +489,19 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
               <p className="text-[9px] font-bold text-textSecondary mb-1">أفضل نتيجة</p>
               <p className="text-lg font-black text-primary">
-                {stats.bestScore || stats.knowledgeRaceBestScore || stats.footballBestScore || stats.trueFalseBestScore || 0}
+                {stats.bestScore || stats.knowledgeRaceBestScore || stats.footballBestScore || stats.trueFalseBestScore || stats.matchCardsBestScore || 0}
               </p>
             </div>
             <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
               <p className="text-[9px] font-bold text-textSecondary mb-1">آخر نتيجة</p>
               <p className="text-lg font-black text-textPrimary">
-                {stats.lastScore || stats.knowledgeRaceLastScore || stats.footballLastScore || stats.trueFalseLastScore || 0}
+                {stats.lastScore || stats.knowledgeRaceLastScore || stats.footballLastScore || stats.trueFalseLastScore || stats.matchCardsLastScore || 0}
               </p>
             </div>
             <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
               <p className="text-[9px] font-bold text-textSecondary mb-1">المحاولات</p>
               <p className="text-lg font-black text-success">
-                {stats.attempts || stats.knowledgeRaceAttempts || stats.footballAttempts || stats.trueFalseAttempts || 0}
+                {stats.attempts || stats.knowledgeRaceAttempts || stats.footballAttempts || stats.trueFalseAttempts || stats.matchCardsAttempts || 0}
               </p>
             </div>
           </div>
@@ -646,6 +691,18 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             refreshStats();
           }}
           onComplete={handleTrueFalseComplete}
+        />
+      )}
+
+      {activeGame === 'match_cards' && (
+        <StudentMatchCardsGame
+          questions={matchCardsQuestions}
+          studentId={studentKey}
+          onClose={() => {
+            setActiveGame(null);
+            refreshStats();
+          }}
+          onComplete={handleMatchCardsComplete}
         />
       )}
     </div>
