@@ -30,9 +30,14 @@ import {
 // =========================================================================
 
 export interface MatchPairInput {
+  // الصيغة القديمة/الداخلية
   term?: string;
   definition?: string;
 
+  // الصيغة القادمة من راصد المعلم
+  left?: string;
+  right?: string;
+}
 
 export interface MatchCardsQuestion {
   id: string;
@@ -59,7 +64,6 @@ export interface MatchCardsResult {
   weakQuestionIds: string[];
   playedAt: string;
 }
-
 interface StudentMatchCardsGameProps {
   questions: MatchCardsQuestion[];
   studentId?: string;
@@ -165,8 +169,8 @@ const buildPairs = (questions: MatchCardsQuestion[]): MatchPair[] => {
 
     if (Array.isArray(question.pairs) && question.pairs.length > 0) {
       question.pairs.forEach((pair, pairIndex) => {
-       const term = cleanText(pair.term || pair.left);
-const definition = cleanText(pair.definition || pair.right);
+      const term = cleanText(pair.term || pair.left);
+      const definition = cleanText(pair.definition || pair.right);
         if (!term || !definition) return;
 
         pairs.push({
