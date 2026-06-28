@@ -823,7 +823,6 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
       if (!car.passed && car.y > player.y + player.h) {
         car.passed = true;
         updateOvertakes(overtakesRef.current + 1);
-        updateScore(scoreRef.current + 10);
       }
 
       const hit =
