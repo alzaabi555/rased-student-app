@@ -384,15 +384,17 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
   const getPair = (pairId: string) => gamePairs.find(pair => pair.id === pairId);
   const isMatched = (pairId: string) => matchedPairIds.includes(pairId);
 
-  const resolveSelection = (termId: string, definitionId: string) => {
+const resolveSelection = (termId: string, definitionId: string) => {
     const termCard = terms.find(card => card.id === termId);
     const definitionCard = definitions.find(card => card.id === definitionId);
     if (!termCard || !definitionCard) return;
 
     if (termCard.pairId === definitionCard.pairId) {
       const pair = getPair(termCard.pairId);
-      const difficultyBonus = pair?.difficulty === 'hard' ? 40 : pair?.difficulty === 'medium' ? 25 : 10;
-      const gained = 10 + difficultyBonus;
+      
+      // 👇 تم التعديل هنا: جعل النقاط 10 ثابتة وإزالة حسابات الصعوبة
+      const gained = 10; 
+      
       const nextScore = scoreRef.current + gained;
       const nextMatched = matchedRef.current + 1;
       const nextMatchedIds = Array.from(new Set([...matchedPairIds, termCard.pairId]));
@@ -403,7 +405,7 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
       setMatchedPairIds(nextMatchedIds);
       setFeedback({
         type: 'correct',
-        message: `مطابقة صحيحة! +${gained} نقطة`,
+        message: `مطابقة صحيحة! +${gained} نقاط`,
         detail: pair?.explanation || `${termCard.text} ← ${definitionCard.text}`
       });
       resetRoundState();
@@ -459,7 +461,7 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
     }
   };
 
-  const cardClass = (card: MatchCard) => {
+ const cardClass = (card: MatchCard) => {
     const selected = card.id === selectedTermId || card.id === selectedDefinitionId;
     const matchedCard = isMatched(card.pairId);
     const wrongCard = wrongFlashIds.includes(card.id);
@@ -467,7 +469,8 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
       ? 'from-sky-500/24 to-indigo-900/68 border-sky-200/35'
       : 'from-emerald-500/24 to-teal-900/68 border-emerald-200/35';
 
-    const base = 'relative w-full min-h-[96px] rounded-[1.35rem] border p-3.5 text-start transition-all active:scale-[0.985] shadow-[0_16px_34px_rgba(0,0,0,0.28)] overflow-hidden';
+    // 👇 تم تصغير الحشوات (p) والارتفاعات في الجوال لكي تتسع بجانب بعضها
+    const base = 'relative w-full min-h-[72px] sm:min-h-[96px] rounded-[1rem] sm:rounded-[1.35rem] border p-2 sm:p-3.5 text-start transition-all active:scale-[0.985] shadow-[0_16px_34px_rgba(0,0,0,0.28)] overflow-hidden';
 
     if (matchedCard) {
       return `${base} bg-gradient-to-br from-emerald-400/45 to-emerald-900/80 border-emerald-200/70 opacity-80`;
@@ -495,11 +498,12 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
         className={cardClass(card)}
       >
         <div className="absolute inset-0 bg-gradient-to-br from-white/14 via-transparent to-black/18" />
-        <div className="relative z-10 flex items-start gap-2">
-          <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 font-black text-xs ${matchedCard ? 'bg-emerald-300 text-slate-950 border-emerald-100' : 'bg-slate-950/45 text-white border-white/15'}`}>
-            {matchedCard ? <CheckCircle2 className="w-4 h-4" /> : index + 1}
+        <div className="relative z-10 flex items-start gap-1.5 sm:gap-2">
+          <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl border flex items-center justify-center shrink-0 font-black text-[10px] sm:text-xs ${matchedCard ? 'bg-emerald-300 text-slate-950 border-emerald-100' : 'bg-slate-950/45 text-white border-white/15'}`}>
+            {matchedCard ? <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4" /> : index + 1}
           </div>
-          <p className="text-[clamp(0.78rem,3.3vw,0.96rem)] font-black leading-6 text-white break-words whitespace-pre-wrap">
+          {/* 👇 تم تصغير الخط قليلاً في الجوال ليناسب العمودين */}
+          <p className="text-[clamp(0.68rem,2.8vw,0.96rem)] sm:text-[clamp(0.78rem,3.3vw,0.96rem)] font-black leading-5 sm:leading-6 text-white break-words whitespace-pre-wrap mt-0.5">
             {card.text}
           </p>
         </div>
@@ -607,28 +611,28 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
                 <div className="h-full bg-gradient-to-l from-emerald-300 to-sky-300 transition-all duration-300" style={{ width: `${Math.max(4, progress)}%` }} />
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="rounded-[1.8rem] bg-slate-950/62 border border-sky-200/20 backdrop-blur-xl p-3 shadow-[0_22px_54px_rgba(0,0,0,0.34)]">
-                  <div className="flex items-center justify-between px-2 mb-3">
-                    <h3 className="text-sm font-black text-sky-100 flex items-center gap-2"><Sparkles className="w-4 h-4" />المفاهيم</h3>
-                    <span className="text-[10px] font-black text-slate-300">اختر بطاقة</span>
+              {/* 👇 تم تغيير grid-cols-1 إلى grid-cols-2 لكي يظهرا بجانب بعضهما دائماً */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                <div className="rounded-[1.2rem] sm:rounded-[1.8rem] bg-slate-950/62 border border-sky-200/20 backdrop-blur-xl p-2 sm:p-3 shadow-[0_22px_54px_rgba(0,0,0,0.34)]">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between px-1 sm:px-2 mb-2 sm:mb-3 gap-1">
+                    <h3 className="text-xs sm:text-sm font-black text-sky-100 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />المفاهيم</h3>
+                    <span className="text-[9px] sm:text-[10px] font-black text-slate-300">اختر بطاقة</span>
                   </div>
-                  <div className="grid grid-cols-1 gap-2.5">
+                  <div className="grid grid-cols-1 gap-2 sm:gap-2.5">
                     {terms.map((card, index) => renderCard(card, index))}
                   </div>
                 </div>
 
-                <div className="rounded-[1.8rem] bg-slate-950/62 border border-emerald-200/20 backdrop-blur-xl p-3 shadow-[0_22px_54px_rgba(0,0,0,0.34)]">
-                  <div className="flex items-center justify-between px-2 mb-3">
-                    <h3 className="text-sm font-black text-emerald-100 flex items-center gap-2"><Link2 className="w-4 h-4" />التعريفات</h3>
-                    <span className="text-[10px] font-black text-slate-300">ثم اختر المطابقة</span>
+                <div className="rounded-[1.2rem] sm:rounded-[1.8rem] bg-slate-950/62 border border-emerald-200/20 backdrop-blur-xl p-2 sm:p-3 shadow-[0_22px_54px_rgba(0,0,0,0.34)]">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between px-1 sm:px-2 mb-2 sm:mb-3 gap-1">
+                    <h3 className="text-xs sm:text-sm font-black text-emerald-100 flex items-center gap-1.5"><Link2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />التعريفات</h3>
+                    <span className="text-[9px] sm:text-[10px] font-black text-slate-300">طابقها</span>
                   </div>
-                  <div className="grid grid-cols-1 gap-2.5">
+                  <div className="grid grid-cols-1 gap-2 sm:gap-2.5">
                     {definitions.map((card, index) => renderCard(card, index))}
                   </div>
                 </div>
               </div>
-
               {feedback && (
                 <div className={`rounded-3xl border p-4 shadow-[0_18px_40px_rgba(0,0,0,0.35)] ${feedback.type === 'correct' ? 'bg-emerald-950/85 border-emerald-300/50' : 'bg-red-950/85 border-red-300/50'}`}>
                   <p className={`text-base font-black mb-2 ${feedback.type === 'correct' ? 'text-emerald-200' : 'text-red-200'}`}>{feedback.message}</p>
