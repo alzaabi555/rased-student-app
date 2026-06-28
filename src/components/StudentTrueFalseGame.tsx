@@ -386,7 +386,7 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
     }, 1200);
   };
 
-  const handleAnswer = (answerIndex: number) => {
+ const handleAnswer = (answerIndex: number) => {
     if (gameStateRef.current !== 'playing' || !currentQuestion) return;
     clearTimer();
 
@@ -398,10 +398,10 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
       playSfx('correct', soundEnabled);
 
       const nextStreak = streak + 1;
-      const difficultyBonus = currentQuestion.difficulty === 'hard' ? 40 : currentQuestion.difficulty === 'medium' ? 25 : 10;
-      const timeBonus = Math.max(0, timeLeft) * 3;
-      const streakBonus = Math.min(nextStreak * 12, 72);
-      const gained = 10 + difficultyBonus + timeBonus + streakBonus;
+      
+      // 👇 التعديل تم هنا: جعل النقاط المكتسبة 10 نقاط ثابتة فقط
+      const gained = 10; 
+      
       const nextMaxStreak = Math.max(maxStreakRef.current, nextStreak);
 
       updateScore(prev => prev + gained);
