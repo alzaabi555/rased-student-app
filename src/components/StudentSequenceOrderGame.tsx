@@ -337,13 +337,14 @@ const StudentSequenceOrderGame: React.FC<StudentSequenceOrderGameProps> = ({
     }, 1250);
   };
 
-  const checkAnswer = () => {
+ const checkAnswer = () => {
     if (!currentRound || gameState !== 'playing') return;
     const ok = arraysEqual(currentOrder, currentRound.correctSequence);
 
     if (ok) {
-      const difficultyBonus = currentRound.difficulty === 'hard' ? 60 : currentRound.difficulty === 'medium' ? 35 : 15;
-      const gained = 10 + difficultyBonus + Math.max(0, lives) * 12;
+      // 👇 التعديل تم هنا: إزالة حسابات الصعوبة والمحاولات وجعل النقاط 10 فقط
+      const gained = 10; 
+      
       const nextScore = scoreRef.current + gained;
       const nextCorrect = correctRef.current + 1;
 
@@ -353,7 +354,7 @@ const StudentSequenceOrderGame: React.FC<StudentSequenceOrderGameProps> = ({
       setCorrect(nextCorrect);
       setFeedback({
         type: 'correct',
-        message: `ترتيب صحيح! +${gained} نقطة`,
+        message: `ترتيب صحيح! +${gained} نقاط`,
         explanation: currentRound.explanation
       });
       playSfx('correct', soundEnabled);
