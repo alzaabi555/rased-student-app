@@ -224,7 +224,8 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
       moveLabel = `ثعبان من ${rawPosition} إلى ${finalPosition}`;
     }
 
-    const nextScore = score + 100 + pendingMove * 10 + (LADDERS[rawPosition] ? 50 : 0);
+    // 👇 التعديل تم هنا: إضافة 10 نقاط فقط للإجابة الصحيحة
+    const nextScore = score + 10; 
     const nextCorrect = correct + 1;
 
     if (finalPosition >= BOARD_SIZE && nextCorrect < correctToWin) {
