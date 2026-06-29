@@ -15,7 +15,8 @@ import {
   Sparkles,
   BookOpen,
   RotateCcw,
-  Info
+  Info,
+  Archive
 } from 'lucide-react';
 
 import StudentSnakeLadderGame from './StudentSnakeLadderGame';
@@ -35,7 +36,9 @@ import type { MatchCardsQuestion, MatchCardsResult } from './StudentMatchCardsGa
 
 import StudentSequenceOrderGame from './StudentSequenceOrderGame';
 import type { SequenceOrderQuestion, SequenceOrderResult } from './StudentSequenceOrderGame';
+
 const STUDENT_APP_URL = 'https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6po82-XePyAWBd9FMNCTgY7WlYaOH6pn1kTazLqxEfvremqsSk_dU/exec';
+
 // =========================================================================
 // مركز ألعاب الطالب - نسخة مرتبطة بالألعاب الست + سجل نتائج موحد:
 // ✅ السلم والثعبان
@@ -44,19 +47,18 @@ const STUDENT_APP_URL = 'https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6
 // ✅ صح أم خطأ
 // ✅ طابق المفهوم
 // ✅ رتّب الأحداث
-// -------------------------------------------------------------------------
-// هذه النسخة لا تغير واجهة الصفحة؛ فقط تضيف سجل نتائج موحد لكل الألعاب
-// تمهيدًا لرفعه لاحقًا إلى السحابة / راصد المعلم.
+// ✅ مراجعاتي: عرض أسئلة الأرشيف القادمة من reviewGameQuestions دون رفع نتائجها للمعلم
 // =========================================================================
 
 export interface GameQuestion {
   id: string;
   schoolCode?: string;
-teacherId?: string;
-semester?: string;
+  teacherId?: string;
+  semester?: string;
   subject?: string;
   grade?: string;
   className?: string;
+  classes?: string[];
   unit?: string;
   lesson?: string;
   gameTypes?: string[];
@@ -68,6 +70,10 @@ semester?: string;
   explanation?: string;
   difficulty?: 'easy' | 'medium' | 'hard';
   active?: boolean;
+  status?: 'active' | 'archived' | 'review' | string;
+  publishBatchId?: string;
+  archivedAt?: string;
+  visibleFrom?: string;
   pairs?: Array<{
     term?: string;
     definition?: string;
@@ -85,6 +91,7 @@ export interface StudentGamesStudent {
   classes?: string[];
   grade?: string;
   gameQuestions?: GameQuestion[];
+  reviewGameQuestions?: GameQuestion[];
 }
 
 interface StudentGamesProps {
@@ -94,6 +101,7 @@ interface StudentGamesProps {
 
 type GameStatus = 'available' | 'needs_questions' | 'coming_soon';
 type ActiveGame = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'true_false' | 'match_cards' | 'sequence_order' | null;
+type GamesMode = 'daily' | 'review';
 
 type UnifiedGameResult =
   | SnakeLadderResult
@@ -257,6 +265,37 @@ const readJsonArray = <T,>(key: string): T[] => {
   } catch {
     return [];
   }
+};
+
+const readLocalQuestionArrays = (keys: string[]) => {
+  try {
+    return keys.flatMap(key => {
+      const raw = localStorage.getItem(key);
+      if (!raw) return [];
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    });
+  } catch {
+    return [];
+  }
+};
+
+const normalizeQuestionList = (questions: GameQuestion[], includeInactive = false) => {
+  const map = new Map<string, GameQuestion>();
+
+  questions
+    .filter(q => q && q.questionType !== 'hints')
+    .filter(q => includeInactive || q.active !== false)
+    .forEach((question, index) => {
+      const id = question.id || `question_${index}`;
+      map.set(id, { ...question, id });
+    });
+
+  return Array.from(map.values());
 };
 
 const isQuestionCompatibleWithGame = (question: GameQuestion, game: Omit<GameCard, 'status'>) => {
@@ -423,6 +462,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   const [selectedGame, setSelectedGame] = useState<GameCardWithAvailability | null>(null);
   const [activeGame, setActiveGame] = useState<ActiveGame>(null);
   const [statsVersion, setStatsVersion] = useState(0);
+  const [gamesMode, setGamesMode] = useState<GamesMode>('daily');
 
   const studentKey = student?.rasedId || student?.civilId || student?.id || 'default';
 
@@ -436,32 +476,29 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
       'rased_game_questions'
     ].filter(Boolean);
 
-    let localQuestions: GameQuestion[] = [];
-    try {
-      localQuestions = possibleKeys.flatMap(key => {
-        const raw = localStorage.getItem(key);
-        if (!raw) return [];
-        try {
-          const parsed = JSON.parse(raw);
-          return Array.isArray(parsed) ? parsed : [];
-        } catch {
-          return [];
-        }
-      });
-    } catch {
-      localQuestions = [];
-    }
-
-    const map = new Map<string, GameQuestion>();
-    [...directQuestions, ...localQuestions]
-      .filter(q => q && q.active !== false)
-      .forEach((question, index) => {
-        const id = question.id || `question_${index}`;
-        map.set(id, { ...question, id });
-      });
-
-    return Array.from(map.values());
+    const localQuestions = readLocalQuestionArrays(possibleKeys);
+    return normalizeQuestionList([...directQuestions, ...localQuestions], false);
   }, [student]);
+
+  const reviewGameQuestions = useMemo(() => {
+    const directQuestions = Array.isArray(student?.reviewGameQuestions) ? student.reviewGameQuestions : [];
+    const possibleKeys = [
+      `rased_review_game_questions_${student?.civilId || ''}`,
+      `rased_review_game_questions_${student?.rasedId || ''}`,
+      `rased_review_game_questions_${student?.id || ''}`,
+      'rased_review_game_questions_default',
+      'rased_review_game_questions'
+    ].filter(Boolean);
+
+    const localQuestions = readLocalQuestionArrays(possibleKeys);
+    return normalizeQuestionList([...directQuestions, ...localQuestions], true).map(question => ({
+      ...question,
+      active: question.active === false ? true : question.active
+    }));
+  }, [student]);
+
+  const currentGameQuestions = gamesMode === 'review' ? reviewGameQuestions : gameQuestions;
+  const isReviewMode = gamesMode === 'review';
 
   const stats = useMemo(() => {
     const raw = readLocalGameStats(studentKey);
@@ -471,7 +508,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
 
   const games = useMemo<GameCardWithAvailability[]>(() => {
     return BASE_GAMES.map(game => {
-      const compatibleQuestions = gameQuestions.filter(q => isQuestionCompatibleWithGame(q, game));
+      const compatibleQuestions = currentGameQuestions.filter(q => isQuestionCompatibleWithGame(q, game));
       const status: GameStatus =
         game.id === 'snake_ladder'
           ? 'available'
@@ -483,48 +520,48 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
 
       return { ...game, status, questionCount: compatibleQuestions.length };
     });
-  }, [gameQuestions]);
+  }, [currentGameQuestions]);
 
   const findBaseGame = (id: string) => BASE_GAMES.find(game => game.id === id);
 
   const snakeLadderQuestions = useMemo(() => {
     const game = findBaseGame('snake_ladder');
     if (!game) return [];
-    return toSnakeLadderQuestions(gameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
-  }, [gameQuestions]);
+    return toSnakeLadderQuestions(currentGameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
+  }, [currentGameQuestions]);
 
   const knowledgeRaceQuestions = useMemo(() => {
     const game = findBaseGame('knowledge_race');
     if (!game) return [];
-    return toKnowledgeRaceQuestions(gameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
-  }, [gameQuestions]);
+    return toKnowledgeRaceQuestions(currentGameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
+  }, [currentGameQuestions]);
 
   const footballQuestions = useMemo(() => {
     const game = findBaseGame('football_quiz');
     if (!game) return [];
-    return toFootballKnowledgeQuestions(gameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
-  }, [gameQuestions]);
+    return toFootballKnowledgeQuestions(currentGameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
+  }, [currentGameQuestions]);
 
   const trueFalseQuestions = useMemo(() => {
     const game = findBaseGame('true_false');
     if (!game) return [];
-    return toTrueFalseQuestions(gameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
-  }, [gameQuestions]);
+    return toTrueFalseQuestions(currentGameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
+  }, [currentGameQuestions]);
 
   const matchCardsQuestions = useMemo(() => {
     const game = findBaseGame('match_cards');
     if (!game) return [];
-    return toMatchCardsQuestions(gameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
-  }, [gameQuestions]);
+    return toMatchCardsQuestions(currentGameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
+  }, [currentGameQuestions]);
 
   const sequenceOrderQuestions = useMemo(() => {
     const game = findBaseGame('sequence_order');
     if (!game) return [];
-    return toSequenceOrderQuestions(gameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
-  }, [gameQuestions]);
+    return toSequenceOrderQuestions(currentGameQuestions.filter(question => isQuestionCompatibleWithGame(question, game)));
+  }, [currentGameQuestions]);
 
   const availableGames = games.filter(g => g.status === 'available');
-  const totalQuestions = gameQuestions.length;
+  const totalQuestions = currentGameQuestions.length;
 
   const handleStartGame = (game: GameCardWithAvailability) => {
     if (game.id === 'snake_ladder') {
@@ -573,75 +610,87 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   };
 
   const refreshStats = () => setStatsVersion(prev => prev + 1);
-const getResultCloudMeta = () => {
-  const firstQuestionWithMeta = gameQuestions.find(
-    question => question.schoolCode || question.teacherId
-  );
 
-  return {
-    schoolCode:
-      firstQuestionWithMeta?.schoolCode ||
-      localStorage.getItem('rased_student_school_code') ||
-      localStorage.getItem('rased_admin_school_code') ||
-      '',
-    teacherId:
-      firstQuestionWithMeta?.teacherId ||
-      localStorage.getItem('rased_student_teacher_id') ||
-      localStorage.getItem('rased_teacher_civil_id') ||
-      '',
-    className: student?.classes?.[0] || '',
-    grade: student?.grade || '',
-    studentName: student?.name || ''
+  const getResultCloudMeta = () => {
+    const firstQuestionWithMeta = gameQuestions.find(question => question.schoolCode || question.teacherId);
+
+    return {
+      schoolCode:
+        firstQuestionWithMeta?.schoolCode ||
+        localStorage.getItem('rased_student_school_code') ||
+        localStorage.getItem('rased_admin_school_code') ||
+        '',
+      teacherId:
+        firstQuestionWithMeta?.teacherId ||
+        localStorage.getItem('rased_student_teacher_id') ||
+        localStorage.getItem('rased_teacher_civil_id') ||
+        '',
+      className: student?.classes?.[0] || '',
+      grade: student?.grade || '',
+      studentName: student?.name || ''
+    };
   };
-};
 
-const syncGameResultToCloud = async (logEntry: StudentGameResultLogEntry) => {
-  const meta = getResultCloudMeta();
+  const syncGameResultToCloud = async (logEntry: StudentGameResultLogEntry) => {
+    const meta = getResultCloudMeta();
 
-  if (!STUDENT_APP_URL) {
-    console.warn('STUDENT_APP_URL غير مضبوط، تم حفظ النتيجة محليًا فقط.');
-    return false;
-  }
+    if (!STUDENT_APP_URL) {
+      console.warn('STUDENT_APP_URL غير مضبوط، تم حفظ النتيجة محليًا فقط.');
+      return false;
+    }
 
-  if (!meta.schoolCode) {
-    console.warn('schoolCode غير متوفر، قد لا تظهر النتيجة في راصد المعلم.');
-  }
+    if (!meta.schoolCode) {
+      console.warn('schoolCode غير متوفر، قد لا تظهر النتيجة في راصد المعلم.');
+    }
 
-  try {
-    const response = await fetch(STUDENT_APP_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'studentGameResult',
-        schoolCode: meta.schoolCode,
-        teacherId: meta.teacherId,
-        studentId: logEntry.studentId,
-        studentName: logEntry.studentName || meta.studentName,
-        className: logEntry.className || meta.className,
-        grade: logEntry.grade || meta.grade,
-        gameResult: {
-          ...logEntry,
+    try {
+      const response = await fetch(STUDENT_APP_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'studentGameResult',
           schoolCode: meta.schoolCode,
           teacherId: meta.teacherId,
+          studentId: logEntry.studentId,
           studentName: logEntry.studentName || meta.studentName,
           className: logEntry.className || meta.className,
-          grade: logEntry.grade || meta.grade
-        }
-      })
-    });
+          grade: logEntry.grade || meta.grade,
+          gameResult: {
+            ...logEntry,
+            schoolCode: meta.schoolCode,
+            teacherId: meta.teacherId,
+            studentName: logEntry.studentName || meta.studentName,
+            className: logEntry.className || meta.className,
+            grade: logEntry.grade || meta.grade
+          }
+        })
+      });
 
-    const data = await response.json().catch(() => null);
-    return Boolean(data?.success);
-  } catch (error) {
-    console.error('Failed to sync game result to cloud', error);
-    return false;
-  }
-};
+      const data = await response.json().catch(() => null);
+      return Boolean(data?.success);
+    } catch (error) {
+      console.error('Failed to sync game result to cloud', error);
+      return false;
+    }
+  };
 
   const handleGameComplete = (result: UnifiedGameResult) => {
     refreshStats();
 
     try {
       const logEntry = buildGameResultLogEntry(result, student, studentKey);
+
+      if (isReviewMode) {
+        const reviewLogKey = `rased_student_review_game_results_log_${studentKey}`;
+        const oldReviewLog = readJsonArray<StudentGameResultLogEntry>(reviewLogKey);
+        const reviewLogEntry: StudentGameResultLogEntry = {
+          ...logEntry,
+          syncStatus: 'local_only'
+        };
+        const nextReviewLog = [reviewLogEntry, ...oldReviewLog].slice(0, 100);
+        localStorage.setItem(reviewLogKey, JSON.stringify(nextReviewLog));
+        return;
+      }
+
       const latestKey = `rased_student_latest_game_result_${studentKey}`;
       const logKey = `rased_student_game_results_log_${studentKey}`;
       const pendingSyncKey = `rased_student_game_results_pending_sync_${studentKey}`;
@@ -655,30 +704,27 @@ const syncGameResultToCloud = async (logEntry: StudentGameResultLogEntry) => {
       localStorage.setItem(latestKey, JSON.stringify(logEntry));
       localStorage.setItem(logKey, JSON.stringify(nextLog));
       localStorage.setItem(pendingSyncKey, JSON.stringify(nextPending));
-        syncGameResultToCloud(logEntry).then(success => {
-  if (!success) return;
 
-  try {
-    const oldPendingAfterSync =
-      readJsonArray<StudentGameResultLogEntry>(pendingSyncKey);
+      syncGameResultToCloud(logEntry).then(success => {
+        if (!success) return;
 
-    const nextPendingAfterSync = oldPendingAfterSync.filter(
-      item => item.id !== logEntry.id
-    );
-
-    localStorage.setItem(
-      pendingSyncKey,
-      JSON.stringify(nextPendingAfterSync)
-    );
-  } catch (error) {
-    console.error('Failed to update pending game results after sync', error);
-  }
-});
+        try {
+          const oldPendingAfterSync = readJsonArray<StudentGameResultLogEntry>(pendingSyncKey);
+          const nextPendingAfterSync = oldPendingAfterSync.filter(item => item.id !== logEntry.id);
+          localStorage.setItem(pendingSyncKey, JSON.stringify(nextPendingAfterSync));
+        } catch (error) {
+          console.error('Failed to update pending game results after sync', error);
+        }
+      });
     } catch (error) {
       console.error('Failed to cache game result log', error);
     }
+  };
 
-    // لاحقًا يتم استبدال التخزين المحلي هنا برفع النتيجة إلى السحابة / راصد المعلم.
+  const handleModeChange = (mode: GamesMode) => {
+    setGamesMode(mode);
+    setSelectedGame(null);
+    setActiveGame(null);
   };
 
   return (
@@ -691,6 +737,36 @@ const syncGameResultToCloud = async (logEntry: StudentGameResultLogEntry) => {
         <p className="text-[10px] font-bold text-textSecondary pr-7">
           {t('studentGamesSubtitle') || 'راجع دروسك من خلال ألعاب قصيرة وممتعة 🎮'}
         </p>
+
+        <div className="mt-4 bg-bgSoft border border-borderColor rounded-2xl p-1 flex gap-1">
+          <button
+            type="button"
+            onClick={() => handleModeChange('daily')}
+            className={`flex-1 h-10 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all ${
+              gamesMode === 'daily' ? 'bg-primary text-white shadow-sm' : 'text-textSecondary'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            تحديات اليوم
+            <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${gamesMode === 'daily' ? 'bg-white/20 text-white' : 'bg-bgCard text-textMuted'}`}>
+              {gameQuestions.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleModeChange('review')}
+            className={`flex-1 h-10 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all ${
+              gamesMode === 'review' ? 'bg-primary text-white shadow-sm' : 'text-textSecondary'
+            }`}
+          >
+            <Archive className="w-4 h-4" />
+            مراجعاتي
+            <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${gamesMode === 'review' ? 'bg-white/20 text-white' : 'bg-bgCard text-textMuted'}`}>
+              {reviewGameQuestions.length}
+            </span>
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar px-5 pt-5 pb-[calc(env(safe-area-inset-bottom)+180px)] space-y-5">
@@ -699,15 +775,22 @@ const syncGameResultToCloud = async (logEntry: StudentGameResultLogEntry) => {
           <div className="relative z-10 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-black text-textPrimary flex items-center gap-2 mb-1">
-                <Sparkles className="w-4 h-4 text-warning" />
-                تحدي التعلم اليوم
+                {isReviewMode ? <Archive className="w-4 h-4 text-primary" /> : <Sparkles className="w-4 h-4 text-warning" />}
+                {isReviewMode ? 'مراجعاتي' : 'تحدي التعلم اليوم'}
               </h2>
               <p className="text-[10px] font-bold text-textSecondary leading-6">
-                اختر لعبة قصيرة، أجب عن الأسئلة، واجمع الشارات.
+                {isReviewMode
+                  ? 'راجع الأسئلة السابقة التي وضعها المعلم للمذاكرة والاستعداد للاختبارات.'
+                  : 'اختر لعبة قصيرة، أجب عن الأسئلة، واجمع الشارات.'}
               </p>
+              {isReviewMode && (
+                <p className="text-[9px] font-black text-warning mt-1">
+                  نتائج مراجعاتي تحفظ محليًا فقط ولا تُرسل إلى راصد المعلم.
+                </p>
+              )}
             </div>
             <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-              <Trophy className="w-7 h-7" />
+              {isReviewMode ? <BookOpen className="w-7 h-7" /> : <Trophy className="w-7 h-7" />}
             </div>
           </div>
 
@@ -739,9 +822,13 @@ const syncGameResultToCloud = async (logEntry: StudentGameResultLogEntry) => {
               <Info className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-textPrimary mb-1">بانتظار ألعاب المعلم</h3>
+              <h3 className="text-sm font-black text-textPrimary mb-1">
+                {isReviewMode ? 'لا توجد مراجعات بعد' : 'بانتظار ألعاب المعلم'}
+              </h3>
               <p className="text-[10px] font-bold text-textSecondary leading-6">
-                ستظهر الألعاب عندما يضيف المعلم أسئلة وأنشطة من راصد المعلم. يمكن إبقاء هذه الصفحة جاهزة كمركز ألعاب ديناميكي.
+                {isReviewMode
+                  ? 'ستظهر هنا أسئلة الأرشيف عندما ينشر المعلم دفعات جديدة وتنتقل الأسئلة القديمة إلى المراجعات.'
+                  : 'ستظهر الألعاب عندما يضيف المعلم أسئلة وأنشطة من راصد المعلم. يمكن إبقاء هذه الصفحة جاهزة كمركز ألعاب ديناميكي.'}
               </p>
             </div>
           </section>
@@ -750,8 +837,8 @@ const syncGameResultToCloud = async (logEntry: StudentGameResultLogEntry) => {
         <section>
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-sm font-black text-textPrimary flex items-center gap-2">
-              <Star className="w-4 h-4 text-warning" />
-              الألعاب
+              {isReviewMode ? <Archive className="w-4 h-4 text-primary" /> : <Star className="w-4 h-4 text-warning" />}
+              {isReviewMode ? 'ألعاب المراجعة' : 'الألعاب'}
             </h2>
             <span className="text-[9px] font-black text-textSecondary bg-bgSoft border border-borderColor px-2 py-1 rounded-full">
               {availableGames.length} متاحة
@@ -796,6 +883,11 @@ const syncGameResultToCloud = async (logEntry: StudentGameResultLogEntry) => {
                           <Timer className="w-3 h-3" />
                           {game.estimatedTime}
                         </span>
+                        {isReviewMode && (
+                          <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary">
+                            مراجعة
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -838,7 +930,13 @@ const syncGameResultToCloud = async (logEntry: StudentGameResultLogEntry) => {
                     </div>
                   </div>
 
-                  <p className="text-xs font-bold text-textSecondary leading-6 mb-4">{selectedGame.description}</p>
+                  <p className="text-xs font-bold text-textSecondary leading-6 mb-3">{selectedGame.description}</p>
+
+                  {isReviewMode && (
+                    <div className="bg-primary/10 border border-primary/20 text-primary rounded-2xl p-3 mb-4 text-[10px] font-black leading-5">
+                      هذه اللعبة ضمن مراجعاتي. النتيجة تحفظ محليًا فقط ولا تُرسل إلى راصد المعلم.
+                    </div>
+                  )}
 
                   {isAvailable ? (
                     <button
@@ -847,13 +945,15 @@ const syncGameResultToCloud = async (logEntry: StudentGameResultLogEntry) => {
                       onClick={() => handleStartGame(selectedGame)}
                     >
                       <Play className="w-5 h-5" />
-                      {selectedGame.id === 'snake_ladder' && selectedGame.questionCount === 0 ? 'فتح اللعبة' : 'ابدأ اللعبة'}
+                      {selectedGame.id === 'snake_ladder' && selectedGame.questionCount === 0 ? 'فتح اللعبة' : isReviewMode ? 'ابدأ المراجعة' : 'ابدأ اللعبة'}
                     </button>
                   ) : (
                     <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center">
                       <p className="text-xs font-black text-textPrimary mb-1">اللعبة غير متاحة بعد</p>
                       <p className="text-[10px] font-bold text-textSecondary leading-5">
-                        ستعمل هذه اللعبة عندما يضيف المعلم عددًا كافيًا من الأسئلة المناسبة لها من راصد المعلم.
+                        {isReviewMode
+                          ? 'ستعمل هذه اللعبة عندما تتوفر أسئلة مراجعة مناسبة لها.'
+                          : 'ستعمل هذه اللعبة عندما يضيف المعلم عددًا كافيًا من الأسئلة المناسبة لها من راصد المعلم.'}
                       </p>
                     </div>
                   )}
