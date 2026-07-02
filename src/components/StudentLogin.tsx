@@ -94,7 +94,7 @@ const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin }) => {
         </h2>
 
         <p className="text-xs font-bold text-textSecondary text-center mb-8 leading-relaxed">
-          {t('enterSecretCodeToStart') ||
+          {t('أدخل كود راصد السري') ||
             'أدخل كود راصد السري لتبدأ المغامرة وتحصد النقاط'}
         </p>
 
