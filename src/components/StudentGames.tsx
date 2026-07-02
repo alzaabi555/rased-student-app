@@ -40,14 +40,11 @@ import type { SequenceOrderQuestion, SequenceOrderResult } from './StudentSequen
 const STUDENT_APP_URL = 'https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6po82-XePyAWBd9FMNCTgY7WlYaOH6pn1kTazLqxEfvremqsSk_dU/exec';
 
 // =========================================================================
-// مركز ألعاب الطالب - نسخة مرتبطة بالألعاب الست + سجل نتائج موحد:
-// ✅ السلم والثعبان
-// ✅ سباق المعرفة
-// ✅ ركلات المعرفة
-// ✅ صح أم خطأ
-// ✅ طابق المفهوم
-// ✅ رتّب الأحداث
-// ✅ مراجعاتي: عرض أسئلة الأرشيف القادمة من reviewGameQuestions دون رفع نتائجها للمعلم
+// مركز ألعاب الطالب - نسخة محسنة ومهيأة لراصد ولي الأمر:
+// ✅ نتائج موحدة لكل الألعاب الست
+// ✅ حفظ محلي + مزامنة سحابية لنتائج تحديات اليوم
+// ✅ وضع مراجعاتي يحفظ محليًا فقط ولا يرسل للمعلم
+// ✅ توصية تربوية تلقائية + مستوى إتقان + تفاصيل أخطاء
 // =========================================================================
 
 export interface GameQuestion {
@@ -119,18 +116,53 @@ type UnifiedGameType =
   | 'match_cards'
   | 'sequence_order';
 
+type MasteryLevel = 'excellent' | 'good' | 'needs_review' | 'needs_followup';
+
+interface ResultCloudMeta {
+  schoolCode: string;
+  teacherId: string;
+  className: string;
+  grade: string;
+  studentName: string;
+}
+
 export interface StudentGameResultLogEntry {
   id: string;
   studentId: string;
   studentName?: string;
   className?: string;
   grade?: string;
+  schoolCode?: string;
+  teacherId?: string;
+
   gameType: UnifiedGameType | string;
+  gameTitle?: string;
+  subject?: string;
+  unit?: string;
+  lesson?: string;
+
   score: number;
+  scorePercent: number;
+  totalQuestions: number;
   correct: number;
   wrong: number;
   completed: boolean;
+  durationSeconds?: number;
+  attemptNumber: number;
+
   weakQuestionIds: string[];
+  wrongDetails: Array<{
+    questionId: string;
+    question?: string;
+    subject?: string;
+    unit?: string;
+    lesson?: string;
+    correctAnswerText?: string;
+    explanation?: string;
+  }>;
+  masteryLevel: MasteryLevel;
+  reviewRecommendation: string;
+
   playedAt: string;
   savedAt: string;
   syncStatus: 'local_only' | 'pending_sync' | 'synced';
@@ -229,6 +261,15 @@ const BASE_GAMES: Omit<GameCard, 'status'>[] = [
     estimatedTime: '3 دقائق'
   }
 ];
+
+const GAME_TITLES: Record<string, string> = {
+  snake_ladder: 'السلم والثعبان',
+  knowledge_race: 'سباق المعرفة',
+  football_quiz: 'ركلات المعرفة',
+  true_false: 'صح أم خطأ',
+  match_cards: 'طابق المفهوم',
+  sequence_order: 'رتّب الأحداث'
+};
 
 const getToneClasses = (color: GameCard['color']) => {
   switch (color) {
@@ -427,29 +468,213 @@ const getResultNumber = (result: UnifiedGameResult, key: string, fallback = 0) =
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 };
 
+const getResultString = (result: UnifiedGameResult, key: string, fallback = '') => {
+  const value = (result as unknown as Record<string, unknown>)[key];
+  return typeof value === 'string' ? value : fallback;
+};
+
+const getResultBoolean = (result: UnifiedGameResult, key: string, fallback = false) => {
+  const value = (result as unknown as Record<string, unknown>)[key];
+  return typeof value === 'boolean' ? value : fallback;
+};
+
+const getActiveGameQuestionsForResult = (
+  gameType: string,
+  collections: {
+    snakeLadderQuestions: SnakeLadderQuestion[];
+    knowledgeRaceQuestions: KnowledgeRaceQuestion[];
+    footballQuestions: FootballKnowledgeQuestion[];
+    trueFalseQuestions: TrueFalseQuestion[];
+    matchCardsQuestions: MatchCardsQuestion[];
+    sequenceOrderQuestions: SequenceOrderQuestion[];
+  }
+): GameQuestion[] => {
+  switch (gameType) {
+    case 'snake_ladder':
+      return collections.snakeLadderQuestions as unknown as GameQuestion[];
+    case 'knowledge_race':
+      return collections.knowledgeRaceQuestions as unknown as GameQuestion[];
+    case 'football_quiz':
+      return collections.footballQuestions as unknown as GameQuestion[];
+    case 'true_false':
+      return collections.trueFalseQuestions as unknown as GameQuestion[];
+    case 'match_cards':
+      return collections.matchCardsQuestions as unknown as GameQuestion[];
+    case 'sequence_order':
+      return collections.sequenceOrderQuestions as unknown as GameQuestion[];
+    default:
+      return [];
+  }
+};
+
+const inferMainQuestionMeta = (questions: GameQuestion[]) => {
+  const first = questions.find(q => q.subject || q.unit || q.lesson) || questions[0];
+  return {
+    subject: first?.subject || '',
+    unit: first?.unit || '',
+    lesson: first?.lesson || ''
+  };
+};
+
+const inferWeakQuestionIds = (result: UnifiedGameResult) => {
+  const raw = result as unknown as Record<string, unknown>;
+  const possibleKeys = ['weakQuestionIds', 'wrongQuestionIds', 'incorrectQuestionIds', 'failedQuestionIds'];
+
+  for (const key of possibleKeys) {
+    const value = raw[key];
+    if (Array.isArray(value)) return value.filter((id): id is string => typeof id === 'string');
+  }
+
+  return [];
+};
+
+const inferTotalQuestions = (result: UnifiedGameResult, questions: GameQuestion[]) => {
+  return (
+    getResultNumber(result, 'totalQuestions') ||
+    getResultNumber(result, 'questionsCount') ||
+    getResultNumber(result, 'total') ||
+    questions.length ||
+    0
+  );
+};
+
+const inferCorrectAnswers = (result: UnifiedGameResult) => {
+  return (
+    getResultNumber(result, 'correct') ||
+    getResultNumber(result, 'correctAnswers') ||
+    getResultNumber(result, 'matched') ||
+    0
+  );
+};
+
+const inferWrongAnswers = (result: UnifiedGameResult, totalQuestions: number, correct: number) => {
+  const directWrong = getResultNumber(result, 'wrong') || getResultNumber(result, 'wrongAnswers') || getResultNumber(result, 'incorrect');
+  if (directWrong) return directWrong;
+  if (totalQuestions && correct >= 0) return Math.max(0, totalQuestions - correct);
+  return 0;
+};
+
+const calculateScorePercent = (result: UnifiedGameResult, correct: number, totalQuestions: number) => {
+  const score = getResultNumber(result, 'score');
+  if (score > 0 && score <= 100) return Math.round(score);
+  if (!totalQuestions) return 0;
+  return Math.round((correct / totalQuestions) * 100);
+};
+
+const getMasteryLevel = (scorePercent: number): MasteryLevel => {
+  if (scorePercent >= 90) return 'excellent';
+  if (scorePercent >= 75) return 'good';
+  if (scorePercent >= 50) return 'needs_review';
+  return 'needs_followup';
+};
+
+const buildReviewRecommendation = (params: {
+  scorePercent: number;
+  subject?: string;
+  lesson?: string;
+  wrong: number;
+}) => {
+  const lessonText = params.lesson ? `درس ${params.lesson}` : 'الدرس الحالي';
+  const subjectText = params.subject ? ` في مادة ${params.subject}` : '';
+
+  if (params.scorePercent >= 90) {
+    return `أداء ممتاز${subjectText}. يمكن الانتقال إلى تحدٍ أصعب أو مراجعة سريعة لاحقًا.`;
+  }
+
+  if (params.scorePercent >= 75) {
+    return `أداء جيد${subjectText}. يُنصح بمراجعة قصيرة لـ ${lessonText} لتثبيت التعلم.`;
+  }
+
+  if (params.scorePercent >= 50) {
+    return `يحتاج الطالب إلى مراجعة ${lessonText}${subjectText} لمدة 10 دقائق ثم إعادة اللعبة.`;
+  }
+
+  return `يحتاج الطالب إلى متابعة أوضح في ${lessonText}${subjectText}. يُفضّل مراجعة المفاهيم الأساسية مع ولي الأمر أو المعلم ثم إعادة النشاط.`;
+};
+
+const buildWrongDetails = (weakQuestionIds: string[], questions: GameQuestion[]) => {
+  const questionMap = new Map(questions.map(q => [q.id, q]));
+
+  return weakQuestionIds.map(questionId => {
+    const q = questionMap.get(questionId);
+    return {
+      questionId,
+      question: q?.question,
+      subject: q?.subject,
+      unit: q?.unit,
+      lesson: q?.lesson,
+      correctAnswerText:
+        q?.correctAnswerText ||
+        (typeof q?.correctAnswerIndex === 'number' ? q?.options?.[q.correctAnswerIndex] : undefined),
+      explanation: q?.explanation
+    };
+  });
+};
+
+const getAttemptNumberForLesson = (studentKey: string, gameType: string, subject?: string, lesson?: string) => {
+  const logKey = `rased_student_game_results_log_${studentKey}`;
+  const oldLog = readJsonArray<StudentGameResultLogEntry>(logKey);
+
+  const sameContextAttempts = oldLog.filter(item =>
+    item.gameType === gameType &&
+    (item.subject || '') === (subject || '') &&
+    (item.lesson || '') === (lesson || '')
+  );
+
+  return sameContextAttempts.length + 1;
+};
+
 const buildGameResultLogEntry = (
   result: UnifiedGameResult,
   student: StudentGamesStudent,
-  studentKey: string
+  studentKey: string,
+  questions: GameQuestion[],
+  cloudMeta: ResultCloudMeta
 ): StudentGameResultLogEntry => {
   const raw = result as unknown as Record<string, unknown>;
   const savedAt = new Date().toISOString();
   const playedAt = typeof raw.playedAt === 'string' ? raw.playedAt : savedAt;
   const gameType = typeof raw.gameType === 'string' ? raw.gameType : 'unknown_game';
-  const weakQuestionIds = Array.isArray(raw.weakQuestionIds) ? raw.weakQuestionIds.filter((id): id is string => typeof id === 'string') : [];
+
+  const questionMeta = inferMainQuestionMeta(questions);
+  const subject = getResultString(result, 'subject', questionMeta.subject);
+  const unit = getResultString(result, 'unit', questionMeta.unit);
+  const lesson = getResultString(result, 'lesson', questionMeta.lesson);
+
+  const totalQuestions = inferTotalQuestions(result, questions);
+  const correct = inferCorrectAnswers(result);
+  const wrong = inferWrongAnswers(result, totalQuestions, correct);
+  const scorePercent = calculateScorePercent(result, correct, totalQuestions);
+  const weakQuestionIds = inferWeakQuestionIds(result);
+  const wrongDetails = buildWrongDetails(weakQuestionIds, questions);
+  const masteryLevel = getMasteryLevel(scorePercent);
+  const attemptNumber = getAttemptNumberForLesson(studentKey, gameType, subject, lesson);
 
   return {
     id: `sgr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     studentId: studentKey,
-    studentName: student?.name,
-    className: student?.classes?.[0],
-    grade: student?.grade,
+    studentName: student?.name || cloudMeta.studentName,
+    className: student?.classes?.[0] || cloudMeta.className,
+    grade: student?.grade || cloudMeta.grade,
+    schoolCode: cloudMeta.schoolCode,
+    teacherId: cloudMeta.teacherId,
     gameType,
-    score: getResultNumber(result, 'score'),
-    correct: getResultNumber(result, 'correct', getResultNumber(result, 'matched')),
-    wrong: getResultNumber(result, 'wrong'),
-    completed: Boolean(raw.completed),
+    gameTitle: GAME_TITLES[gameType] || gameType,
+    subject,
+    unit,
+    lesson,
+    score: getResultNumber(result, 'score', scorePercent),
+    scorePercent,
+    totalQuestions,
+    correct,
+    wrong,
+    completed: getResultBoolean(result, 'completed', Boolean(raw.completed)),
+    durationSeconds: getResultNumber(result, 'durationSeconds') || getResultNumber(result, 'timeSeconds') || undefined,
+    attemptNumber,
     weakQuestionIds,
+    wrongDetails,
+    masteryLevel,
+    reviewRecommendation: buildReviewRecommendation({ scorePercent, subject, lesson, wrong }),
     playedAt,
     savedAt,
     syncStatus: 'pending_sync',
@@ -611,7 +836,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
 
   const refreshStats = () => setStatsVersion(prev => prev + 1);
 
-  const getResultCloudMeta = () => {
+  const getResultCloudMeta = (): ResultCloudMeta => {
     const firstQuestionWithMeta = gameQuestions.find(question => question.schoolCode || question.teacherId);
 
     return {
@@ -629,6 +854,20 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
       grade: student?.grade || '',
       studentName: student?.name || ''
     };
+  };
+
+  const getQuestionsForActiveGameResult = (result: UnifiedGameResult) => {
+    const raw = result as unknown as Record<string, unknown>;
+    const resultGameType = typeof raw.gameType === 'string' ? raw.gameType : activeGame || '';
+
+    return getActiveGameQuestionsForResult(resultGameType, {
+      snakeLadderQuestions,
+      knowledgeRaceQuestions,
+      footballQuestions,
+      trueFalseQuestions,
+      matchCardsQuestions,
+      sequenceOrderQuestions
+    });
   };
 
   const syncGameResultToCloud = async (logEntry: StudentGameResultLogEntry) => {
@@ -660,13 +899,25 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             teacherId: meta.teacherId,
             studentName: logEntry.studentName || meta.studentName,
             className: logEntry.className || meta.className,
-            grade: logEntry.grade || meta.grade
+            grade: logEntry.grade || meta.grade,
+            subject: logEntry.subject || '',
+            unit: logEntry.unit || '',
+            lesson: logEntry.lesson || '',
+            gameTitle: logEntry.gameTitle || '',
+            scorePercent: logEntry.scorePercent,
+            totalQuestions: logEntry.totalQuestions,
+            correctAnswers: logEntry.correct,
+            wrongAnswers: logEntry.wrong,
+            attemptNumber: logEntry.attemptNumber,
+            masteryLevel: logEntry.masteryLevel,
+            reviewRecommendation: logEntry.reviewRecommendation,
+            wrongDetails: logEntry.wrongDetails
           }
         })
       });
 
       const data = await response.json().catch(() => null);
-      return Boolean(data?.success);
+      return Boolean(data?.success || data?.status === 'success');
     } catch (error) {
       console.error('Failed to sync game result to cloud', error);
       return false;
@@ -677,7 +928,9 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
     refreshStats();
 
     try {
-      const logEntry = buildGameResultLogEntry(result, student, studentKey);
+      const activeQuestionsForResult = getQuestionsForActiveGameResult(result);
+      const cloudMeta = getResultCloudMeta();
+      const logEntry = buildGameResultLogEntry(result, student, studentKey, activeQuestionsForResult, cloudMeta);
 
       if (isReviewMode) {
         const reviewLogKey = `rased_student_review_game_results_log_${studentKey}`;
@@ -712,6 +965,19 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
           const oldPendingAfterSync = readJsonArray<StudentGameResultLogEntry>(pendingSyncKey);
           const nextPendingAfterSync = oldPendingAfterSync.filter(item => item.id !== logEntry.id);
           localStorage.setItem(pendingSyncKey, JSON.stringify(nextPendingAfterSync));
+
+          const latestAfterSync = readJsonArray<StudentGameResultLogEntry>(logKey).map(item =>
+            item.id === logEntry.id ? { ...item, syncStatus: 'synced' as const } : item
+          );
+          localStorage.setItem(logKey, JSON.stringify(latestAfterSync));
+
+          const latestRaw = localStorage.getItem(latestKey);
+          if (latestRaw) {
+            const latestParsed = JSON.parse(latestRaw) as StudentGameResultLogEntry;
+            if (latestParsed.id === logEntry.id) {
+              localStorage.setItem(latestKey, JSON.stringify({ ...latestParsed, syncStatus: 'synced' }));
+            }
+          }
         } catch (error) {
           console.error('Failed to update pending game results after sync', error);
         }
