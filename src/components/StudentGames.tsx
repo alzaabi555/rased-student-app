@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Gamepad2,
@@ -77,6 +77,7 @@ export interface StudentGamesStudent {
 interface StudentGamesProps {
   student: StudentGamesStudent;
   currentSemester?: '1' | '2';
+  onGameActiveChange?: (active: boolean) => void;
 }
 
 type GameStatus = 'available' | 'needs_questions' | 'coming_soon';
@@ -111,7 +112,8 @@ export interface StudentGameResultLogEntry {
   unit?: string;
   lesson?: string;
   score: number;
-  scorePercent: number;
+  pointsEarned: number;
+  totalGamePoints: number;
   totalQuestions: number;
   correct: number;
   wrong: number;
@@ -182,6 +184,32 @@ const getToneClasses = (color: GameCard['color']) => {
 };
 
 const getTodayKey = () => new Date().toLocaleDateString('en-CA');
+const DAILY_CHALLENGE_WINDOW_DAYS = 2;
+const QUESTION_RECEIVED_AT_KEY = 'rased_student_question_received_at_v1';
+type QuestionTimeBucket = 'daily' | 'review' | 'future';
+const startOfLocalDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+const parseLocalDate = (value?: string) => {
+  if (!value) return null;
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : startOfLocalDay(parsed);
+};
+const readQuestionReceivedDates = (): Record<string, string> => {
+  try { return JSON.parse(localStorage.getItem(QUESTION_RECEIVED_AT_KEY) || '{}') || {}; }
+  catch { return {}; }
+};
+const classifyQuestionByDate = (question: GameQuestion, receivedDates: Record<string, string>, now = new Date()): QuestionTimeBucket => {
+  const today = startOfLocalDay(now);
+  let published = parseLocalDate(question.visibleFrom) || parseLocalDate(question.archivedAt) || parseLocalDate(receivedDates[question.id]);
+  if (!published) {
+    receivedDates[question.id] = getTodayKey();
+    published = today;
+  }
+  const ageDays = Math.floor((today.getTime() - startOfLocalDay(published).getTime()) / 86400000);
+  if (ageDays < 0) return 'future';
+  return ageDays < DAILY_CHALLENGE_WINDOW_DAYS ? 'daily' : 'review';
+};
 
 const readLocalGameStats = (studentId?: string) => {
   const key = `rased_student_game_stats_${studentId || 'default'}`;
@@ -365,29 +393,28 @@ const inferWrongAnswers = (result: UnifiedGameResult, totalQuestions: number, co
   return 0;
 };
 
-const calculateScorePercent = (result: UnifiedGameResult, correct: number, totalQuestions: number) => {
-  const score = getResultNumber(result, 'score');
-  if (score > 0 && score <= 100) return Math.round(score);
-  if (!totalQuestions) return 0;
-  return Math.round((correct / totalQuestions) * 100);
-};
-
-const getMasteryLevel = (scorePercent: number): MasteryLevel => {
-  if (scorePercent >= 90) return 'excellent';
-  if (scorePercent >= 75) return 'good';
-  if (scorePercent >= 50) return 'needs_review';
+const getMasteryLevelFromAnswers = (correct: number, totalQuestions: number): MasteryLevel => {
+  if (!totalQuestions) return 'needs_followup';
+  const accuracy = correct / totalQuestions;
+  if (accuracy >= 0.9) return 'excellent';
+  if (accuracy >= 0.75) return 'good';
+  if (accuracy >= 0.5) return 'needs_review';
   return 'needs_followup';
 };
-
-const buildReviewRecommendation = (params: { scorePercent: number; subject?: string; lesson?: string }) => {
+const buildReviewRecommendation = (params: { correct: number; totalQuestions: number; subject?: string; lesson?: string }) => {
   const lessonText = params.lesson ? `درس ${params.lesson}` : 'الدرس الحالي';
   const subjectText = params.subject ? ` في مادة ${params.subject}` : '';
-  if (params.scorePercent >= 90) return `أداء ممتاز${subjectText}. يمكن الانتقال إلى تحدٍ أصعب أو مراجعة سريعة لاحقًا.`;
-  if (params.scorePercent >= 75) return `أداء جيد${subjectText}. يُنصح بمراجعة قصيرة لـ ${lessonText} لتثبيت التعلم.`;
-  if (params.scorePercent >= 50) return `يحتاج الطالب إلى مراجعة ${lessonText}${subjectText} لمدة 10 دقائق ثم إعادة اللعبة.`;
+  const accuracy = params.totalQuestions ? params.correct / params.totalQuestions : 0;
+  if (accuracy >= 0.9) return `أداء ممتاز${subjectText}. يمكن الانتقال إلى تحدٍ أصعب أو مراجعة سريعة لاحقًا.`;
+  if (accuracy >= 0.75) return `أداء جيد${subjectText}. يُنصح بمراجعة قصيرة لـ ${lessonText} لتثبيت التعلم.`;
+  if (accuracy >= 0.5) return `يحتاج الطالب إلى مراجعة ${lessonText}${subjectText} لمدة 10 دقائق ثم إعادة اللعبة.`;
   return `يحتاج الطالب إلى متابعة أوضح في ${lessonText}${subjectText}. يُفضّل مراجعة المفاهيم الأساسية مع ولي الأمر أو المعلم ثم إعادة النشاط.`;
 };
-
+const getOfficialGamePointsTotal = (studentKey: string) => {
+  const entries = readJsonArray<StudentGameResultLogEntry>(`rased_student_game_results_log_${studentKey}`);
+  const unique = new Map(entries.filter(item => item?.id).map(item => [item.id, item]));
+  return Array.from(unique.values()).reduce((sum, item) => sum + Math.max(0, Number(item.pointsEarned ?? item.score ?? 0)), 0);
+};
 const buildWrongDetails = (weakQuestionIds: string[], questions: GameQuestion[]) => {
   const questionMap = new Map(questions.map(q => [q.id, q]));
   return weakQuestionIds.map(questionId => {
@@ -441,10 +468,11 @@ const buildGameResultLogEntry = (
   const totalQuestions = inferTotalQuestions(result, questions);
   const correct = inferCorrectAnswers(result);
   const wrong = inferWrongAnswers(result, totalQuestions, correct);
-  const scorePercent = calculateScorePercent(result, correct, totalQuestions);
+  const pointsEarned = Math.max(0, getResultNumber(result, 'score', 0));
+  const totalGamePoints = getOfficialGamePointsTotal(studentKey) + pointsEarned;
   const weakQuestionIds = inferWeakQuestionIds(result);
   const wrongDetails = buildWrongDetails(weakQuestionIds, questions);
-  const masteryLevel = getMasteryLevel(scorePercent);
+  const masteryLevel = getMasteryLevelFromAnswers(correct, totalQuestions);
   const attemptNumber = getAttemptNumberForLesson(studentKey, gameType, subject, lesson);
 
   return {
@@ -461,8 +489,9 @@ const buildGameResultLogEntry = (
     subject,
     unit,
     lesson,
-    score: getResultNumber(result, 'score', scorePercent),
-    scorePercent,
+    score: pointsEarned,
+    pointsEarned,
+    totalGamePoints,
     totalQuestions,
     correct,
     wrong,
@@ -472,7 +501,7 @@ const buildGameResultLogEntry = (
     weakQuestionIds,
     wrongDetails,
     masteryLevel,
-    reviewRecommendation: buildReviewRecommendation({ scorePercent, subject, lesson }),
+    reviewRecommendation: buildReviewRecommendation({ correct, totalQuestions, subject, lesson }),
     playedAt,
     savedAt,
     syncStatus: 'pending_sync',
@@ -481,7 +510,7 @@ const buildGameResultLogEntry = (
   };
 };
 
-const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
+const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange }) => {
   const { t, dir } = useApp();
   const [selectedGame, setSelectedGame] = useState<GameCardWithAvailability | null>(null);
   const [activeGame, setActiveGame] = useState<ActiveGame>(null);
@@ -489,33 +518,33 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
   const [gamesMode, setGamesMode] = useState<GamesMode>('daily');
 
   const studentKey = student?.rasedId || student?.civilId || student?.id || 'default';
+  useEffect(() => {
+    onGameActiveChange?.(activeGame !== null);
+    return () => onGameActiveChange?.(false);
+  }, [activeGame, onGameActiveChange]);
 
-  const gameQuestions = useMemo(() => {
-    const directQuestions = Array.isArray(student?.gameQuestions) ? student.gameQuestions : [];
-    const possibleKeys = [
-      `rased_game_questions_${student?.civilId || ''}`,
-      `rased_game_questions_${student?.rasedId || ''}`,
-      `rased_game_questions_${student?.id || ''}`,
-      'rased_game_questions_default',
-      'rased_game_questions'
-    ].filter(Boolean);
-    const localQuestions = readLocalQuestionArrays(possibleKeys);
-    return normalizeQuestionList([...directQuestions, ...localQuestions], false);
+  const timedQuestionCollections = useMemo(() => {
+    const dailyDirect = Array.isArray(student?.gameQuestions) ? student.gameQuestions : [];
+    const reviewDirect = Array.isArray(student?.reviewGameQuestions) ? student.reviewGameQuestions : [];
+    const dailyKeys = [`rased_game_questions_${student?.civilId || ''}`, `rased_game_questions_${student?.rasedId || ''}`, `rased_game_questions_${student?.id || ''}`, 'rased_game_questions_default', 'rased_game_questions'].filter(Boolean);
+    const reviewKeys = [`rased_review_game_questions_${student?.civilId || ''}`, `rased_review_game_questions_${student?.rasedId || ''}`, `rased_review_game_questions_${student?.id || ''}`, 'rased_review_game_questions_default', 'rased_review_game_questions'].filter(Boolean);
+    const explicitReview = normalizeQuestionList([...reviewDirect, ...readLocalQuestionArrays(reviewKeys)], true);
+    const explicitReviewIds = new Set(explicitReview.map(question => question.id));
+    const merged = normalizeQuestionList([...dailyDirect, ...readLocalQuestionArrays(dailyKeys), ...explicitReview], true);
+    const receivedDates = readQuestionReceivedDates();
+    const daily: GameQuestion[] = [];
+    const review: GameQuestion[] = [];
+    merged.forEach(question => {
+      if (question.active === false && !explicitReviewIds.has(question.id)) return;
+      const bucket: QuestionTimeBucket = explicitReviewIds.has(question.id) ? 'review' : classifyQuestionByDate(question, receivedDates);
+      if (bucket === 'daily' && question.active !== false) daily.push(question);
+      if (bucket === 'review') review.push({ ...question, active: true });
+    });
+    try { localStorage.setItem(QUESTION_RECEIVED_AT_KEY, JSON.stringify(receivedDates)); } catch {}
+    return { daily, review };
   }, [student]);
-
-  const reviewGameQuestions = useMemo(() => {
-    const directQuestions = Array.isArray(student?.reviewGameQuestions) ? student.reviewGameQuestions : [];
-    const possibleKeys = [
-      `rased_review_game_questions_${student?.civilId || ''}`,
-      `rased_review_game_questions_${student?.rasedId || ''}`,
-      `rased_review_game_questions_${student?.id || ''}`,
-      'rased_review_game_questions_default',
-      'rased_review_game_questions'
-    ].filter(Boolean);
-    const localQuestions = readLocalQuestionArrays(possibleKeys);
-    return normalizeQuestionList([...directQuestions, ...localQuestions], true).map(question => ({ ...question, active: question.active === false ? true : question.active }));
-  }, [student]);
-
+  const gameQuestions = timedQuestionCollections.daily;
+  const reviewGameQuestions = timedQuestionCollections.review;
   const currentGameQuestions = gamesMode === 'review' ? reviewGameQuestions : gameQuestions;
   const isReviewMode = gamesMode === 'review';
 
@@ -525,6 +554,15 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
     return { ...raw, completedToday: raw.completedToday && raw.lastPlayedDate === today };
   }, [studentKey, statsVersion]);
 
+  const officialGameSummary = useMemo(() => {
+    const entries = readJsonArray<StudentGameResultLogEntry>(`rased_student_game_results_log_${studentKey}`);
+    const unique = Array.from(new Map(entries.filter(item => item?.id).map(item => [item.id, item])).values());
+    return {
+      totalPoints: unique.reduce((sum, item) => sum + Math.max(0, Number(item.pointsEarned ?? item.score ?? 0)), 0),
+      lastPoints: Math.max(0, Number(unique[0]?.pointsEarned ?? unique[0]?.score ?? 0)),
+      attempts: unique.length
+    };
+  }, [studentKey, statsVersion]);
   const games = useMemo<GameCardWithAvailability[]>(() => BASE_GAMES.map(game => {
     const compatibleQuestions = currentGameQuestions.filter(q => isQuestionCompatibleWithGame(q, game));
     const status: GameStatus = game.id === 'snake_ladder'
@@ -628,7 +666,8 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             unit: logEntry.unit || '',
             lesson: logEntry.lesson || '',
             gameTitle: logEntry.gameTitle || '',
-            scorePercent: logEntry.scorePercent,
+            pointsEarned: logEntry.pointsEarned,
+            totalGamePoints: logEntry.totalGamePoints,
             totalQuestions: logEntry.totalQuestions,
             correctAnswers: logEntry.correct,
             wrongAnswers: logEntry.wrong,
@@ -795,9 +834,9 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student }) => {
             </div>
           </div>
           <div className="relative z-10 grid grid-cols-3 gap-2 mt-4">
-            <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-[9px] font-bold text-textSecondary mb-1">أفضل نتيجة</p><p className="text-lg font-black text-primary">{stats.bestScore || stats.knowledgeRaceBestScore || stats.footballBestScore || stats.trueFalseBestScore || stats.matchCardsBestScore || stats.sequenceOrderBestScore || 0}</p></div>
-            <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-[9px] font-bold text-textSecondary mb-1">آخر نتيجة</p><p className="text-lg font-black text-textPrimary">{stats.lastScore || stats.knowledgeRaceLastScore || stats.footballLastScore || stats.trueFalseLastScore || stats.matchCardsLastScore || stats.sequenceOrderLastScore || 0}</p></div>
-            <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-[9px] font-bold text-textSecondary mb-1">المحاولات</p><p className="text-lg font-black text-success">{stats.attempts || stats.knowledgeRaceAttempts || stats.footballAttempts || stats.trueFalseAttempts || stats.matchCardsAttempts || stats.sequenceOrderAttempts || 0}</p></div>
+            <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-[9px] font-bold text-textSecondary mb-1">إجمالي النقاط</p><p className="text-lg font-black text-primary">{officialGameSummary.totalPoints}</p></div>
+            <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-[9px] font-bold text-textSecondary mb-1">نقاط آخر لعبة</p><p className="text-lg font-black text-textPrimary">{officialGameSummary.lastPoints}</p></div>
+            <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-[9px] font-bold text-textSecondary mb-1">الألعاب المكتملة</p><p className="text-lg font-black text-success">{officialGameSummary.attempts}</p></div>
           </div>
         </section>
 
