@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Play, RotateCcw, Zap, Trophy, Target } from 'lucide-react';
 
 // =========================================================================
-// ⚽ ركلات المعرفة V2 - Penalty Challenge
+// ⚽ ركلات المعرفة V3 - Penalty Challenge
 // -------------------------------------------------------------------------
 // منطق اللعب الجديد:
 // 1) اللاعب والكرة والحارس يظهرون داخل ملعب كرتوني.
@@ -138,6 +138,23 @@ const shuffleArray = <T,>(arr: T[]) => {
   return copy;
 };
 
+type SpriteAnimationName =
+  | 'player-idle' | 'player-run' | 'player-kick' | 'player-celebrate'
+  | 'keeper-idle' | 'keeper-center-save' | 'keeper-dive-left' | 'keeper-dive-right' | 'keeper-recover';
+type SpriteDefinition = { src: string; frames: number; fps: number; loop: boolean };
+const FOOTBALL_SPRITES: Record<SpriteAnimationName, SpriteDefinition> = {
+  'player-idle': { src: '/assets/games/football/player/idle.webp', frames: 4, fps: 5, loop: true },
+  'player-run': { src: '/assets/games/football/player/run.webp', frames: 6, fps: 10, loop: true },
+  'player-kick': { src: '/assets/games/football/player/kick.webp', frames: 6, fps: 12, loop: false },
+  'player-celebrate': { src: '/assets/games/football/player/celebrate.webp', frames: 6, fps: 8, loop: true },
+  'keeper-idle': { src: '/assets/games/football/keeper/idle.webp', frames: 4, fps: 5, loop: true },
+  'keeper-center-save': { src: '/assets/games/football/keeper/center-save.webp', frames: 5, fps: 10, loop: false },
+  'keeper-dive-left': { src: '/assets/games/football/keeper/dive-left.webp', frames: 6, fps: 12, loop: false },
+  'keeper-dive-right': { src: '/assets/games/football/keeper/dive-right.webp', frames: 6, fps: 12, loop: false },
+  'keeper-recover': { src: '/assets/games/football/keeper/recover.webp', frames: 4, fps: 8, loop: false }
+};
+const SPRITE_FRAME_SIZE = 256;
+
 const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> = ({
   questions,
   studentId,
@@ -148,6 +165,10 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const animationRef = useRef<number | null>(null);
   const lastFrameRef = useRef(0);
+  const spriteImagesRef = useRef<Partial<Record<SpriteAnimationName, HTMLImageElement>>>({});
+  const spriteLoadFailedRef = useRef(false);
+  const stateStartedAtRef = useRef(0);
+  const [spritesReady, setSpritesReady] = useState(false);
 
   const usableQuestions = useMemo(() => normalizeQuestions(questions), [questions]);
   const questionDeck = useMemo(() => shuffleArray(usableQuestions), [usableQuestions]);
@@ -183,10 +204,34 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
   const grassBurstRef = useRef<Array<{ x: number; y: number; vx: number; vy: number; life: number }>>([]);
   const celebrationRef = useRef(0);
 
+  useEffect(() => {
+    let cancelled = false;
+    spriteLoadFailedRef.current = false;
+    const entries = Object.entries(FOOTBALL_SPRITES) as Array<[SpriteAnimationName, SpriteDefinition]>;
+    Promise.all(entries.map(([name, definition]) => new Promise<void>((resolve, reject) => {
+      const image = new Image();
+      image.decoding = 'async';
+      image.onload = () => {
+        if (!cancelled) spriteImagesRef.current[name] = image;
+        resolve();
+      };
+      image.onerror = () => reject(new Error(`تعذر تحميل Sprite: ${definition.src}`));
+      image.src = definition.src;
+    }))).then(() => {
+      if (!cancelled) setSpritesReady(true);
+    }).catch(error => {
+      console.warn('Football sprites unavailable; Canvas fallback remains active.', error);
+      spriteLoadFailedRef.current = true;
+      if (!cancelled) setSpritesReady(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const canPlay = usableQuestions.length > 0;
 
   const syncGameState = (next: GameState) => {
     gameStateRef.current = next;
+    stateStartedAtRef.current = performance.now();
     setGameState(next);
   };
 
@@ -568,7 +613,7 @@ keeperRef.current.diving = true;
     if(selected){const tx=goal.x+goal.w*selected.xRatio,ty=goal.y+goal.h*selected.yRatio,line=ctx.createLinearGradient(spot.x,spot.y,tx,ty);line.addColorStop(0,'rgba(250,204,21,.08)');line.addColorStop(1,'rgba(250,204,21,.78)');ctx.strokeStyle=line;ctx.lineWidth=3;ctx.setLineDash([10,10]);ctx.beginPath();ctx.moveTo(spot.x,spot.y);ctx.quadraticCurveTo((spot.x+tx)/2+18,(spot.y+ty)/2-40,tx,ty);ctx.stroke();ctx.setLineDash([]);}
     SHOT_ZONES.forEach((zone,index)=>{const x=goal.x+goal.w*zone.xRatio,y=goal.y+goal.h*zone.yRatio,active=selected?.id===zone.id,r=active?24+pulse*5:18+((pulse+index*.13)%1)*3,g=ctx.createRadialGradient(x,y,3,x,y,r+15);g.addColorStop(0,active?'rgba(250,204,21,.75)':'rgba(56,189,248,.55)');g.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r+15,0,Math.PI*2);ctx.fill();ctx.fillStyle=active?'rgba(250,204,21,.34)':'rgba(15,23,42,.36)';ctx.strokeStyle=active?'#fde047':'#e0f2fe';ctx.lineWidth=active?4:2;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.strokeStyle=active?'#fff7ae':'rgba(255,255,255,.72)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,r*.48,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(x-r*.75,y);ctx.lineTo(x+r*.75,y);ctx.stroke();ctx.beginPath();ctx.moveTo(x,y-r*.75);ctx.lineTo(x,y+r*.75);ctx.stroke();});
   };
-  const drawShooter = (ctx: CanvasRenderingContext2D, delta: number) => {
+  const drawCanvasShooter = (ctx: CanvasRenderingContext2D, delta: number) => {
     const shooter=shooterRef.current,spot=penaltySpot();
     if(gameStateRef.current==='runup'){shooter.runProgress=clamp(shooter.runProgress+.035*(delta/16.67),0,1);shooter.x=shooter.startX+(spot.x-shooter.startX-10)*shooter.runProgress;shooter.y=shooter.startY+(spot.y+18-shooter.startY)*shooter.runProgress;shooter.legSwing=Math.sin(shooter.runProgress*Math.PI*5)*.7;if(shooter.runProgress>=1){shooter.kicking=true;shooter.legSwing=1;launchShot();}}
     const celebrate=celebrationRef.current>0;ctx.save();ctx.translate(shooter.x,shooter.y);
@@ -583,7 +628,7 @@ keeperRef.current.diving = true;
     ctx.strokeStyle='rgba(255,255,255,.92)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-17,-16);ctx.lineTo(17,-16);ctx.stroke();ctx.fillStyle='#fff7ed';ctx.font='900 18px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('10',0,4);ctx.restore();
     if(celebrationRef.current>0)celebrationRef.current=Math.max(0,celebrationRef.current-delta/16.67);
   };
-  const drawKeeper = (ctx: CanvasRenderingContext2D, delta: number) => {
+  const drawCanvasKeeper = (ctx: CanvasRenderingContext2D, delta: number) => {
     const k=keeperRef.current,e=k.diving?.12:.06;k.x+=(k.targetX-k.x)*e*(delta/16.67);k.y+=(k.targetY-k.y)*e*(delta/16.67);ctx.save();ctx.translate(k.x,k.y);
     ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(0,38,46,12,0,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle='#dbeafe';ctx.lineWidth=10;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-21,-9);ctx.lineTo(-53,k.diving?-25:10);ctx.moveTo(21,-9);ctx.lineTo(53,k.diving?-25:10);ctx.stroke();
@@ -592,6 +637,86 @@ keeperRef.current.diving = true;
     ctx.fillStyle='#fde7c2';ctx.beginPath();ctx.arc(0,-45,18,0,Math.PI*2);ctx.fill();ctx.fillStyle='#172033';ctx.beginPath();ctx.arc(0,-52,15,Math.PI,Math.PI*2);ctx.fill();ctx.fillStyle='#0f172a';ctx.beginPath();ctx.arc(-5,-46,2,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(5,-46,2,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle='#0f172a';ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(-12,27);ctx.lineTo(-29,51);ctx.moveTo(12,27);ctx.lineTo(29,51);ctx.stroke();ctx.fillStyle='#e0f2fe';ctx.font='900 16px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('1',0,2);ctx.restore();
   };
+  const getSpriteFrame = (name: SpriteAnimationName, elapsedMs: number) => {
+    const definition = FOOTBALL_SPRITES[name];
+    const raw = Math.floor((elapsedMs / 1000) * definition.fps);
+    return definition.loop ? raw % definition.frames : Math.min(definition.frames - 1, raw);
+  };
+
+  const drawSpriteFrame = (
+    ctx: CanvasRenderingContext2D,
+    name: SpriteAnimationName,
+    frame: number,
+    anchorX: number,
+    anchorY: number,
+    drawSize: number
+  ) => {
+    const image = spriteImagesRef.current[name];
+    if (!image || !image.complete || image.naturalWidth <= 0) return false;
+    ctx.drawImage(
+      image,
+      frame * SPRITE_FRAME_SIZE, 0, SPRITE_FRAME_SIZE, SPRITE_FRAME_SIZE,
+      anchorX - drawSize / 2, anchorY - drawSize, drawSize, drawSize
+    );
+    return true;
+  };
+
+  const drawShooter = (ctx: CanvasRenderingContext2D, delta: number) => {
+    // تشغيل حساب الركضة وتوقيت إطلاق الكرة من منطق Visual V2 نفسه، مع إخفاء الرسم الهندسي.
+    if (spritesReady) {
+      ctx.save();
+      ctx.globalAlpha = 0;
+      drawCanvasShooter(ctx, delta);
+      ctx.restore();
+    } else {
+      drawCanvasShooter(ctx, delta);
+      return;
+    }
+
+    const shooter = shooterRef.current;
+    const elapsed = Math.max(0, performance.now() - stateStartedAtRef.current);
+    let animation: SpriteAnimationName = 'player-idle';
+    if (gameStateRef.current === 'runup') animation = 'player-run';
+    else if (gameStateRef.current === 'shooting') animation = 'player-kick';
+    else if (gameStateRef.current === 'round_result' && answerWasCorrectRef.current) animation = 'player-celebrate';
+    else if (gameStateRef.current === 'round_result') animation = 'player-kick';
+    const frame = getSpriteFrame(animation, elapsed);
+    const size = clamp(dimensionsRef.current.height * 0.185, 128, 174);
+    if (!drawSpriteFrame(ctx, animation, frame, shooter.x, shooter.y + 58, size)) {
+      drawCanvasShooter(ctx, 0);
+    }
+  };
+
+  const drawKeeper = (ctx: CanvasRenderingContext2D, delta: number) => {
+    // الإبقاء على إحداثيات الحارس ومدى التصدي من المنطق الأصلي.
+    if (spritesReady) {
+      ctx.save();
+      ctx.globalAlpha = 0;
+      drawCanvasKeeper(ctx, delta);
+      ctx.restore();
+    } else {
+      drawCanvasKeeper(ctx, delta);
+      return;
+    }
+
+    const keeper = keeperRef.current;
+    const elapsed = Math.max(0, performance.now() - stateStartedAtRef.current);
+    let animation: SpriteAnimationName = 'keeper-idle';
+    if (keeper.diving) {
+      const horizontalDelta = keeper.targetX - keeper.homeX;
+      if (Math.abs(horizontalDelta) < 28) animation = 'keeper-center-save';
+      else animation = horizontalDelta < 0 ? 'keeper-dive-left' : 'keeper-dive-right';
+    }
+    if (gameStateRef.current === 'round_result' && elapsed > 900 && !answerWasCorrectRef.current) {
+      animation = 'keeper-recover';
+    }
+    const frame = getSpriteFrame(animation, elapsed);
+    const size = clamp(dimensionsRef.current.height * 0.17, 116, 164);
+    if (!drawSpriteFrame(ctx, animation, frame, keeper.x, keeper.y + 62, size)) {
+      drawCanvasKeeper(ctx, 0);
+    }
+  };
+
   const drawBall = (ctx: CanvasRenderingContext2D, delta: number) => {
     const ball = ballRef.current;
     const keeper = keeperRef.current;
@@ -794,6 +919,9 @@ keeperRef.current.diving = true;
         <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[2rem] border border-sky-300/25 bg-slate-900/92 shadow-2xl p-7 text-center animate-in fade-in zoom-in-95 duration-200">
             <div className="text-6xl mb-3">⚽</div>
+            <div className={`mx-auto mb-3 w-fit rounded-full px-3 py-1 text-[10px] font-black border ${spritesReady ? 'bg-emerald-400/10 border-emerald-300/25 text-emerald-200' : 'bg-slate-800 border-white/10 text-slate-300'}`}>
+              {spritesReady ? 'الشخصيات الاحترافية جاهزة' : 'جارٍ تجهيز الشخصيات...'}
+            </div>
             <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-l from-sky-300 to-emerald-400 mb-2">ركلات المعرفة</h1>
             <p className="text-sm font-bold text-slate-300 leading-6 mb-6">
               اختر زاوية التسديد، أجب عن سؤال الحسم، ثم شاهد اللاعب ينفذ الركلة.
