@@ -1,0 +1,84 @@
+{
+  "version": 2,
+  "frameWidth": 256,
+  "frameHeight": 256,
+  "format": "webp-alpha",
+  "player": {
+    "basePath": "/assets/games/football/player",
+    "animations": {
+      "idle": {
+        "file": "idle.webp",
+        "frames": 4,
+        "frameWidth": 256,
+        "frameHeight": 256
+      },
+      "run": {
+        "file": "run.webp",
+        "frames": 6,
+        "frameWidth": 256,
+        "frameHeight": 256
+      },
+      "kick": {
+        "file": "kick.webp",
+        "frames": 6,
+        "frameWidth": 256,
+        "frameHeight": 256
+      },
+      "celebrate": {
+        "file": "celebrate.webp",
+        "frames": 6,
+        "frameWidth": 256,
+        "frameHeight": 256
+      }
+    },
+    "fps": {
+      "idle": 5,
+      "run": 10,
+      "kick": 12,
+      "celebrate": 8
+    }
+  },
+  "keeper": {
+    "basePath": "/assets/games/football/keeper",
+    "animations": {
+      "idle": {
+        "file": "idle.webp",
+        "frames": 4,
+        "frameWidth": 256,
+        "frameHeight": 256
+      },
+      "center-save": {
+        "file": "center-save.webp",
+        "frames": 5,
+        "frameWidth": 256,
+        "frameHeight": 256
+      },
+      "dive-left": {
+        "file": "dive-left.webp",
+        "frames": 6,
+        "frameWidth": 256,
+        "frameHeight": 256
+      },
+      "dive-right": {
+        "file": "dive-right.webp",
+        "frames": 6,
+        "frameWidth": 256,
+        "frameHeight": 256
+      },
+      "recover": {
+        "file": "recover.webp",
+        "frames": 4,
+        "frameWidth": 256,
+        "frameHeight": 256
+      }
+    },
+    "fps": {
+      "idle": 5,
+      "center-save": 10,
+      "dive-left": 12,
+      "dive-right": 12,
+      "recover": 8
+    }
+  },
+  "fallback": "Visual V2 Canvas characters"
+}
