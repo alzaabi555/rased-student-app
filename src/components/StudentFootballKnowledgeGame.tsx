@@ -179,6 +179,9 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
   const particlesRef = useRef<Particle[]>([]);
   const netPulseRef = useRef(0);
   const shakeRef = useRef(0);
+  const kickFlashRef = useRef(0);
+  const grassBurstRef = useRef<Array<{ x: number; y: number; vx: number; vy: number; life: number }>>([]);
+  const celebrationRef = useRef(0);
 
   const canPlay = usableQuestions.length > 0;
 
@@ -244,6 +247,9 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
     particlesRef.current = [];
     netPulseRef.current = 0;
     shakeRef.current = 0;
+    kickFlashRef.current = 0;
+    grassBurstRef.current = [];
+    celebrationRef.current = 0;
     resolvingShotRef.current = false;
   };
 
@@ -451,6 +457,8 @@ keeperRef.current.reach = ok
 keeperRef.current.diving = true;
 
     createBurst(ball.x, ball.y, ok ? '#facc15' : '#94a3b8', ok ? 18 : 8);
+    kickFlashRef.current = ok ? 1 : 0.55;
+    for(let i=0;i<(ok?20:10);i++) grassBurstRef.current.push({x:ball.x+(Math.random()-.5)*18,y:ball.y+9,vx:(Math.random()-.5)*7,vy:-2-Math.random()*5,life:22+Math.random()*14});
     syncGameState('shooting');
   };
 
@@ -468,6 +476,7 @@ keeperRef.current.diving = true;
 
     if (finalGoalScored) {
       netPulseRef.current = 1;
+      celebrationRef.current = 75;
       setGoals(prev => prev + 1);
       
       // 👇 تم حذف إضافة الـ 220 نقطة من هنا، لأن الـ 10 نقاط تم إضافتها مسبقاً في دالة handleAnswer
@@ -510,253 +519,79 @@ keeperRef.current.diving = true;
 
   const drawStadiumBackdrop = (ctx: CanvasRenderingContext2D) => {
     const { width, height } = dimensionsRef.current;
-    const sky = ctx.createLinearGradient(0, 0, 0, height * 0.38);
-    sky.addColorStop(0, '#07152f'); sky.addColorStop(0.6, '#18588d'); sky.addColorStop(1, '#38a3c7');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height * 0.4);
-    ctx.fillStyle = '#10243c'; ctx.fillRect(0, height * 0.12, width, height * 0.16);
-    const colors = ['#facc15', '#38bdf8', '#fb7185', '#f8fafc'];
-    for (let row = 0; row < 4; row++) for (let x = 8; x < width; x += 18) {
-      ctx.globalAlpha = 0.55; ctx.fillStyle = colors[(Math.floor(x / 18) + row) % colors.length];
-      ctx.beginPath(); ctx.arc(x + (row % 2) * 7, height * 0.14 + row * 22, 3, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-    const labels = ['RASED', 'LEARN', 'PLAY', 'WIN'];
-    labels.forEach((label, i) => { const w = width / labels.length; ctx.fillStyle = i % 2 ? '#0ea5e9' : '#2563eb'; ctx.fillRect(i*w, height*0.28, w, 28); ctx.fillStyle='#fff'; ctx.font='900 13px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(label, i*w+w/2, height*0.28+14); });
+    const horizon = height * 0.30;
+    const sky = ctx.createLinearGradient(0, 0, 0, horizon + 90);
+    sky.addColorStop(0, '#050b20'); sky.addColorStop(0.48, '#123b73'); sky.addColorStop(1, '#38a3c7');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, width, horizon + 90);
+    const light = (x: number, dir: number) => {
+      ctx.save();
+      const beam = ctx.createLinearGradient(x, 38, x + dir * width * .34, horizon + 130);
+      beam.addColorStop(0, 'rgba(255,255,225,.24)'); beam.addColorStop(1, 'rgba(255,255,225,0)');
+      ctx.fillStyle = beam; ctx.beginPath(); ctx.moveTo(x-22,44); ctx.lineTo(x+22,44); ctx.lineTo(x+dir*width*.36,horizon+135); ctx.lineTo(x+dir*width*.18,horizon+135); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle='#64748b'; ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(x,48); ctx.lineTo(x,horizon+4); ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.shadowBlur=18; ctx.shadowColor='#fef9c3'; for(let i=-2;i<=2;i++) ctx.fillRect(x+i*9-3,30,7,11);
+      ctx.restore();
+    };
+    light(40,1); light(width-40,-1);
+    ctx.fillStyle='#0f2138'; ctx.fillRect(0,height*.09,width,height*.19);
+    ctx.fillStyle='#173451'; ctx.fillRect(0,height*.145,width,height*.045);
+    ctx.fillStyle='#091827'; ctx.fillRect(0,height*.235,width,height*.05);
+    const colors=['#facc15','#38bdf8','#fb7185','#f8fafc','#4ade80'];
+    for(let row=0;row<5;row++) for(let x=8;x<width;x+=16){ctx.globalAlpha=.72;ctx.fillStyle=colors[(Math.floor(x/16)+row)%colors.length];ctx.beginPath();ctx.arc(x+(row%2)*7,height*.115+row*22,3.1,0,Math.PI*2);ctx.fill();}
+    ctx.globalAlpha=1;
+    ['RASED','LEARN','PLAY','WIN'].forEach((label,i)=>{const w=width/4,y=height*.278,g=ctx.createLinearGradient(i*w,y,(i+1)*w,y+31);g.addColorStop(0,i%2?'#0284c7':'#1d4ed8');g.addColorStop(1,i%2?'#0369a1':'#4338ca');ctx.fillStyle=g;ctx.fillRect(i*w,y,w,31);ctx.fillStyle='#fff';ctx.font='900 13px Tajawal, Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,i*w+w/2,y+15);});
   };
   const drawField = (ctx: CanvasRenderingContext2D) => {
     const { width, height } = dimensionsRef.current;
-    const grass = ctx.createLinearGradient(0, 0, 0, height);
-    grass.addColorStop(0, '#22c55e');
-    grass.addColorStop(1, '#166534');
-    ctx.fillStyle = grass;
-    ctx.fillRect(0, 0, width, height);
-
-    for (let y = 0; y < height; y += 50) {
-      ctx.fillStyle = y % 100 === 0 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.04)';
-      ctx.fillRect(0, y, width, 50);
-    }
-
-    const spot = penaltySpot();
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(width / 2, height * 0.68, clamp(width * 0.22, 78, 130), 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.beginPath();
-    ctx.arc(spot.x, spot.y, 7, 0, Math.PI * 2);
-    ctx.fill();
+    drawStadiumBackdrop(ctx);
+    const top=height*.255, grass=ctx.createLinearGradient(0,top,0,height);
+    grass.addColorStop(0,'#32c86a');grass.addColorStop(.52,'#159447');grass.addColorStop(1,'#0b6d36');ctx.fillStyle=grass;ctx.fillRect(0,top,width,height-top);
+    const stripe=Math.max(44,(height-top)/9);for(let y=top;y<height;y+=stripe){ctx.fillStyle=Math.floor((y-top)/stripe)%2===0?'rgba(255,255,255,.035)':'rgba(0,0,0,.055)';ctx.fillRect(0,y,width,stripe);}
+    ctx.strokeStyle='rgba(255,255,255,.10)';ctx.lineWidth=1;for(let x=0;x<width;x+=20){ctx.beginPath();ctx.moveTo(width/2+(x-width/2)*.38,top);ctx.lineTo(x,height);ctx.stroke();}
+    const spot=penaltySpot();ctx.strokeStyle='rgba(255,255,255,.72)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(width/2,height*.70,clamp(width*.22,78,130),0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.roundRect(width*.12,top+8,width*.76,height*.255,18);ctx.stroke();ctx.fillStyle='rgba(255,255,255,.9)';ctx.beginPath();ctx.arc(spot.x,spot.y,6,0,Math.PI*2);ctx.fill();
+    const v=ctx.createRadialGradient(width/2,height*.58,width*.15,width/2,height*.58,width*.72);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(2,20,10,.30)');ctx.fillStyle=v;ctx.fillRect(0,top,width,height-top);
   };
-
   const drawGoal = (ctx: CanvasRenderingContext2D) => {
-    const goal = goalRect();
-
-    ctx.save();
-    ctx.shadowBlur = netPulseRef.current * 32;
-    ctx.shadowColor = '#facc15';
-
-    ctx.fillStyle = 'rgba(15,23,42,0.34)';
-    drawRoundedRect(ctx, goal.x - 14, goal.y + 15, goal.w + 28, goal.h + 26, 20);
-    ctx.fill();
-
-    ctx.fillStyle = 'rgba(255,255,255,0.16)';
-    drawRoundedRect(ctx, goal.x, goal.y, goal.w, goal.h, 18);
-    ctx.fill();
-
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 8;
-    drawRoundedRect(ctx, goal.x, goal.y, goal.w, goal.h, 18);
-    ctx.stroke();
-
-    ctx.lineWidth = 1.1;
-    ctx.strokeStyle = 'rgba(255,255,255,0.38)';
-    for (let x = goal.x + 18; x < goal.x + goal.w; x += 24) {
-      ctx.beginPath();
-      ctx.moveTo(x, goal.y + 7);
-      ctx.lineTo(x - 22, goal.y + goal.h - 4);
-      ctx.stroke();
-    }
-    for (let y = goal.y + 18; y < goal.y + goal.h; y += 20) {
-      ctx.beginPath();
-      ctx.moveTo(goal.x + 8, y);
-      ctx.lineTo(goal.x + goal.w - 8, y);
-      ctx.stroke();
-    }
-
-    ctx.restore();
-    if (netPulseRef.current > 0) netPulseRef.current *= 0.88;
+    const goal=goalRect(), depth=clamp(goal.h*.20,20,34), pulse=netPulseRef.current*8;
+    ctx.save();ctx.shadowBlur=20+netPulseRef.current*32;ctx.shadowColor=netPulseRef.current>.05?'#facc15':'rgba(2,6,23,.55)';
+    ctx.fillStyle='rgba(2,6,23,.42)';drawRoundedRect(ctx,goal.x-18,goal.y+18,goal.w+36,goal.h+depth+18,24);ctx.fill();
+    ctx.fillStyle='rgba(226,240,255,.16)';ctx.beginPath();ctx.moveTo(goal.x,goal.y);ctx.lineTo(goal.x+depth,goal.y-depth*.38);ctx.lineTo(goal.x+goal.w-depth,goal.y-depth*.38);ctx.lineTo(goal.x+goal.w,goal.y);ctx.closePath();ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.10)';drawRoundedRect(ctx,goal.x,goal.y,goal.w,goal.h,18);ctx.fill();
+    ctx.lineWidth=1.2;ctx.strokeStyle='rgba(255,255,255,.58)';for(let x=goal.x+14;x<goal.x+goal.w;x+=22){ctx.beginPath();ctx.moveTo(x,goal.y+7);ctx.lineTo(x+Math.sin((x+pulse)*.08)*pulse,goal.y+goal.h-3);ctx.stroke();}
+    for(let y=goal.y+16;y<goal.y+goal.h;y+=18){ctx.beginPath();ctx.moveTo(goal.x+7,y);ctx.quadraticCurveTo(goal.x+goal.w/2,y+Math.sin(y*.08)*pulse,goal.x+goal.w-7,y);ctx.stroke();}
+    ctx.strokeStyle='#fff';ctx.lineWidth=9;ctx.lineCap='round';drawRoundedRect(ctx,goal.x,goal.y,goal.w,goal.h,18);ctx.stroke();ctx.strokeStyle='rgba(186,230,253,.95)';ctx.lineWidth=2;drawRoundedRect(ctx,goal.x+4,goal.y+4,goal.w-8,goal.h-8,14);ctx.stroke();ctx.restore();
+    if(netPulseRef.current>0)netPulseRef.current*=.87;
   };
-
   const drawAimZones = (ctx: CanvasRenderingContext2D) => {
-    if (gameStateRef.current !== 'aim') return;
-    const goal = goalRect();
-
-    SHOT_ZONES.forEach(zone => {
-      const x = goal.x + goal.w * zone.xRatio;
-      const y = goal.y + goal.h * zone.yRatio;
-      const active = selectedZone?.id === zone.id;
-
-      ctx.fillStyle = active ? 'rgba(250,204,21,0.35)' : 'rgba(255,255,255,0.18)';
-      ctx.strokeStyle = active ? '#facc15' : 'rgba(255,255,255,0.72)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(x, y, 20, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = 'rgba(15,23,42,0.62)';
-      ctx.font = '900 10px Tajawal, Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('🎯', x, y);
-    });
+    if(gameStateRef.current!=='aim')return;const goal=goalRect(),spot=penaltySpot(),pulse=(Math.sin(performance.now()/260)+1)/2,selected=selectedZoneRef.current;
+    if(selected){const tx=goal.x+goal.w*selected.xRatio,ty=goal.y+goal.h*selected.yRatio,line=ctx.createLinearGradient(spot.x,spot.y,tx,ty);line.addColorStop(0,'rgba(250,204,21,.08)');line.addColorStop(1,'rgba(250,204,21,.78)');ctx.strokeStyle=line;ctx.lineWidth=3;ctx.setLineDash([10,10]);ctx.beginPath();ctx.moveTo(spot.x,spot.y);ctx.quadraticCurveTo((spot.x+tx)/2+18,(spot.y+ty)/2-40,tx,ty);ctx.stroke();ctx.setLineDash([]);}
+    SHOT_ZONES.forEach((zone,index)=>{const x=goal.x+goal.w*zone.xRatio,y=goal.y+goal.h*zone.yRatio,active=selected?.id===zone.id,r=active?24+pulse*5:18+((pulse+index*.13)%1)*3,g=ctx.createRadialGradient(x,y,3,x,y,r+15);g.addColorStop(0,active?'rgba(250,204,21,.75)':'rgba(56,189,248,.55)');g.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r+15,0,Math.PI*2);ctx.fill();ctx.fillStyle=active?'rgba(250,204,21,.34)':'rgba(15,23,42,.36)';ctx.strokeStyle=active?'#fde047':'#e0f2fe';ctx.lineWidth=active?4:2;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.strokeStyle=active?'#fff7ae':'rgba(255,255,255,.72)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,r*.48,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(x-r*.75,y);ctx.lineTo(x+r*.75,y);ctx.stroke();ctx.beginPath();ctx.moveTo(x,y-r*.75);ctx.lineTo(x,y+r*.75);ctx.stroke();});
   };
-
   const drawShooter = (ctx: CanvasRenderingContext2D, delta: number) => {
-    const shooter = shooterRef.current;
-    const spot = penaltySpot();
-
-    if (gameStateRef.current === 'runup') {
-      shooter.runProgress = clamp(shooter.runProgress + 0.035 * (delta / 16.67), 0, 1);
-      shooter.x = shooter.startX + (spot.x - shooter.startX - 10) * shooter.runProgress;
-      shooter.y = shooter.startY + (spot.y + 18 - shooter.startY) * shooter.runProgress;
-      shooter.legSwing = Math.sin(shooter.runProgress * Math.PI * 5) * 0.7;
-
-      if (shooter.runProgress >= 1) {
-        shooter.kicking = true;
-        shooter.legSwing = 1;
-        launchShot();
-      }
-    }
-
-    ctx.save();
-    ctx.translate(shooter.x, shooter.y);
-
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.beginPath();
-    ctx.ellipse(0, 45, 38, 12, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // legs behind/body
-    ctx.strokeStyle = '#111827';
-    ctx.lineWidth = 8;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-9, 22);
-    ctx.lineTo(-18, 48);
-    ctx.moveTo(10, 22);
-    ctx.lineTo(22 + shooter.legSwing * 13, 46 - shooter.legSwing * 10);
-    ctx.stroke();
-
-    // shoes
-    ctx.strokeStyle = '#f8fafc';
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(-22, 50);
-    ctx.lineTo(-9, 50);
-    ctx.moveTo(18 + shooter.legSwing * 13, 49 - shooter.legSwing * 10);
-    ctx.lineTo(34 + shooter.legSwing * 13, 49 - shooter.legSwing * 10);
-    ctx.stroke();
-
-    // body
-    const shirt = ctx.createLinearGradient(-24, -26, 24, 28);
-    shirt.addColorStop(0, '#f59e0b');
-    shirt.addColorStop(1, '#ea580c');
-    ctx.fillStyle = shirt;
-    drawRoundedRect(ctx, -24, -24, 48, 56, 17);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    // arms
-    ctx.strokeStyle = '#fee2b3';
-    ctx.lineWidth = 8;
-    ctx.beginPath();
-    ctx.moveTo(-22, -6);
-    ctx.lineTo(-43, 12 + shooter.legSwing * 5);
-    ctx.moveTo(22, -6);
-    ctx.lineTo(42, 8 - shooter.legSwing * 6);
-    ctx.stroke();
-
-    // head
-    ctx.fillStyle = '#fde68a';
-    ctx.beginPath();
-    ctx.arc(0, -43, 18, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // hair/cap simple
-    ctx.fillStyle = '#1f2937';
-    ctx.beginPath();
-    ctx.arc(0, -51, 15, Math.PI, Math.PI * 2);
-    ctx.fill();
-
-    // number
-    ctx.fillStyle = '#fff7ed';
-    ctx.font = '900 18px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('10', 0, 4);
-
-    ctx.restore();
+    const shooter=shooterRef.current,spot=penaltySpot();
+    if(gameStateRef.current==='runup'){shooter.runProgress=clamp(shooter.runProgress+.035*(delta/16.67),0,1);shooter.x=shooter.startX+(spot.x-shooter.startX-10)*shooter.runProgress;shooter.y=shooter.startY+(spot.y+18-shooter.startY)*shooter.runProgress;shooter.legSwing=Math.sin(shooter.runProgress*Math.PI*5)*.7;if(shooter.runProgress>=1){shooter.kicking=true;shooter.legSwing=1;launchShot();}}
+    const celebrate=celebrationRef.current>0;ctx.save();ctx.translate(shooter.x,shooter.y);
+    ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(0,47,40,12,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#111827';ctx.lineWidth=9;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-9,25);ctx.lineTo(-19,49);ctx.moveTo(10,25);ctx.lineTo(23+shooter.legSwing*14,47-shooter.legSwing*11);ctx.stroke();
+    ctx.strokeStyle='#f8fafc';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(-24,51);ctx.lineTo(-8,51);ctx.moveTo(18+shooter.legSwing*14,50-shooter.legSwing*11);ctx.lineTo(36+shooter.legSwing*14,50-shooter.legSwing*11);ctx.stroke();
+    ctx.fillStyle='#172554';drawRoundedRect(ctx,-22,21,44,19,7);ctx.fill();
+    const shirt=ctx.createLinearGradient(-25,-28,25,30);shirt.addColorStop(0,'#fbbf24');shirt.addColorStop(.55,'#f97316');shirt.addColorStop(1,'#c2410c');ctx.fillStyle=shirt;drawRoundedRect(ctx,-25,-25,50,58,17);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=3;ctx.stroke();
+    ctx.strokeStyle='#fee2b3';ctx.lineWidth=9;ctx.beginPath();ctx.moveTo(-22,-6);ctx.lineTo(celebrate?-40:-43,celebrate?-38:12+shooter.legSwing*5);ctx.moveTo(22,-6);ctx.lineTo(celebrate?40:42,celebrate?-38:8-shooter.legSwing*6);ctx.stroke();
+    ctx.fillStyle='#fde7c2';ctx.beginPath();ctx.arc(0,-44,19,0,Math.PI*2);ctx.fill();ctx.fillStyle='#1f2937';ctx.beginPath();ctx.arc(0,-52,16,Math.PI,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#111827';ctx.beginPath();ctx.arc(-5,-45,2,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(5,-45,2,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#9a3412';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,-39,5,.1,Math.PI-.1);ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.92)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-17,-16);ctx.lineTo(17,-16);ctx.stroke();ctx.fillStyle='#fff7ed';ctx.font='900 18px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('10',0,4);ctx.restore();
+    if(celebrationRef.current>0)celebrationRef.current=Math.max(0,celebrationRef.current-delta/16.67);
   };
-
   const drawKeeper = (ctx: CanvasRenderingContext2D, delta: number) => {
-    const keeper = keeperRef.current;
-    const easing = keeper.diving ? 0.12 : 0.06;
-    keeper.x += (keeper.targetX - keeper.x) * easing * (delta / 16.67);
-    keeper.y += (keeper.targetY - keeper.y) * easing * (delta / 16.67);
-
-    ctx.save();
-    ctx.translate(keeper.x, keeper.y);
-
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
-    ctx.beginPath();
-    ctx.ellipse(0, 36, 44, 12, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // arms first for diving silhouette
-    ctx.strokeStyle = '#dbeafe';
-    ctx.lineWidth = 9;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-20, -10);
-    ctx.lineTo(-52, keeper.diving ? -24 : 10);
-    ctx.moveTo(20, -10);
-    ctx.lineTo(52, keeper.diving ? -24 : 10);
-    ctx.stroke();
-
-    const kit = ctx.createLinearGradient(-25, -28, 25, 32);
-    kit.addColorStop(0, '#0ea5e9');
-    kit.addColorStop(1, '#0369a1');
-    ctx.fillStyle = kit;
-    drawRoundedRect(ctx, -25, -30, 50, 60, 17);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    ctx.fillStyle = '#e0f2fe';
-    ctx.beginPath();
-    ctx.arc(0, -44, 17, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.strokeStyle = '#0f172a';
-    ctx.lineWidth = 7;
-    ctx.beginPath();
-    ctx.moveTo(-12, 26);
-    ctx.lineTo(-28, 50);
-    ctx.moveTo(12, 26);
-    ctx.lineTo(28, 50);
-    ctx.stroke();
-
-    ctx.restore();
+    const k=keeperRef.current,e=k.diving?.12:.06;k.x+=(k.targetX-k.x)*e*(delta/16.67);k.y+=(k.targetY-k.y)*e*(delta/16.67);ctx.save();ctx.translate(k.x,k.y);
+    ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(0,38,46,12,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#dbeafe';ctx.lineWidth=10;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-21,-9);ctx.lineTo(-53,k.diving?-25:10);ctx.moveTo(21,-9);ctx.lineTo(53,k.diving?-25:10);ctx.stroke();
+    ctx.fillStyle='#fef08a';ctx.beginPath();ctx.arc(-54,k.diving?-25:10,9,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(54,k.diving?-25:10,9,0,Math.PI*2);ctx.fill();
+    const kit=ctx.createLinearGradient(-26,-30,26,34);kit.addColorStop(0,'#38bdf8');kit.addColorStop(.6,'#0284c7');kit.addColorStop(1,'#075985');ctx.fillStyle=kit;drawRoundedRect(ctx,-26,-31,52,63,17);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.86)';ctx.lineWidth=3;ctx.stroke();
+    ctx.fillStyle='#fde7c2';ctx.beginPath();ctx.arc(0,-45,18,0,Math.PI*2);ctx.fill();ctx.fillStyle='#172033';ctx.beginPath();ctx.arc(0,-52,15,Math.PI,Math.PI*2);ctx.fill();ctx.fillStyle='#0f172a';ctx.beginPath();ctx.arc(-5,-46,2,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(5,-46,2,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#0f172a';ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(-12,27);ctx.lineTo(-29,51);ctx.moveTo(12,27);ctx.lineTo(29,51);ctx.stroke();ctx.fillStyle='#e0f2fe';ctx.font='900 16px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('1',0,2);ctx.restore();
   };
-
   const drawBall = (ctx: CanvasRenderingContext2D, delta: number) => {
     const ball = ballRef.current;
     const keeper = keeperRef.current;
@@ -824,6 +659,10 @@ keeperRef.current.diving = true;
     ctx.restore();
   };
 
+  const drawKickEffects = (ctx: CanvasRenderingContext2D, delta: number) => {
+    if(kickFlashRef.current>.01){const b=ballRef.current,r=22+kickFlashRef.current*42,g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,r);g.addColorStop(0,`rgba(255,255,255,${.72*kickFlashRef.current})`);g.addColorStop(.35,`rgba(250,204,21,${.46*kickFlashRef.current})`);g.addColorStop(1,'rgba(250,204,21,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(b.x,b.y,r,0,Math.PI*2);ctx.fill();kickFlashRef.current*=Math.pow(.84,delta/16.67);}
+    grassBurstRef.current.forEach(p=>{p.x+=p.vx*(delta/16.67);p.y+=p.vy*(delta/16.67);p.vy+=.2*(delta/16.67);p.life-=delta/16.67;ctx.globalAlpha=clamp(p.life/34,0,1);ctx.strokeStyle='#86efac';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+p.vx*1.8,p.y+7);ctx.stroke();});ctx.globalAlpha=1;grassBurstRef.current=grassBurstRef.current.filter(p=>p.life>0);
+  };
   const drawParticles = (ctx: CanvasRenderingContext2D, delta: number) => {
     particlesRef.current.forEach(p => {
       p.x += p.vx * (delta / 16.67);
@@ -861,6 +700,7 @@ keeperRef.current.diving = true;
     drawKeeper(ctx, delta);
     drawShooter(ctx, delta);
     drawBall(ctx, delta);
+    drawKickEffects(ctx, delta);
     drawParticles(ctx, delta);
     ctx.restore();
   };
@@ -977,15 +817,12 @@ keeperRef.current.diving = true;
       )}
 
       {gameState === 'aim' && (
-        <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+96px)] left-3 right-3 z-30 pointer-events-none">
-          <div className="max-w-md mx-auto rounded-3xl bg-black/55 backdrop-blur-md border border-white/10 p-3 text-center shadow-2xl">
-            <p className="text-sm font-black text-yellow-300 flex items-center justify-center gap-2">
-              <Target className="w-4 h-4 text-yellow-300" />
-              اختر زاوية التسديد أولًا
-            </p>
-            <p className="text-[10px] font-bold text-slate-300 mt-1">
-              اضغط على إحدى دوائر الهدف داخل المرمى، ثم سيظهر سؤال الحسم.
-            </p>
+        <div className="absolute right-3 top-[46%] -translate-y-1/2 z-30 pointer-events-none w-[112px] sm:w-[132px]">
+          <div className="rounded-[1.4rem] bg-slate-950/74 backdrop-blur-md border border-yellow-300/35 px-3 py-4 text-center shadow-2xl flex flex-col items-center gap-2">
+            <div className="w-10 h-10 rounded-2xl bg-yellow-300/15 border border-yellow-300/30 flex items-center justify-center"><Target className="w-5 h-5 text-yellow-300" /></div>
+            <p className="text-[11px] sm:text-xs font-black text-yellow-300 leading-5">اختر زاوية التسديد</p>
+            <div className="w-8 h-px bg-white/15" />
+            <p className="text-[9px] sm:text-[10px] font-bold text-slate-200 leading-5">اضغط على إحدى دوائر المرمى</p>
           </div>
         </div>
       )}
@@ -1034,8 +871,8 @@ keeperRef.current.diving = true;
       )}
 
       {(gameState === 'runup' || gameState === 'shooting') && (
-        <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+96px)] left-3 right-3 z-30 pointer-events-none">
-          <div className="max-w-md mx-auto rounded-3xl bg-black/55 backdrop-blur-md border border-white/10 p-3 text-center shadow-2xl">
+        <div className="absolute right-3 top-[48%] -translate-y-1/2 z-30 pointer-events-none w-[150px]">
+          <div className="rounded-3xl bg-black/68 backdrop-blur-md border border-white/10 p-3 text-center shadow-2xl">
             <p className="text-sm font-black text-white flex items-center justify-center gap-2">
               <Zap className="w-4 h-4 text-yellow-300" />
               اللاعب ينفذ الركلة الآن...
@@ -1045,8 +882,8 @@ keeperRef.current.diving = true;
       )}
 
       {gameState === 'round_result' && feedback && (
-        <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+96px)] left-3 right-3 z-30 pointer-events-none">
-          <div className={`max-w-md mx-auto rounded-3xl backdrop-blur-md border p-4 text-center shadow-2xl ${feedback.type === 'goal' ? 'bg-green-500/20 border-green-300/30' : 'bg-red-500/20 border-red-300/30'}`}>
+        <div className="absolute right-3 top-[48%] -translate-y-1/2 z-30 pointer-events-none w-[150px]">
+          <div className={`rounded-3xl backdrop-blur-md border p-4 text-center shadow-2xl ${feedback.type === 'goal' ? 'bg-green-500/20 border-green-300/30' : 'bg-red-500/20 border-red-300/30'}`}>
             <p className="text-lg font-black text-white">{feedback.message}</p>
           </div>
         </div>
