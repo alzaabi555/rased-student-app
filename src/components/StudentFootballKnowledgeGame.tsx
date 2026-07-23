@@ -508,6 +508,21 @@ keeperRef.current.diving = true;
     ctx.closePath();
   };
 
+  const drawStadiumBackdrop = (ctx: CanvasRenderingContext2D) => {
+    const { width, height } = dimensionsRef.current;
+    const sky = ctx.createLinearGradient(0, 0, 0, height * 0.38);
+    sky.addColorStop(0, '#07152f'); sky.addColorStop(0.6, '#18588d'); sky.addColorStop(1, '#38a3c7');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height * 0.4);
+    ctx.fillStyle = '#10243c'; ctx.fillRect(0, height * 0.12, width, height * 0.16);
+    const colors = ['#facc15', '#38bdf8', '#fb7185', '#f8fafc'];
+    for (let row = 0; row < 4; row++) for (let x = 8; x < width; x += 18) {
+      ctx.globalAlpha = 0.55; ctx.fillStyle = colors[(Math.floor(x / 18) + row) % colors.length];
+      ctx.beginPath(); ctx.arc(x + (row % 2) * 7, height * 0.14 + row * 22, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    const labels = ['RASED', 'LEARN', 'PLAY', 'WIN'];
+    labels.forEach((label, i) => { const w = width / labels.length; ctx.fillStyle = i % 2 ? '#0ea5e9' : '#2563eb'; ctx.fillRect(i*w, height*0.28, w, 28); ctx.fillStyle='#fff'; ctx.font='900 13px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(label, i*w+w/2, height*0.28+14); });
+  };
   const drawField = (ctx: CanvasRenderingContext2D) => {
     const { width, height } = dimensionsRef.current;
     const grass = ctx.createLinearGradient(0, 0, 0, height);
@@ -928,6 +943,13 @@ keeperRef.current.diving = true;
         </div>
       </div>
 
+      {gameState !== 'menu' && gameState !== 'finished' && (
+        <div className="absolute top-[max(env(safe-area-inset-top),14px)] left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+          <div className="rounded-2xl bg-black/55 backdrop-blur-md border border-white/10 px-4 py-2 text-[11px] font-black text-white shadow-lg">
+            الجولة {Math.min(questionIndex + 1, questionDeck.length)} / {questionDeck.length}
+          </div>
+        </div>
+      )}
       {gameState === 'menu' && (
         <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[2rem] border border-sky-300/25 bg-slate-900/92 shadow-2xl p-7 text-center animate-in fade-in zoom-in-95 duration-200">
@@ -957,7 +979,7 @@ keeperRef.current.diving = true;
       {gameState === 'aim' && (
         <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+96px)] left-3 right-3 z-30 pointer-events-none">
           <div className="max-w-md mx-auto rounded-3xl bg-black/55 backdrop-blur-md border border-white/10 p-3 text-center shadow-2xl">
-            <p className="text-sm font-black text-white flex items-center justify-center gap-2">
+            <p className="text-sm font-black text-yellow-300 flex items-center justify-center gap-2">
               <Target className="w-4 h-4 text-yellow-300" />
               اختر زاوية التسديد أولًا
             </p>
