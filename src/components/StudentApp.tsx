@@ -24,6 +24,7 @@ const StudentApp: React.FC = () => {
   const { dir, studentData, loading, login } = useApp();
 
   const [loginError, setLoginError] = useState('');
+  const [isGameActive, setIsGameActive] = useState(false);
   const [activeTab, setActiveTab] = useState<
     'home' | 'review' | 'tasks' | 'library' | 'grades'
   >('home');
@@ -118,6 +119,7 @@ const StudentApp: React.FC = () => {
           <StudentReviewPlan
             student={studentData}
             currentSemester="1"
+            onGameActiveChange={setIsGameActive}
           />
         );
 
@@ -205,6 +207,7 @@ const StudentApp: React.FC = () => {
 </main>
 
       {/* شريط التنقل السفلي الفاتح */}
+      {!isGameActive && (
       <div className="fixed bottom-0 left-0 right-0 z-[90] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pointer-events-none flex justify-center w-full">
         <div className="student-bottom-nav bg-bgCard border border-borderColor rounded-[2rem] p-1.5 w-full max-w-md shadow-elevated pointer-events-auto flex justify-between items-center relative transition-all">
           {NAV_ITEMS.map(item => {
@@ -240,6 +243,7 @@ const StudentApp: React.FC = () => {
           })}
         </div>
       </div>
+      )}
     </div>
   );
 };
