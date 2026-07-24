@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Play, RotateCcw, Zap, Trophy, Target } from 'lucide-react';
 
 // =========================================================================
-// ⚽ ركلات المعرفة V3 - Penalty Challenge
+// ⚽ ركلات المعرفة V2 - Penalty Challenge
 // -------------------------------------------------------------------------
 // منطق اللعب الجديد:
 // 1) اللاعب والكرة والحارس يظهرون داخل ملعب كرتوني.
@@ -143,10 +143,10 @@ type SpriteAnimationName =
   | 'keeper-idle' | 'keeper-center-save' | 'keeper-dive-left' | 'keeper-dive-right' | 'keeper-recover';
 type SpriteDefinition = { src: string; frames: number; fps: number; loop: boolean };
 const FOOTBALL_SPRITES: Record<SpriteAnimationName, SpriteDefinition> = {
-  'player-idle': { src: '/assets/games/football/player/idle.webp', frames: 4, fps: 5, loop: true },
-  'player-run': { src: '/assets/games/football/player/run.webp', frames: 6, fps: 10, loop: true },
-  'player-kick': { src: '/assets/games/football/player/kick.webp', frames: 6, fps: 12, loop: false },
-  'player-celebrate': { src: '/assets/games/football/player/celebrate.webp', frames: 6, fps: 8, loop: true },
+  'player-idle': { src: '/assets/games/football/player/idle.webp', frames: 4, fps: 4, loop: true },
+  'player-run': { src: '/assets/games/football/player/run.webp', frames: 6, fps: 8, loop: true },
+  'player-kick': { src: '/assets/games/football/player/kick.webp', frames: 6, fps: 9, loop: false },
+  'player-celebrate': { src: '/assets/games/football/player/celebrate.webp', frames: 6, fps: 6, loop: true },
   'keeper-idle': { src: '/assets/games/football/keeper/idle.webp', frames: 4, fps: 5, loop: true },
   'keeper-center-save': { src: '/assets/games/football/keeper/center-save.webp', frames: 5, fps: 10, loop: false },
   'keeper-dive-left': { src: '/assets/games/football/keeper/dive-left.webp', frames: 6, fps: 12, loop: false },
@@ -203,6 +203,8 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
   const kickFlashRef = useRef(0);
   const grassBurstRef = useRef<Array<{ x: number; y: number; vx: number; vy: number; life: number }>>([]);
   const celebrationRef = useRef(0);
+  const kickAnimationStartedAtRef = useRef(0);
+  const shotLaunchedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -295,6 +297,8 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
     kickFlashRef.current = 0;
     grassBurstRef.current = [];
     celebrationRef.current = 0;
+    kickAnimationStartedAtRef.current = 0;
+    shotLaunchedRef.current = false;
     resolvingShotRef.current = false;
   };
 
@@ -339,7 +343,7 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 2 + Math.random() * 7;
-      createParticle(x, y, color, 3 + Math.random() * 5, Math.cos(angle) * speed, Math.sin(angle) * speed, 28 + Math.random() * 18);
+      createParticle(x, y, color, 1.5 + Math.random() * 2.8, Math.cos(angle) * speed, Math.sin(angle) * speed, 28 + Math.random() * 18);
     }
   };
 
@@ -518,19 +522,20 @@ keeperRef.current.diving = true;
     // حتى لو دخلت الكرة بصريًا في المرمى، النتيجة تكون تصدي.
     const finalGoalScored = ok;
     ballRef.current.moving = false;
+    ballRef.current.trail = [];
 
     if (finalGoalScored) {
       netPulseRef.current = 1;
-      celebrationRef.current = 75;
+      window.setTimeout(() => { celebrationRef.current = 75; }, 180);
       setGoals(prev => prev + 1);
       
       // 👇 تم حذف إضافة الـ 220 نقطة من هنا، لأن الـ 10 نقاط تم إضافتها مسبقاً في دالة handleAnswer
       
       setFeedback({
         type: 'goal',
-        message: 'هدف! تسديدة معرفية قوية هزّت الشباك.'
+        message: 'هدف رائع! +10 نقاط'
       });
-      createBurst(ballRef.current.x, ballRef.current.y, '#facc15', 34);
+      createBurst(ballRef.current.x, ballRef.current.y, '#facc15', 14);
     } else {
       shakeRef.current = 8;
       setSaves(prev => prev + 1);
@@ -538,9 +543,9 @@ keeperRef.current.diving = true;
         type: 'save',
         message: ok
           ? 'الحارس تصدى ببراعة!'
-          : 'الحارس قرأ التسديدة لأن الإجابة كانت خاطئة.'
+          : 'تصدي ناجح! الإجابة غير صحيحة'
       });
-      createBurst(ballRef.current.x, ballRef.current.y, '#38bdf8', ok ? 24 : 32);
+      createBurst(ballRef.current.x, ballRef.current.y, '#38bdf8', ok ? 12 : 16);
     }
 
     syncGameState('round_result');
@@ -584,7 +589,7 @@ keeperRef.current.diving = true;
     const colors=['#facc15','#38bdf8','#fb7185','#f8fafc','#4ade80'];
     for(let row=0;row<5;row++) for(let x=8;x<width;x+=16){ctx.globalAlpha=.72;ctx.fillStyle=colors[(Math.floor(x/16)+row)%colors.length];ctx.beginPath();ctx.arc(x+(row%2)*7,height*.115+row*22,3.1,0,Math.PI*2);ctx.fill();}
     ctx.globalAlpha=1;
-    ['RASED','LEARN','PLAY','WIN'].forEach((label,i)=>{const w=width/4,y=height*.278,g=ctx.createLinearGradient(i*w,y,(i+1)*w,y+31);g.addColorStop(0,i%2?'#0284c7':'#1d4ed8');g.addColorStop(1,i%2?'#0369a1':'#4338ca');ctx.fillStyle=g;ctx.fillRect(i*w,y,w,31);ctx.fillStyle='#fff';ctx.font='900 13px Tajawal, Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,i*w+w/2,y+15);});
+    ['◉ راصد','راصد','◉ راصد','راصد'].forEach((label,i)=>{const w=width/4,y=height*.278,g=ctx.createLinearGradient(i*w,y,(i+1)*w,y+31);g.addColorStop(0,i%2?'#0284c7':'#1d4ed8');g.addColorStop(1,i%2?'#0369a1':'#4338ca');ctx.fillStyle=g;ctx.fillRect(i*w,y,w,31);ctx.fillStyle='#fff';ctx.font='900 13px Tajawal, Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,i*w+w/2,y+15);});
   };
   const drawField = (ctx: CanvasRenderingContext2D) => {
     const { width, height } = dimensionsRef.current;
@@ -605,7 +610,7 @@ keeperRef.current.diving = true;
     ctx.fillStyle='rgba(255,255,255,.10)';drawRoundedRect(ctx,goal.x,goal.y,goal.w,goal.h,18);ctx.fill();
     ctx.lineWidth=1.2;ctx.strokeStyle='rgba(255,255,255,.58)';for(let x=goal.x+14;x<goal.x+goal.w;x+=22){ctx.beginPath();ctx.moveTo(x,goal.y+7);ctx.lineTo(x+Math.sin((x+pulse)*.08)*pulse,goal.y+goal.h-3);ctx.stroke();}
     for(let y=goal.y+16;y<goal.y+goal.h;y+=18){ctx.beginPath();ctx.moveTo(goal.x+7,y);ctx.quadraticCurveTo(goal.x+goal.w/2,y+Math.sin(y*.08)*pulse,goal.x+goal.w-7,y);ctx.stroke();}
-    ctx.strokeStyle='#fff';ctx.lineWidth=9;ctx.lineCap='round';drawRoundedRect(ctx,goal.x,goal.y,goal.w,goal.h,18);ctx.stroke();ctx.strokeStyle='rgba(186,230,253,.95)';ctx.lineWidth=2;drawRoundedRect(ctx,goal.x+4,goal.y+4,goal.w-8,goal.h-8,14);ctx.stroke();ctx.restore();
+    ctx.strokeStyle='#fff';ctx.lineWidth=9;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(goal.x,goal.y+goal.h);ctx.lineTo(goal.x,goal.y+18);ctx.quadraticCurveTo(goal.x,goal.y,goal.x+18,goal.y);ctx.lineTo(goal.x+goal.w-18,goal.y);ctx.quadraticCurveTo(goal.x+goal.w,goal.y,goal.x+goal.w,goal.y+18);ctx.lineTo(goal.x+goal.w,goal.y+goal.h);ctx.stroke();ctx.strokeStyle='rgba(186,230,253,.95)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(goal.x+4,goal.y+goal.h);ctx.lineTo(goal.x+4,goal.y+18);ctx.quadraticCurveTo(goal.x+4,goal.y+4,goal.x+18,goal.y+4);ctx.lineTo(goal.x+goal.w-18,goal.y+4);ctx.quadraticCurveTo(goal.x+goal.w-4,goal.y+4,goal.x+goal.w-4,goal.y+18);ctx.lineTo(goal.x+goal.w-4,goal.y+goal.h);ctx.stroke();ctx.restore();
     if(netPulseRef.current>0)netPulseRef.current*=.87;
   };
   const drawAimZones = (ctx: CanvasRenderingContext2D) => {
@@ -615,7 +620,7 @@ keeperRef.current.diving = true;
   };
   const drawCanvasShooter = (ctx: CanvasRenderingContext2D, delta: number) => {
     const shooter=shooterRef.current,spot=penaltySpot();
-    if(gameStateRef.current==='runup'){shooter.runProgress=clamp(shooter.runProgress+.035*(delta/16.67),0,1);shooter.x=shooter.startX+(spot.x-shooter.startX-10)*shooter.runProgress;shooter.y=shooter.startY+(spot.y+18-shooter.startY)*shooter.runProgress;shooter.legSwing=Math.sin(shooter.runProgress*Math.PI*5)*.7;if(shooter.runProgress>=1){shooter.kicking=true;shooter.legSwing=1;launchShot();}}
+    if(gameStateRef.current==='runup'){shooter.runProgress=clamp(shooter.runProgress+.035*(delta/16.67),0,1);shooter.x=shooter.startX+(spot.x-shooter.startX-10)*shooter.runProgress;shooter.y=shooter.startY+(spot.y+18-shooter.startY)*shooter.runProgress;shooter.legSwing=Math.sin(shooter.runProgress*Math.PI*5)*.7;if(shooter.runProgress>=1){shooter.kicking=true;shooter.legSwing=1;if(!kickAnimationStartedAtRef.current) kickAnimationStartedAtRef.current=performance.now();if(!shotLaunchedRef.current && performance.now()-kickAnimationStartedAtRef.current>=285){shotLaunchedRef.current=true;launchShot();}}}
     const celebrate=celebrationRef.current>0;ctx.save();ctx.translate(shooter.x,shooter.y);
     ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(0,47,40,12,0,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle='#111827';ctx.lineWidth=9;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-9,25);ctx.lineTo(-19,49);ctx.moveTo(10,25);ctx.lineTo(23+shooter.legSwing*14,47-shooter.legSwing*11);ctx.stroke();
@@ -681,8 +686,8 @@ keeperRef.current.diving = true;
     else if (gameStateRef.current === 'round_result' && answerWasCorrectRef.current) animation = 'player-celebrate';
     else if (gameStateRef.current === 'round_result') animation = 'player-kick';
     const frame = getSpriteFrame(animation, elapsed);
-    const size = clamp(dimensionsRef.current.height * 0.185, 128, 174);
-    if (!drawSpriteFrame(ctx, animation, frame, shooter.x, shooter.y + 58, size)) {
+    const size = clamp(dimensionsRef.current.height * 0.205, 146, 190);
+    if (!drawSpriteFrame(ctx, animation, frame, shooter.x, shooter.y + 46, size)) {
       drawCanvasShooter(ctx, 0);
     }
   };
@@ -711,8 +716,8 @@ keeperRef.current.diving = true;
       animation = 'keeper-recover';
     }
     const frame = getSpriteFrame(animation, elapsed);
-    const size = clamp(dimensionsRef.current.height * 0.17, 116, 164);
-    if (!drawSpriteFrame(ctx, animation, frame, keeper.x, keeper.y + 62, size)) {
+    const size = clamp(dimensionsRef.current.height * (animation.includes('dive') ? 0.145 : 0.155), 112, animation.includes('dive') ? 150 : 158);
+    if (!drawSpriteFrame(ctx, animation, frame, keeper.x, keeper.y + (animation.includes('dive') ? 48 : 56), size)) {
       drawCanvasKeeper(ctx, 0);
     }
   };
@@ -724,7 +729,7 @@ keeperRef.current.diving = true;
 
     if (ball.moving) {
       ball.trail.unshift({ x: ball.x, y: ball.y, alpha: 0.8 });
-      ball.trail = ball.trail.slice(0, 12).map(p => ({ ...p, alpha: p.alpha * 0.80 }));
+      ball.trail = ball.trail.slice(0, 6).map(p => ({ ...p, alpha: p.alpha * 0.66 }));
       ball.x += ball.vx * (delta / 16.67);
       ball.y += ball.vy * (delta / 16.67);
       ball.r = Math.max(8, ball.r * 0.991);
@@ -746,7 +751,7 @@ keeperRef.current.diving = true;
       ctx.globalAlpha = p.alpha;
       ctx.fillStyle = '#fef3c7';
       ctx.beginPath();
-      ctx.arc(p.x, p.y, ball.r * 0.82, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, Math.max(2, ball.r * 0.38), 0, Math.PI * 2);
       ctx.fill();
     });
     ctx.globalAlpha = 1;
@@ -821,8 +826,8 @@ keeperRef.current.diving = true;
     ctx.translate(sx, sy);
     drawField(ctx);
     drawGoal(ctx);
-    drawAimZones(ctx);
     drawKeeper(ctx, delta);
+    drawAimZones(ctx);
     drawShooter(ctx, delta);
     drawBall(ctx, delta);
     drawKickEffects(ctx, delta);
@@ -874,7 +879,7 @@ keeperRef.current.diving = true;
     : currentQuestion?.options || [];
 
   return (
-    <div className="fixed inset-0 z-[2147483647] bg-slate-950 text-white overflow-hidden" dir="rtl">
+    <div className="fixed inset-0 z-[2147483647] bg-[#07152f] text-white overflow-hidden" dir="rtl">
       <div ref={wrapperRef} className="absolute inset-0">
         <canvas
           ref={canvasRef}
@@ -946,7 +951,7 @@ keeperRef.current.diving = true;
 
       {gameState === 'aim' && (
         <div className="absolute right-3 top-[46%] -translate-y-1/2 z-30 pointer-events-none w-[112px] sm:w-[132px]">
-          <div className="rounded-[1.4rem] bg-slate-950/74 backdrop-blur-md border border-yellow-300/35 px-3 py-4 text-center shadow-2xl flex flex-col items-center gap-2">
+          <div className="rounded-[1.4rem] bg-[#07152f]/92 backdrop-blur-md border border-cyan-300/55 px-3 py-4 text-center shadow-2xl flex flex-col items-center gap-2">
             <div className="w-10 h-10 rounded-2xl bg-yellow-300/15 border border-yellow-300/30 flex items-center justify-center"><Target className="w-5 h-5 text-yellow-300" /></div>
             <p className="text-[11px] sm:text-xs font-black text-yellow-300 leading-5">اختر زاوية التسديد</p>
             <div className="w-8 h-px bg-white/15" />
@@ -1021,7 +1026,7 @@ keeperRef.current.diving = true;
         <div className="absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900/92 shadow-2xl p-7 text-center animate-in fade-in zoom-in-95 duration-200">
             <div className="text-6xl mb-3">🏆</div>
-            <h2 className="text-4xl font-black mb-3 text-yellow-300">انتهت الركلات</h2>
+            <h2 className="text-4xl font-black mb-3 text-yellow-300">🏆 انتهى التحدي</h2>
             <p className="text-sm font-bold text-slate-300 leading-6 mb-5">
               سجلت {goals} هدف، وتصدى الحارس لـ {saves} ركلة. نتيجتك {score} نقطة.
             </p>
