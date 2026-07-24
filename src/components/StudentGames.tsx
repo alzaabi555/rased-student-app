@@ -16,7 +16,8 @@ import {
   BookOpen,
   RotateCcw,
   Info,
-  Archive
+  Archive,
+  Castle
 } from 'lucide-react';
 
 import StudentSnakeLadderGame from './StudentSnakeLadderGame';
@@ -25,6 +26,8 @@ import StudentKnowledgeRaceGame from './StudentKnowledgeRaceGame';
 import type { KnowledgeRaceQuestion, KnowledgeRaceResult } from './StudentKnowledgeRaceGame';
 import StudentFootballKnowledgeGame from './StudentFootballKnowledgeGame';
 import type { FootballKnowledgeQuestion, FootballKnowledgeResult } from './StudentFootballKnowledgeGame';
+import StudentKnowledgeFortressGame from './StudentKnowledgeFortressGame';
+import type { KnowledgeFortressQuestion, KnowledgeFortressResult } from './StudentKnowledgeFortressGame';
 import StudentTrueFalseGame from './StudentTrueFalseGame';
 import type { TrueFalseQuestion, TrueFalseResult } from './StudentTrueFalseGame';
 import StudentMatchCardsGame from './StudentMatchCardsGame';
@@ -81,12 +84,12 @@ interface StudentGamesProps {
 }
 
 type GameStatus = 'available' | 'needs_questions' | 'coming_soon';
-type ActiveGame = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'true_false' | 'match_cards' | 'sequence_order' | null;
+type ActiveGame = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'knowledge_fortress' | 'true_false' | 'match_cards' | 'sequence_order' | null;
 type GamesMode = 'daily' | 'review';
 type MasteryLevel = 'excellent' | 'good' | 'needs_review' | 'needs_followup';
 
-type UnifiedGameResult = SnakeLadderResult | KnowledgeRaceResult | FootballKnowledgeResult | TrueFalseResult | MatchCardsResult | SequenceOrderResult;
-type UnifiedGameType = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'true_false' | 'match_cards' | 'sequence_order';
+type UnifiedGameResult = SnakeLadderResult | KnowledgeRaceResult | FootballKnowledgeResult | KnowledgeFortressResult | TrueFalseResult | MatchCardsResult | SequenceOrderResult;
+type UnifiedGameType = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'knowledge_fortress' | 'true_false' | 'match_cards' | 'sequence_order';
 
 type ResultCloudMeta = {
   schoolCode: string;
@@ -158,6 +161,7 @@ type GameCardWithAvailability = GameCard & { questionCount: number };
 const BASE_GAMES: Omit<GameCard, 'status'>[] = [
   { id: 'knowledge_race', title: 'سباق المعرفة', shortTitle: 'السباق', description: 'تجاوز المركبات وافتح بوابات الأسئلة لتحصل على التيربو.', icon: Car, color: 'warning', supportedGameTypes: ['race', 'knowledge_race'], supportedQuestionTypes: ['multiple_choice', 'true_false'], minQuestions: 1, estimatedTime: '3 - 5 دقائق' },
   { id: 'football_quiz', title: 'ركلات المعرفة', shortTitle: 'الكرة', description: 'اختر زاوية التسديد، أجب عن سؤال الحسم، وسجل الأهداف.', icon: Goal, color: 'info', supportedGameTypes: ['football', 'penalty', 'football_quiz'], supportedQuestionTypes: ['multiple_choice', 'true_false'], minQuestions: 1, estimatedTime: '3 دقائق' },
+  { id: 'knowledge_fortress', title: 'حصن المعرفة', shortTitle: 'الحصن', description: 'ابنِ أبراج المعرفة، أوقف موجات الروبوتات واحمِ حصن راصد.', icon: Castle, color: 'success', supportedGameTypes: ['knowledge_fortress', 'fortress', 'tower_defense'], supportedQuestionTypes: ['multiple_choice', 'true_false'], minQuestions: 0, estimatedTime: '4 - 7 دقائق' },
   { id: 'snake_ladder', title: 'السلم والثعبان', shortTitle: 'السلم', description: 'لوحة تعليمية ممتعة بأسئلة ديناميكية من المعلم.', icon: RotateCcw, color: 'primary', supportedGameTypes: ['snake_ladder'], supportedQuestionTypes: ['multiple_choice', 'true_false'], minQuestions: 0, estimatedTime: 'حسب عدد الأسئلة' },
   { id: 'true_false', title: 'صح أم خطأ', shortTitle: 'صح/خطأ', description: 'تحدي سريع: اختر صح أو خطأ قبل انتهاء الوقت.', icon: CheckCircle2, color: 'success', supportedGameTypes: ['true_false'], supportedQuestionTypes: ['true_false'], minQuestions: 1, estimatedTime: 'دقيقتان' },
   { id: 'match_cards', title: 'طابق المفهوم', shortTitle: 'المطابقة', description: 'اربط المصطلح بالتعريف الصحيح بطريقة ممتعة.', icon: Puzzle, color: 'danger', supportedGameTypes: ['matching', 'match_cards'], supportedQuestionTypes: ['matching'], minQuestions: 1, estimatedTime: '3 دقائق' },
@@ -168,6 +172,7 @@ const GAME_TITLES: Record<string, string> = {
   snake_ladder: 'السلم والثعبان',
   knowledge_race: 'سباق المعرفة',
   football_quiz: 'ركلات المعرفة',
+  knowledge_fortress: 'حصن المعرفة',
   true_false: 'صح أم خطأ',
   match_cards: 'طابق المفهوم',
   sequence_order: 'رتّب الأحداث'
@@ -283,6 +288,13 @@ const toSharedQuizShape = (questions: GameQuestion[]) => filterPlayableQuestions
 const toSnakeLadderQuestions = (questions: GameQuestion[]): SnakeLadderQuestion[] => toSharedQuizShape(questions) as SnakeLadderQuestion[];
 const toKnowledgeRaceQuestions = (questions: GameQuestion[]): KnowledgeRaceQuestion[] => toSharedQuizShape(questions) as KnowledgeRaceQuestion[];
 const toFootballKnowledgeQuestions = (questions: GameQuestion[]): FootballKnowledgeQuestion[] => toSharedQuizShape(questions) as FootballKnowledgeQuestion[];
+const toKnowledgeFortressQuestions = (questions: GameQuestion[]): KnowledgeFortressQuestion[] => toSharedQuizShape(questions).map(question => ({
+  id: question.id,
+  question: question.question,
+  options: question.options,
+  correctAnswer: question.correctAnswerIndex,
+  explanation: question.explanation
+}));
 
 const toTrueFalseQuestions = (questions: GameQuestion[]): TrueFalseQuestion[] => questions
   .filter(question => {
@@ -565,7 +577,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
   }, [studentKey, statsVersion]);
   const games = useMemo<GameCardWithAvailability[]>(() => BASE_GAMES.map(game => {
     const compatibleQuestions = currentGameQuestions.filter(q => isQuestionCompatibleWithGame(q, game));
-    const status: GameStatus = game.id === 'snake_ladder'
+    const status: GameStatus = game.id === 'snake_ladder' || game.id === 'knowledge_fortress'
       ? 'available'
       : compatibleQuestions.length >= game.minQuestions
         ? 'available'
@@ -591,6 +603,12 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
     const game = findBaseGame('football_quiz');
     return game ? toFootballKnowledgeQuestions(currentGameQuestions.filter(q => isQuestionCompatibleWithGame(q, game))) : [];
   }, [currentGameQuestions]);
+  const fortressQuestions = useMemo(() => {
+    const game = findBaseGame('knowledge_fortress');
+    const compatible = game ? currentGameQuestions.filter(q => isQuestionCompatibleWithGame(q, game)) : [];
+    // النموذج التجريبي يقبل قائمة فارغة ويستخدم أسئلته المدمجة للمعاينة.
+    return toKnowledgeFortressQuestions(compatible.length ? compatible : currentGameQuestions.filter(q => q.questionType === 'multiple_choice' || q.questionType === 'true_false'));
+  }, [currentGameQuestions]);
 
   const trueFalseQuestions = useMemo(() => {
     const game = findBaseGame('true_false');
@@ -611,10 +629,11 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
     snake_ladder: snakeLadderQuestions as unknown as GameQuestion[],
     knowledge_race: knowledgeRaceQuestions as unknown as GameQuestion[],
     football_quiz: footballQuestions as unknown as GameQuestion[],
+    knowledge_fortress: fortressQuestions as unknown as GameQuestion[],
     true_false: trueFalseQuestions as unknown as GameQuestion[],
     match_cards: matchCardsQuestions as unknown as GameQuestion[],
     sequence_order: sequenceOrderQuestions as unknown as GameQuestion[]
-  }), [snakeLadderQuestions, knowledgeRaceQuestions, footballQuestions, trueFalseQuestions, matchCardsQuestions, sequenceOrderQuestions]);
+  }), [snakeLadderQuestions, knowledgeRaceQuestions, footballQuestions, fortressQuestions, trueFalseQuestions, matchCardsQuestions, sequenceOrderQuestions]);
 
   const availableGames = games.filter(g => g.status === 'available');
   const totalQuestions = currentGameQuestions.length;
@@ -637,6 +656,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
     if (game.id === 'snake_ladder') { setSelectedGame(null); setActiveGame('snake_ladder'); return; }
     if (game.id === 'knowledge_race') { if (knowledgeRaceQuestions.length === 0) return; setSelectedGame(null); setActiveGame('knowledge_race'); return; }
     if (game.id === 'football_quiz') { if (footballQuestions.length === 0) return; setSelectedGame(null); setActiveGame('football_quiz'); return; }
+    if (game.id === 'knowledge_fortress') { setSelectedGame(null); setActiveGame('knowledge_fortress'); return; }
     if (game.id === 'true_false') { if (trueFalseQuestions.length === 0) return; setSelectedGame(null); setActiveGame('true_false'); return; }
     if (game.id === 'match_cards') { if (matchCardsQuestions.length === 0) return; setSelectedGame(null); setActiveGame('match_cards'); return; }
     if (game.id === 'sequence_order') { if (sequenceOrderQuestions.length === 0) return; setSelectedGame(null); setActiveGame('sequence_order'); }
@@ -786,6 +806,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
     if (activeGame === 'snake_ladder') return <StudentSnakeLadderGame questions={snakeLadderQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
     if (activeGame === 'knowledge_race') return <StudentKnowledgeRaceGame questions={knowledgeRaceQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
     if (activeGame === 'football_quiz') return <StudentFootballKnowledgeGame questions={footballQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
+    if (activeGame === 'knowledge_fortress') return <StudentKnowledgeFortressGame questions={fortressQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
     if (activeGame === 'true_false') return <StudentTrueFalseGame questions={trueFalseQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
     if (activeGame === 'match_cards') return <StudentMatchCardsGame questions={matchCardsQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
     if (activeGame === 'sequence_order') return <StudentSequenceOrderGame questions={sequenceOrderQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
@@ -885,13 +906,13 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
             {(() => {
               const tone = getToneClasses(selectedGame.color);
               const Icon = selectedGame.icon;
-              const isAvailable = selectedGame.status === 'available' || selectedGame.id === 'snake_ladder';
+              const isAvailable = selectedGame.status === 'available' || selectedGame.id === 'snake_ladder' || selectedGame.id === 'knowledge_fortress';
               return (
                 <div>
                   <div className="flex items-center gap-3 mb-4"><div className={`w-12 h-12 rounded-2xl border flex items-center justify-center ${tone.icon}`}><Icon className="w-6 h-6" /></div><div><h3 className="text-base font-black text-textPrimary">{selectedGame.title}</h3><p className="text-[10px] font-bold text-textSecondary">{selectedGame.questionCount} سؤال متاح · {selectedGame.estimatedTime}</p></div></div>
                   <p className="text-xs font-bold text-textSecondary leading-6 mb-3">{selectedGame.description}</p>
                   {isReviewMode && <div className="bg-primary/10 border border-primary/20 text-primary rounded-2xl p-3 mb-4 text-[10px] font-black leading-5">هذه اللعبة ضمن مراجعاتي. النتيجة تحفظ محليًا فقط ولا تُرسل إلى راصد المعلم أو ولي الأمر.</div>}
-                  {isAvailable ? <button type="button" className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`} onClick={() => handleStartGame(selectedGame)}><Play className="w-5 h-5" />{selectedGame.id === 'snake_ladder' && selectedGame.questionCount === 0 ? 'فتح اللعبة' : isReviewMode ? 'ابدأ المراجعة' : 'ابدأ اللعبة'}</button> : <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-xs font-black text-textPrimary mb-1">اللعبة غير متاحة بعد</p><p className="text-[10px] font-bold text-textSecondary leading-5">{isReviewMode ? 'ستعمل هذه اللعبة عندما تتوفر أسئلة مراجعة مناسبة لها.' : 'ستعمل هذه اللعبة عندما يضيف المعلم عددًا كافيًا من الأسئلة المناسبة لها من راصد المعلم.'}</p></div>}
+                  {isAvailable ? <button type="button" className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`} onClick={() => handleStartGame(selectedGame)}><Play className="w-5 h-5" />{selectedGame.id === 'knowledge_fortress' ? 'معاينة النموذج التجريبي' : selectedGame.id === 'snake_ladder' && selectedGame.questionCount === 0 ? 'فتح اللعبة' : isReviewMode ? 'ابدأ المراجعة' : 'ابدأ اللعبة'}</button> : <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-xs font-black text-textPrimary mb-1">اللعبة غير متاحة بعد</p><p className="text-[10px] font-bold text-textSecondary leading-5">{isReviewMode ? 'ستعمل هذه اللعبة عندما تتوفر أسئلة مراجعة مناسبة لها.' : 'ستعمل هذه اللعبة عندما يضيف المعلم عددًا كافيًا من الأسئلة المناسبة لها من راصد المعلم.'}</p></div>}
                   <button type="button" onClick={() => setSelectedGame(null)} className="w-full mt-3 h-10 rounded-2xl font-black text-xs text-textSecondary hover:text-danger transition-colors">إغلاق</button>
                 </div>
               );
