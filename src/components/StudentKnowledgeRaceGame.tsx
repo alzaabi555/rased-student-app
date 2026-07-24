@@ -790,16 +790,68 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
     ctx.fillStyle = '#0b3b2e';
     ctx.fillRect(0, 0, width, height);
 
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(width / 2 - roadWidth / 2, 0, roadWidth, height);
+
+    const stripHeight = 48;
+    const offset = distance % (stripHeight * 2);
+    const curbWidth = 17;
+
+    for (let y = -stripHeight * 2; y < height + stripHeight; y += stripHeight) {
+      const drawY = y + offset;
+      const isRed = Math.floor((drawY - offset) / stripHeight) % 2 === 0;
+      ctx.fillStyle = isRed ? '#dc2626' : '#f8fafc';
+      ctx.fillRect(width / 2 - roadWidth / 2 - curbWidth, drawY, curbWidth, stripHeight);
+      ctx.fillRect(width / 2 + roadWidth / 2, drawY, curbWidth, stripHeight);
+    }
+
+    ctx.fillStyle = 'rgba(148,163,184,0.85)';
+    ctx.fillRect(width / 2 - roadWidth / 2 - curbWidth - 95, 0, 14, height);
+    ctx.fillRect(width / 2 + roadWidth / 2 + curbWidth + 81, 0, 14, height);
+
+    const laneW = roadWidth / LANES;
+    ctx.fillStyle = 'rgba(255,255,255,0.42)';
+    for (let y = -100; y < height + 100; y += 80) {
+      const drawY = y + (distance % 80);
+      ctx.fillRect(width / 2 - roadWidth / 2 + laneW - 3, drawY, 6, 40);
+      ctx.fillRect(width / 2 - roadWidth / 2 + laneW * 2 - 3, drawY, 6, 40);
+    }
+
     // بيئة الحلبة: مدرجات ثابتة بصريا، جمهور، كشافات ومبانٍ جانبية بطبقات Parallax.
     const sideW = Math.max(0, (width - roadWidth) / 2);
     const portrait = height > width;
     const slowOffset = (distance * 0.16) % 260;
     const standW = Math.max(18, sideW - 24);
+
+    // منطقة خدمة أرضية بين الحاجز والمنشآت، تمنع إحساس الطريق المرتفع أو الجسر.
+    const roadL = width / 2 - roadWidth / 2;
+    const roadR = width / 2 + roadWidth / 2;
+    const apronWidth = Math.max(8, Math.min(18, sideW * 0.18));
+    ctx.fillStyle = '#374151';
+    ctx.fillRect(Math.max(0, roadL - 17 - apronWidth), 0, apronWidth, height);
+    ctx.fillRect(roadR + 17, 0, apronWidth, height);
+    ctx.strokeStyle = 'rgba(203,213,225,.85)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 8]);
+    ctx.beginPath();
+    ctx.moveTo(Math.max(1, roadL - 17 - apronWidth), 0);
+    ctx.lineTo(Math.max(1, roadL - 17 - apronWidth), height);
+    ctx.moveTo(Math.min(width - 1, roadR + 17 + apronWidth), 0);
+    ctx.lineTo(Math.min(width - 1, roadR + 17 + apronWidth), height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
     for (const side of [-1, 1]) {
       const sideCenter = width / 2 + side * (roadWidth / 2 + sideW / 2);
       for (let y = -260 + slowOffset; y < height + 260; y += 260) {
+        // ظل أرضي باتجاه الخارج يثبت المنشأة فوق أرض الحلبة لا تحت الطريق.
+        ctx.fillStyle = 'rgba(2,6,23,.42)';
+        ctx.fillRect(sideCenter - standW / 2 + (side < 0 ? -7 : 7), y + 10, standW, 132);
+        // قاعدة خرسانية واضحة على مستوى الأرض.
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(sideCenter - standW / 2 - 3, y + 118, standW + 6, 18);
         ctx.fillStyle = '#102a43';
-        ctx.fillRect(sideCenter - standW / 2, y, standW, 128);
+        ctx.fillRect(sideCenter - standW / 2, y, standW, 120);
         ctx.fillStyle = '#1e3a5f';
         ctx.fillRect(sideCenter - standW / 2 + 3, y + 8, standW - 6, 18);
         // جمهور ثابت متعدد الألوان، من دون صور متحركة مكلفة.
@@ -812,8 +864,11 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
             ctx.fill();
           }
         }
+        // الواجهة الأمامية للمدرج باتجاه المضمار.
         ctx.fillStyle = '#07152f';
-        ctx.fillRect(sideCenter - standW / 2, y + 112, standW, 16);
+        ctx.fillRect(sideCenter - standW / 2, y + 104, standW, 16);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(sideCenter - standW / 2, y + 104, standW, 3);
       }
 
       const lampOffset = (distance * 0.32) % 320;
@@ -848,32 +903,20 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
       });
     }
 
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(width / 2 - roadWidth / 2, 0, roadWidth, height);
-
-    const stripHeight = 48;
-    const offset = distance % (stripHeight * 2);
-    const curbWidth = 17;
-
-    for (let y = -stripHeight * 2; y < height + stripHeight; y += stripHeight) {
-      const drawY = y + offset;
-      const isRed = Math.floor((drawY - offset) / stripHeight) % 2 === 0;
-      ctx.fillStyle = isRed ? '#dc2626' : '#f8fafc';
-      ctx.fillRect(width / 2 - roadWidth / 2 - curbWidth, drawY, curbWidth, stripHeight);
-      ctx.fillRect(width / 2 + roadWidth / 2, drawY, curbWidth, stripHeight);
+    // سياج حماية أمام المدرجات يُرسم فوق الخلفية وعلى حافة منطقة الخدمة.
+    const fenceOffset = (distance * 0.48) % 84;
+    for (const side of [-1, 1]) {
+      const fenceX = side < 0 ? roadL - 17 - apronWidth : roadR + 17 + apronWidth;
+      ctx.strokeStyle = 'rgba(226,232,240,.82)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(fenceX, 0); ctx.lineTo(fenceX, height); ctx.stroke();
+      for (let y = -84 + fenceOffset; y < height + 84; y += 84) {
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(fenceX - 2, y, 4, 22);
+      }
     }
 
-    ctx.fillStyle = 'rgba(148,163,184,0.85)';
-    ctx.fillRect(width / 2 - roadWidth / 2 - curbWidth - 95, 0, 14, height);
-    ctx.fillRect(width / 2 + roadWidth / 2 + curbWidth + 81, 0, 14, height);
-
-    const laneW = roadWidth / LANES;
-    ctx.fillStyle = 'rgba(255,255,255,0.42)';
-    for (let y = -100; y < height + 100; y += 80) {
-      const drawY = y + (distance % 80);
-      ctx.fillRect(width / 2 - roadWidth / 2 + laneW - 3, drawY, 6, 40);
-      ctx.fillRect(width / 2 - roadWidth / 2 + laneW * 2 - 3, drawY, 6, 40);
-    }
 
     if (playerRef.current.speed > 26) {
       ctx.strokeStyle = 'rgba(255,255,255,0.24)';
