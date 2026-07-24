@@ -169,6 +169,10 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
   const spriteLoadFailedRef = useRef(false);
   const stateStartedAtRef = useRef(0);
   const [spritesReady, setSpritesReady] = useState(false);
+  const answerTimerRef = useRef<number | null>(null);
+  const roundTimerRef = useRef<number | null>(null);
+  const celebrationTimerRef = useRef<number | null>(null);
+  const roundIndexRef = useRef(0);
 
   const usableQuestions = useMemo(() => normalizeQuestions(questions), [questions]);
   const questionDeck = useMemo(() => shuffleArray(usableQuestions), [usableQuestions]);
@@ -228,6 +232,27 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
     });
     return () => { cancelled = true; };
   }, []);
+
+  const clearGameTimers = () => {
+    if (answerTimerRef.current !== null) window.clearTimeout(answerTimerRef.current);
+    if (roundTimerRef.current !== null) window.clearTimeout(roundTimerRef.current);
+    if (celebrationTimerRef.current !== null) window.clearTimeout(celebrationTimerRef.current);
+    answerTimerRef.current = null;
+    roundTimerRef.current = null;
+    celebrationTimerRef.current = null;
+  };
+
+  useEffect(() => () => clearGameTimers(), []);
+
+  // حارس استقرار حالة اختيار الزاوية: يمنع بقاء أعلام الجولة السابقة عالقة.
+  useEffect(() => {
+    if (gameState !== 'aim') return;
+    resolvingShotRef.current = false;
+    shotLaunchedRef.current = false;
+    kickAnimationStartedAtRef.current = 0;
+    ballRef.current.moving = false;
+    ballRef.current.trail = [];
+  }, [gameState]);
 
   const canPlay = usableQuestions.length > 0;
 
@@ -395,6 +420,8 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
 
   const startGame = () => {
     if (!canPlay) return;
+    clearGameTimers();
+    roundIndexRef.current = 0;
     completedRef.current = false;
     setScore(0);
     setGoals(0);
@@ -413,7 +440,9 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
   };
 
   const nextRound = () => {
-    const nextIndex = questionIndex + 1;
+    clearGameTimers();
+    const nextIndex = roundIndexRef.current + 1;
+    roundIndexRef.current = nextIndex;
     setQuestionIndex(nextIndex);
     setFeedback(null);
     setSelectedZone(null);
@@ -466,7 +495,9 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
       });
     }
 
-    window.setTimeout(() => {
+    if (answerTimerRef.current !== null) window.clearTimeout(answerTimerRef.current);
+    answerTimerRef.current = window.setTimeout(() => {
+      answerTimerRef.current = null;
       setFeedback(null);
       syncGameState('runup');
     }, ok ? 850 : 1050);
@@ -526,7 +557,7 @@ keeperRef.current.diving = true;
 
     if (finalGoalScored) {
       netPulseRef.current = 1;
-      window.setTimeout(() => { celebrationRef.current = 75; }, 180);
+      celebrationTimerRef.current = window.setTimeout(() => { celebrationRef.current = 75; celebrationTimerRef.current = null; }, 180);
       setGoals(prev => prev + 1);
       
       // 👇 تم حذف إضافة الـ 220 نقطة من هنا، لأن الـ 10 نقاط تم إضافتها مسبقاً في دالة handleAnswer
@@ -549,7 +580,11 @@ keeperRef.current.diving = true;
     }
 
     syncGameState('round_result');
-    window.setTimeout(nextRound, ROUND_RESULT_MS);
+    if (roundTimerRef.current !== null) window.clearTimeout(roundTimerRef.current);
+    roundTimerRef.current = window.setTimeout(() => {
+      roundTimerRef.current = null;
+      nextRound();
+    }, ROUND_RESULT_MS);
   };
 
   const drawRoundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
@@ -875,7 +910,7 @@ keeperRef.current.diving = true;
       { zone: SHOT_ZONES[0], distance: Number.POSITIVE_INFINITY }
     );
 
-    const targetRadius = clamp(goal.w * 0.075, 28, 44);
+    const targetRadius = clamp(goal.w * 0.095, 36, 54);
     if (nearest.distance > targetRadius) return;
     selectZone(nearest.zone);
   };
@@ -921,8 +956,8 @@ keeperRef.current.diving = true;
 
       {gameState !== 'menu' && gameState !== 'finished' && (
         <div className="absolute top-[max(env(safe-area-inset-top),14px)] left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-          <div className="rounded-2xl bg-black/55 backdrop-blur-md border border-white/10 px-4 py-2 text-[11px] font-black text-white shadow-lg">
-            الجولة {Math.min(questionIndex + 1, questionDeck.length)} / {questionDeck.length}
+          <div className="rounded-2xl px-4 py-2 text-[12px] font-black shadow-xl text-slate-950" style={{ backgroundColor: 'rgba(255,255,255,.96)', border: '1px solid rgba(14,165,233,.34)', boxShadow: '0 8px 24px rgba(2,6,23,.28)' }}>
+            <span>الجولة </span><span dir="ltr">{Math.min(questionIndex + 1, questionDeck.length)} / {questionDeck.length}</span>
           </div>
         </div>
       )}
@@ -968,19 +1003,19 @@ keeperRef.current.diving = true;
 
       {gameState === 'question' && currentQuestion && (
         <div className="absolute inset-0 z-40 flex items-center justify-center p-4 backdrop-blur-md" style={{ background: 'radial-gradient(circle at 50% 28%, rgba(8,47,73,.68), rgba(2,6,23,.91) 68%)' }}>
-          <div className="w-full max-w-lg rounded-[2rem] p-5 sm:p-7 text-center animate-in fade-in zoom-in-95 duration-200" style={{ background: 'linear-gradient(160deg, rgba(20,55,96,.99), rgba(7,21,47,.99))', border: '1px solid rgba(103,232,249,.48)', boxShadow: '0 28px 75px rgba(0,0,0,.58), 0 0 40px rgba(14,165,233,.18)' }}>
+          <div className="w-full max-w-lg rounded-[2rem] p-5 sm:p-7 text-center animate-in fade-in zoom-in-95 duration-200" style={{ background: 'rgba(255,255,255,.98)', border: '2px solid rgba(125,211,252,.72)', boxShadow: '0 28px 75px rgba(0,0,0,.50), 0 0 34px rgba(14,165,233,.20)' }}>
             <div className="flex items-center justify-between gap-3 mb-4" dir="rtl">
-              <div className="text-yellow-300 text-xl sm:text-2xl font-black">⚡ سؤال الحسم</div>
-              <div className="rounded-full px-3 py-1 text-[11px] font-black text-cyan-100" style={{ backgroundColor: 'rgba(8,145,178,.22)', border: '1px solid rgba(103,232,249,.28)' }} dir="ltr">
+              <div className="text-sky-700 text-xl sm:text-2xl font-black">⚡ سؤال الحسم</div>
+              <div className="rounded-full px-3 py-1 text-[11px] font-black text-sky-800" style={{ backgroundColor: 'rgba(224,242,254,.95)', border: '1px solid rgba(14,165,233,.28)' }} dir="ltr">
                 {Math.min(questionIndex + 1, questionDeck.length)} / {questionDeck.length}
               </div>
             </div>
             <div className="h-1.5 rounded-full overflow-hidden mb-5" style={{ backgroundColor: 'rgba(148,163,184,.18)' }}>
               <div className="h-full rounded-full" style={{ width: `${Math.max(8, ((questionIndex + 1) / Math.max(1, questionDeck.length)) * 100)}%`, background: 'linear-gradient(90deg,#22d3ee,#facc15)' }} />
             </div>
-            <div className="rounded-2xl p-4 mb-4 text-right" style={{ backgroundColor: 'rgba(2,6,23,.34)', border: '1px solid rgba(255,255,255,.10)' }}>
-              <p className="text-[11px] font-black text-cyan-200 mb-2">اختر الإجابة الصحيحة لتسديد الكرة</p>
-              <h2 className="text-lg sm:text-2xl font-black text-white leading-8">{currentQuestion.question}</h2>
+            <div className="rounded-2xl p-4 mb-4 text-right" style={{ backgroundColor: '#ffffff', border: '1px solid rgba(14,165,233,.22)', boxShadow: '0 8px 24px rgba(15,23,42,.08)' }}>
+              <p className="text-[11px] font-black text-sky-600 mb-2">اختر الإجابة الصحيحة لتسديد الكرة</p>
+              <h2 className="text-lg sm:text-2xl font-black text-slate-950 leading-8">{currentQuestion.question}</h2>
             </div>
 
             <div className="grid grid-cols-1 gap-3">
@@ -995,14 +1030,14 @@ keeperRef.current.diving = true;
                     type="button"
                     disabled={answered}
                     onClick={() => handleAnswer(index)}
-                    className={`w-full rounded-2xl p-3 text-start font-black transition-all active:scale-[0.99] disabled:opacity-90 ${isCorrectOption ? 'text-white' : isWrongOption ? 'text-white' : 'text-white hover:brightness-110'}`}
+                    className={`w-full rounded-2xl p-3 text-start font-black transition-all active:scale-[0.99] disabled:opacity-90 ${isCorrectOption || isWrongOption ? 'text-white' : 'text-slate-950 hover:brightness-[.98]'}`}
                     style={{
-                      background: isCorrectOption ? 'rgba(34,197,94,.24)' : isWrongOption ? 'rgba(239,68,68,.20)' : 'linear-gradient(135deg, rgba(30,64,105,.92), rgba(12,35,68,.96))',
-                      border: `1px solid ${isCorrectOption ? 'rgba(74,222,128,.95)' : isWrongOption ? 'rgba(248,113,113,.75)' : 'rgba(125,211,252,.25)'}`,
-                      boxShadow: '0 8px 22px rgba(0,0,0,.20)'
+                      background: isCorrectOption ? 'rgba(34,197,94,.24)' : isWrongOption ? 'rgba(239,68,68,.82)' : '#ffffff',
+                      border: `1px solid ${isCorrectOption ? 'rgba(74,222,128,.95)' : isWrongOption ? 'rgba(248,113,113,.95)' : 'rgba(14,165,233,.28)'}`,
+                      boxShadow: '0 8px 22px rgba(15,23,42,.09)'
                     }}
                   >
-                    <span className="inline-flex w-9 h-9 rounded-xl items-center justify-center text-yellow-200 ml-3" style={{ backgroundColor: 'rgba(2,6,23,.48)', border: '1px solid rgba(250,204,21,.28)' }}>{index + 1}</span>
+                    <span className="inline-flex w-9 h-9 rounded-xl items-center justify-center text-sky-800 ml-3" style={{ backgroundColor: '#e0f2fe', border: '1px solid rgba(14,165,233,.24)' }}>{index + 1}</span>
                     {option}
                   </button>
                 );
