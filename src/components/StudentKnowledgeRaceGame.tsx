@@ -194,6 +194,8 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
   const spriteStartRef = useRef(performance.now());
   const answerTimerRef = useRef<number | null>(null);
   const [spritesReady, setSpritesReady] = useState(false);
+  const spriteModeRef = useRef(false);
+  const spriteLoadFailedRef = useRef(false);
 
   const usableQuestions = useMemo(() => normalizeQuestions(questions), [questions]);
   const questionDeck = useMemo(() => shuffleArray(usableQuestions), [usableQuestions]);
@@ -246,13 +248,43 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
       ...Object.entries(RACE_SPRITES.player).map(([key, value]) => [`player-${key}`, value.src] as [string, string]),
       ...RACE_SPRITES.opponents.map((value, index) => [`opponent-${index}`, value.src] as [string, string])
     ];
-    Promise.all(entries.map(([key, src]) => new Promise<void>((resolve, reject) => {
+
+    const loadAndDecode = async ([key, src]: [string, string]) => {
       const image = new Image();
-      image.onload = () => { raceSpritesRef.current[key] = image; resolve(); };
-      image.onerror = reject;
+      image.decoding = 'async';
       image.src = src;
-    }))).then(() => { if (!cancelled) setSpritesReady(true); }).catch(() => { if (!cancelled) setSpritesReady(false); });
-    return () => { cancelled = true; if (answerTimerRef.current !== null) window.clearTimeout(answerTimerRef.current); };
+      if (!image.complete) {
+        await new Promise<void>((resolve, reject) => {
+          image.onload = () => resolve();
+          image.onerror = () => reject(new Error(`تعذر تحميل ${src}`));
+        });
+      }
+      if (typeof image.decode === 'function') {
+        try { await image.decode(); } catch { /* onload validation below remains authoritative */ }
+      }
+      if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+        throw new Error(`أصل غير صالح: ${src}`);
+      }
+      raceSpritesRef.current[key] = image;
+    };
+
+    Promise.all(entries.map(loadAndDecode)).then(() => {
+      if (cancelled) return;
+      spriteModeRef.current = true;
+      spriteLoadFailedRef.current = false;
+      setSpritesReady(true);
+    }).catch(error => {
+      console.error('Race sprites failed validation', error);
+      if (cancelled) return;
+      spriteModeRef.current = false;
+      spriteLoadFailedRef.current = true;
+      setSpritesReady(false);
+    });
+
+    return () => {
+      cancelled = true;
+      if (answerTimerRef.current !== null) window.clearTimeout(answerTimerRef.current);
+    };
   }, []);
 
   const canPlay = usableQuestions.length > 0;
@@ -353,35 +385,51 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
     shakeRef.current = Math.max(shakeRef.current, amount);
   };
 
+  const makeTrafficCar = (lane: number, y: number, spriteIndex?: number): TrafficCar => ({
+    id: makeId(),
+    x: laneCenter(lane),
+    y,
+    w: 42,
+    h: 85,
+    lane,
+    speed: 7 + Math.random() * 7,
+    color: TRAFFIC_COLORS[(spriteIndex ?? lane) % TRAFFIC_COLORS.length],
+    passed: false,
+    wobbleSeed: Math.random() * 1000,
+    spriteIndex: spriteIndex ?? Math.floor(Math.random() * RACE_SPRITES.opponents.length)
+  });
+
+  const seedTraffic = () => {
+    const { height } = dimensionsRef.current;
+    trafficRef.current = [
+      makeTrafficCar(0, height * 0.20, 0),
+      makeTrafficCar(2, height * 0.43, 3),
+      makeTrafficCar(1, -70, 1)
+    ];
+    trafficTimerRef.current = 24;
+  };
+
   const spawnTraffic = () => {
     if (gateRef.current) return;
 
+    const visibleCount = trafficRef.current.filter(car => car.y > -100 && car.y < dimensionsRef.current.height + 100).length;
     trafficTimerRef.current--;
-    if (trafficTimerRef.current > 0) return;
+    if (visibleCount >= 3 && trafficTimerRef.current > 0) return;
+    if (visibleCount > 0 && trafficTimerRef.current > 0) return;
 
-    const lane = Math.floor(Math.random() * LANES);
-    const speed = 7 + Math.random() * 9;
-    const color = TRAFFIC_COLORS[Math.floor(Math.random() * TRAFFIC_COLORS.length)];
-    const newCar: TrafficCar = {
-      id: makeId(),
-      x: laneCenter(lane),
-      y: -140,
-      w: 42,
-      h: 85,
-      lane,
-      speed,
-      color,
-      passed: false,
-      wobbleSeed: Math.random() * 1000,
-      spriteIndex: Math.floor(Math.random() * RACE_SPRITES.opponents.length)
-    };
+    const occupiedNearTop = new Set(
+      trafficRef.current.filter(car => car.y < 170).map(car => car.lane)
+    );
+    const candidates = [0, 1, 2].filter(lane => !occupiedNearTop.has(lane));
+    const lane = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : Math.floor(Math.random() * LANES);
+    const newCar = makeTrafficCar(lane, visibleCount === 0 ? -20 : -105);
 
-    const canSpawn = trafficRef.current.every(car => Math.abs(car.x - newCar.x) > 52 || car.y > 120);
+    const canSpawn = trafficRef.current.every(car => car.lane !== lane || Math.abs(car.y - newCar.y) > 150);
     if (canSpawn) {
       trafficRef.current.push(newCar);
-      trafficTimerRef.current = 36 + Math.floor(Math.random() * 54);
+      trafficTimerRef.current = visibleCount < 2 ? 18 : 30 + Math.floor(Math.random() * 22);
     } else {
-      trafficTimerRef.current = 12;
+      trafficTimerRef.current = 8;
     }
   };
 
@@ -559,10 +607,11 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
       boostTimer: 0,
       smokeTimer: 0
     };
+    seedTraffic();
   };
 
   const startGame = () => {
-    if (!canPlay) return;
+    if (!canPlay || !spriteModeRef.current) return;
     resetGame();
     syncState('playing');
   };
@@ -661,7 +710,7 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
   };
 
   const drawCar = (ctx: CanvasRenderingContext2D, car: PlayerState | TrafficCar, isPlayer = false) => {
-    if (spritesReady) {
+    if (spriteModeRef.current) {
       if (isPlayer) {
         const player = car as PlayerState;
         const state = gameState === 'victory' ? 'finish' : player.boostTimer > 0 ? 'turbo' : player.speed > 1 ? 'drive' : 'idle';
@@ -741,23 +790,61 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
     ctx.fillStyle = '#0b3b2e';
     ctx.fillRect(0, 0, width, height);
 
-    const boardY = (distance * 0.55) % 180;
-    ctx.font = '900 13px Tajawal, Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    for (let y = -220 + boardY; y < height + 220; y += 220) {
-      const leftX = width / 2 - roadWidth / 2 - 68;
-      const rightX = width / 2 + roadWidth / 2 + 68;
-      [leftX, rightX].forEach(x => {
+    // بيئة الحلبة: مدرجات ثابتة بصريا، جمهور، كشافات ومبانٍ جانبية بطبقات Parallax.
+    const sideW = Math.max(0, (width - roadWidth) / 2);
+    const portrait = height > width;
+    const slowOffset = (distance * 0.16) % 260;
+    const standW = Math.max(18, sideW - 24);
+    for (const side of [-1, 1]) {
+      const sideCenter = width / 2 + side * (roadWidth / 2 + sideW / 2);
+      for (let y = -260 + slowOffset; y < height + 260; y += 260) {
+        ctx.fillStyle = '#102a43';
+        ctx.fillRect(sideCenter - standW / 2, y, standW, 128);
+        ctx.fillStyle = '#1e3a5f';
+        ctx.fillRect(sideCenter - standW / 2 + 3, y + 8, standW - 6, 18);
+        // جمهور ثابت متعدد الألوان، من دون صور متحركة مكلفة.
+        const crowdColors = ['#f8fafc','#facc15','#38bdf8','#fb7185','#a7f3d0'];
+        for (let row = 0; row < 4; row++) {
+          for (let col = 0; col < Math.max(2, Math.floor(standW / 12)); col++) {
+            ctx.fillStyle = crowdColors[(row + col + (side > 0 ? 2 : 0)) % crowdColors.length];
+            ctx.beginPath();
+            ctx.arc(sideCenter - standW / 2 + 8 + col * 12, y + 38 + row * 18, portrait ? 2.1 : 2.7, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.fillStyle = '#07152f';
+        ctx.fillRect(sideCenter - standW / 2, y + 112, standW, 16);
+      }
+
+      const lampOffset = (distance * 0.32) % 320;
+      for (let y = -320 + lampOffset; y < height + 320; y += 320) {
+        ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(sideCenter, y + 92); ctx.lineTo(sideCenter, y + 24); ctx.stroke();
+        ctx.fillStyle = '#e0f2fe'; ctx.shadowBlur = 18; ctx.shadowColor = '#38bdf8';
+        ctx.fillRect(sideCenter - 12, y + 16, 24, 9); ctx.shadowBlur = 0;
+      }
+    }
+
+    const boardY = (distance * 0.55) % 220;
+    const boardWidth = portrait ? Math.max(22, Math.min(32, sideW - 10)) : Math.max(36, Math.min(46, sideW - 24));
+    const boardHeight = portrait ? 92 : 108;
+    const leftBoardX = Math.max(boardWidth / 2 + 4, (width / 2 - roadWidth / 2) / 2);
+    const rightBoardX = width - leftBoardX;
+    for (let y = -240 + boardY; y < height + 240; y += 240) {
+      [leftBoardX, rightBoardX].forEach(x => {
         ctx.save();
-        ctx.translate(x, y + 52);
-        ctx.fillStyle = '#075985'; ctx.fillRect(-23, -52, 46, 104);
-        ctx.strokeStyle = 'rgba(103,232,249,.9)'; ctx.lineWidth = 2; ctx.strokeRect(-23, -52, 46, 104);
+        ctx.translate(x, y + boardHeight / 2);
+        const gradient = ctx.createLinearGradient(-boardWidth / 2, 0, boardWidth / 2, 0);
+        gradient.addColorStop(0, '#075985'); gradient.addColorStop(1, '#0e7490');
+        ctx.fillStyle = gradient; ctx.fillRect(-boardWidth / 2, -boardHeight / 2, boardWidth, boardHeight);
+        ctx.strokeStyle = 'rgba(103,232,249,.95)'; ctx.lineWidth = 2;
+        ctx.strokeRect(-boardWidth / 2, -boardHeight / 2, boardWidth, boardHeight);
         ctx.rotate(-Math.PI / 2);
-        ctx.fillStyle = '#fff'; ctx.font = '900 15px Tajawal, Arial';
+        ctx.fillStyle = '#fff'; ctx.shadowBlur = 8; ctx.shadowColor = '#38bdf8';
+        ctx.font = `900 ${portrait ? 13 : 15}px Tajawal, Arial`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText('◉  راصد', 0, 1);
-        ctx.restore();
+        ctx.shadowBlur = 0; ctx.restore();
       });
     }
 
@@ -920,6 +1007,8 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
       const car = trafficRef.current[i];
       car.y += (player.speed - car.speed) * frameScale;
       // المسار الجانبي ثابت؛ الحركة البصرية تأتي من الطريق والعجلات دون تموج جسم السيارة.
+      const visualHalfWidth = 42;
+      car.x = clamp(car.x, roadLeft() + visualHalfWidth, roadRight() - visualHalfWidth);
 
       if (!car.passed && car.y > player.y + player.h) {
         car.passed = true;
@@ -1140,10 +1229,11 @@ return (
               <button
                 type="button"
                 onClick={startGame}
-                className="w-full h-14 rounded-2xl bg-gradient-to-l from-amber-400 to-orange-600 text-white font-black text-lg shadow-[0_14px_28px_rgba(245,158,11,0.35)] active:scale-95 flex items-center justify-center gap-2"
+                disabled={!spritesReady}
+                className="w-full h-14 rounded-2xl bg-gradient-to-l from-amber-400 to-orange-600 disabled:from-slate-600 disabled:to-slate-700 disabled:opacity-70 text-white font-black text-lg shadow-[0_14px_28px_rgba(245,158,11,0.35)] active:scale-95 flex items-center justify-center gap-2"
               >
                 <Play className="w-6 h-6" />
-                ابدأ السباق
+                {spritesReady ? 'ابدأ السباق' : 'جارٍ تجهيز السيارات...'}
               </button>
             )}
           </div>
