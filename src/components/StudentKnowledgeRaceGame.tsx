@@ -649,7 +649,7 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
     const frame = Math.floor(elapsed * fps) % frames;
     const sourceW = image.naturalWidth / frames;
     const sourceH = image.naturalHeight;
-    const visualH = isPlayer ? Math.max(116, car.h * 1.58) : Math.max(102, car.h * 1.42);
+    const visualH = isPlayer ? Math.max(82, car.h * 1.02) : Math.max(74, car.h * 0.92);
     const visualW = visualH;
     ctx.save();
     ctx.translate(car.x, car.y);
@@ -745,13 +745,19 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
     ctx.font = '900 13px Tajawal, Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (let y = -180 + boardY; y < height + 180; y += 180) {
+    for (let y = -220 + boardY; y < height + 220; y += 220) {
       const leftX = width / 2 - roadWidth / 2 - 68;
       const rightX = width / 2 + roadWidth / 2 + 68;
       [leftX, rightX].forEach(x => {
-        ctx.fillStyle = '#075985'; ctx.fillRect(x - 48, y, 96, 30);
-        ctx.strokeStyle = 'rgba(103,232,249,.7)'; ctx.strokeRect(x - 48, y, 96, 30);
-        ctx.fillStyle = '#fff'; ctx.fillText('◉ راصد', x, y + 15);
+        ctx.save();
+        ctx.translate(x, y + 52);
+        ctx.fillStyle = '#075985'; ctx.fillRect(-23, -52, 46, 104);
+        ctx.strokeStyle = 'rgba(103,232,249,.9)'; ctx.lineWidth = 2; ctx.strokeRect(-23, -52, 46, 104);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillStyle = '#fff'; ctx.font = '900 15px Tajawal, Arial';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('◉  راصد', 0, 1);
+        ctx.restore();
       });
     }
 
@@ -913,7 +919,7 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
     for (let i = trafficRef.current.length - 1; i >= 0; i--) {
       const car = trafficRef.current[i];
       car.y += (player.speed - car.speed) * frameScale;
-      car.x += Math.sin(distanceRef.current * 0.01 + car.wobbleSeed) * 0.45 * frameScale;
+      // المسار الجانبي ثابت؛ الحركة البصرية تأتي من الطريق والعجلات دون تموج جسم السيارة.
 
       if (!car.passed && car.y > player.y + player.h) {
         car.passed = true;
