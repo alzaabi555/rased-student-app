@@ -589,7 +589,7 @@ keeperRef.current.diving = true;
     const colors=['#facc15','#38bdf8','#fb7185','#f8fafc','#4ade80'];
     for(let row=0;row<5;row++) for(let x=8;x<width;x+=16){ctx.globalAlpha=.72;ctx.fillStyle=colors[(Math.floor(x/16)+row)%colors.length];ctx.beginPath();ctx.arc(x+(row%2)*7,height*.115+row*22,3.1,0,Math.PI*2);ctx.fill();}
     ctx.globalAlpha=1;
-    ['◉ راصد','راصد','◉ راصد','راصد'].forEach((label,i)=>{const w=width/4,y=height*.278,g=ctx.createLinearGradient(i*w,y,(i+1)*w,y+31);g.addColorStop(0,i%2?'#0284c7':'#1d4ed8');g.addColorStop(1,i%2?'#0369a1':'#4338ca');ctx.fillStyle=g;ctx.fillRect(i*w,y,w,31);ctx.fillStyle='#fff';ctx.font='900 13px Tajawal, Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,i*w+w/2,y+15);});
+    ['◉  راصد','راصد  ◉','◉  راصد','راصد  ◉'].forEach((label,i)=>{const w=width/4,y=height*.213,g=ctx.createLinearGradient(i*w,y,(i+1)*w,y+34);g.addColorStop(0,i%2?'#0891b2':'#1d4ed8');g.addColorStop(1,i%2?'#0e7490':'#4338ca');ctx.fillStyle=g;ctx.fillRect(i*w,y,w,34);ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=1;ctx.strokeRect(i*w+.5,y+.5,w-1,33);ctx.fillStyle='#fff';ctx.shadowBlur=8;ctx.shadowColor='rgba(56,189,248,.75)';ctx.font='900 15px Tajawal, Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,i*w+w/2,y+17);ctx.shadowBlur=0;});
   };
   const drawField = (ctx: CanvasRenderingContext2D) => {
     const { width, height } = dimensionsRef.current;
@@ -861,6 +861,10 @@ keeperRef.current.diving = true;
     const y = event.clientY - rect.top;
     const goal = goalRect();
 
+    // لا نفتح السؤال إلا عند الضغط الحقيقي على إحدى دوائر التصويب داخل المرمى.
+    const insideGoal = x >= goal.x && x <= goal.x + goal.w && y >= goal.y && y <= goal.y + goal.h;
+    if (!insideGoal) return;
+
     const nearest = SHOT_ZONES.reduce(
       (best, zone) => {
         const zx = goal.x + goal.w * zone.xRatio;
@@ -871,6 +875,8 @@ keeperRef.current.diving = true;
       { zone: SHOT_ZONES[0], distance: Number.POSITIVE_INFINITY }
     );
 
+    const targetRadius = clamp(goal.w * 0.075, 28, 44);
+    if (nearest.distance > targetRadius) return;
     selectZone(nearest.zone);
   };
 
@@ -921,8 +927,8 @@ keeperRef.current.diving = true;
         </div>
       )}
       {gameState === 'menu' && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[2rem] border border-sky-300/25 bg-slate-900/92 shadow-2xl p-7 text-center animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute inset-0 z-30 flex items-center justify-center p-4 backdrop-blur-md" style={{ background: 'linear-gradient(180deg, rgba(3,10,28,.72), rgba(7,21,47,.86))' }}>
+          <div className="w-full max-w-md rounded-[2rem] p-7 text-center animate-in fade-in zoom-in-95 duration-200" style={{ background: 'linear-gradient(165deg, rgba(16,43,80,.98), rgba(7,21,47,.98))', border: '1px solid rgba(103,232,249,.42)', boxShadow: '0 26px 70px rgba(0,0,0,.52), 0 0 34px rgba(14,165,233,.16)' }}>
             <div className="text-6xl mb-3">⚽</div>
             <div className={`mx-auto mb-3 w-fit rounded-full px-3 py-1 text-[10px] font-black border ${spritesReady ? 'bg-emerald-400/10 border-emerald-300/25 text-emerald-200' : 'bg-slate-800 border-white/10 text-slate-300'}`}>
               {spritesReady ? 'الشخصيات الاحترافية جاهزة' : 'جارٍ تجهيز الشخصيات...'}
@@ -961,10 +967,21 @@ keeperRef.current.diving = true;
       )}
 
       {gameState === 'question' && currentQuestion && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-[2rem] border border-sky-300/30 bg-slate-900/92 shadow-2xl p-5 sm:p-7 text-center animate-in fade-in zoom-in-95 duration-200">
-            <div className="text-sky-300 text-2xl sm:text-3xl font-black mb-3">⚡ سؤال الحسم قبل التسديد</div>
-            <h2 className="text-lg sm:text-2xl font-black text-white leading-8 mb-5">{currentQuestion.question}</h2>
+        <div className="absolute inset-0 z-40 flex items-center justify-center p-4 backdrop-blur-md" style={{ background: 'radial-gradient(circle at 50% 28%, rgba(8,47,73,.68), rgba(2,6,23,.91) 68%)' }}>
+          <div className="w-full max-w-lg rounded-[2rem] p-5 sm:p-7 text-center animate-in fade-in zoom-in-95 duration-200" style={{ background: 'linear-gradient(160deg, rgba(20,55,96,.99), rgba(7,21,47,.99))', border: '1px solid rgba(103,232,249,.48)', boxShadow: '0 28px 75px rgba(0,0,0,.58), 0 0 40px rgba(14,165,233,.18)' }}>
+            <div className="flex items-center justify-between gap-3 mb-4" dir="rtl">
+              <div className="text-yellow-300 text-xl sm:text-2xl font-black">⚡ سؤال الحسم</div>
+              <div className="rounded-full px-3 py-1 text-[11px] font-black text-cyan-100" style={{ backgroundColor: 'rgba(8,145,178,.22)', border: '1px solid rgba(103,232,249,.28)' }} dir="ltr">
+                {Math.min(questionIndex + 1, questionDeck.length)} / {questionDeck.length}
+              </div>
+            </div>
+            <div className="h-1.5 rounded-full overflow-hidden mb-5" style={{ backgroundColor: 'rgba(148,163,184,.18)' }}>
+              <div className="h-full rounded-full" style={{ width: `${Math.max(8, ((questionIndex + 1) / Math.max(1, questionDeck.length)) * 100)}%`, background: 'linear-gradient(90deg,#22d3ee,#facc15)' }} />
+            </div>
+            <div className="rounded-2xl p-4 mb-4 text-right" style={{ backgroundColor: 'rgba(2,6,23,.34)', border: '1px solid rgba(255,255,255,.10)' }}>
+              <p className="text-[11px] font-black text-cyan-200 mb-2">اختر الإجابة الصحيحة لتسديد الكرة</p>
+              <h2 className="text-lg sm:text-2xl font-black text-white leading-8">{currentQuestion.question}</h2>
+            </div>
 
             <div className="grid grid-cols-1 gap-3">
               {questionOptions.map((option, index) => {
@@ -978,15 +995,14 @@ keeperRef.current.diving = true;
                     type="button"
                     disabled={answered}
                     onClick={() => handleAnswer(index)}
-                    className={`w-full rounded-2xl border p-3 text-start font-black transition-all active:scale-[0.99] disabled:opacity-90 ${
-                      isCorrectOption
-                        ? 'bg-green-400/20 border-green-400 text-white'
-                        : isWrongOption
-                          ? 'bg-red-400/10 border-red-400/40 text-white'
-                          : 'bg-white/5 border-white/10 text-white hover:bg-sky-400/15 hover:border-sky-300'
-                    }`}
+                    className={`w-full rounded-2xl p-3 text-start font-black transition-all active:scale-[0.99] disabled:opacity-90 ${isCorrectOption ? 'text-white' : isWrongOption ? 'text-white' : 'text-white hover:brightness-110'}`}
+                    style={{
+                      background: isCorrectOption ? 'rgba(34,197,94,.24)' : isWrongOption ? 'rgba(239,68,68,.20)' : 'linear-gradient(135deg, rgba(30,64,105,.92), rgba(12,35,68,.96))',
+                      border: `1px solid ${isCorrectOption ? 'rgba(74,222,128,.95)' : isWrongOption ? 'rgba(248,113,113,.75)' : 'rgba(125,211,252,.25)'}`,
+                      boxShadow: '0 8px 22px rgba(0,0,0,.20)'
+                    }}
                   >
-                    <span className="inline-flex w-8 h-8 rounded-full bg-slate-800 items-center justify-center text-sky-300 ml-3">{index + 1}</span>
+                    <span className="inline-flex w-9 h-9 rounded-xl items-center justify-center text-yellow-200 ml-3" style={{ backgroundColor: 'rgba(2,6,23,.48)', border: '1px solid rgba(250,204,21,.28)' }}>{index + 1}</span>
                     {option}
                   </button>
                 );
@@ -1023,13 +1039,15 @@ keeperRef.current.diving = true;
       )}
 
       {gameState === 'finished' && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900/92 shadow-2xl p-7 text-center animate-in fade-in zoom-in-95 duration-200">
-            <div className="text-6xl mb-3">🏆</div>
-            <h2 className="text-4xl font-black mb-3 text-yellow-300">🏆 انتهى التحدي</h2>
-            <p className="text-sm font-bold text-slate-300 leading-6 mb-5">
-              سجلت {goals} هدف، وتصدى الحارس لـ {saves} ركلة. نتيجتك {score} نقطة.
-            </p>
+        <div className="absolute inset-0 z-40 flex items-center justify-center p-4 backdrop-blur-md" style={{ background: 'linear-gradient(180deg, rgba(3,10,28,.76), rgba(7,21,47,.90))' }}>
+          <div className="w-full max-w-md rounded-[2rem] p-7 text-center animate-in fade-in zoom-in-95 duration-200" style={{ background: 'linear-gradient(160deg, rgba(22,52,91,.99), rgba(7,21,47,.99))', border: '1px solid rgba(250,204,21,.38)', boxShadow: '0 28px 80px rgba(0,0,0,.6), 0 0 38px rgba(250,204,21,.13)' }}>
+            <div className="text-6xl mb-3 drop-shadow-lg">🏆</div>
+            <h2 className="text-3xl sm:text-4xl font-black mb-2 text-yellow-300">انتهى التحدي</h2>
+            <p className="text-4xl font-black text-white mb-5">{score} <span className="text-base text-cyan-200">نقطة</span></p>
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <div className="rounded-2xl p-3" style={{ backgroundColor: 'rgba(14,165,233,.14)', border: '1px solid rgba(125,211,252,.20)' }}><p className="text-xs font-bold text-slate-300">الأهداف</p><p className="text-2xl font-black text-yellow-300">{goals}</p></div>
+              <div className="rounded-2xl p-3" style={{ backgroundColor: 'rgba(14,165,233,.14)', border: '1px solid rgba(125,211,252,.20)' }}><p className="text-xs font-bold text-slate-300">التصديات</p><p className="text-2xl font-black text-cyan-200">{saves}</p></div>
+            </div>
             <button
               type="button"
               onClick={startGame}
