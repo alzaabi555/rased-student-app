@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 4,
   "frameWidth": 256,
   "frameHeight": 256,
   "format": "webp-alpha",
@@ -32,10 +32,10 @@
       }
     },
     "fps": {
-      "idle": 5,
-      "run": 10,
-      "kick": 12,
-      "celebrate": 8
+      "idle": 4,
+      "run": 8,
+      "kick": 9,
+      "celebrate": 6
     }
   },
   "keeper": {
@@ -73,12 +73,12 @@
       }
     },
     "fps": {
-      "idle": 5,
-      "center-save": 10,
-      "dive-left": 12,
-      "dive-right": 12,
-      "recover": 8
+      "idle": 4,
+      "center-save": 8,
+      "dive-left": 8,
+      "dive-right": 8,
+      "recover": 6
     }
   },
-  "fallback": "Visual V2 Canvas characters"
+  "fallback": "Visual V2 Canvas"
 }
