@@ -104,6 +104,7 @@ type TrafficCar = {
   color: string;
   passed: boolean;
   wobbleSeed: number;
+  spriteIndex: number;
 };
 
 type GateState = {
@@ -131,7 +132,25 @@ const MAX_LIVES = 3;
 const INITIAL_TARGET_OVERTAKES = 4;
 const MAX_TARGET_OVERTAKES = 10;
 
-const TRAFFIC_COLORS = ['#ef4444', '#3b82f6', '#10b981', '#8b5cf6', '#f43f5e', '#f8fafc', '#06b6d4'];
+const TRAFFIC_COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#8b5cf6', '#67e8f9'];
+
+const RACE_SPRITES = {
+  player: {
+    idle: { src: '/assets/games/knowledge-race/player/idle.webp', frames: 4, fps: 4 },
+    drive: { src: '/assets/games/knowledge-race/player/drive.webp', frames: 6, fps: 8 },
+    turbo: { src: '/assets/games/knowledge-race/player/turbo.webp', frames: 6, fps: 10 },
+    finish: { src: '/assets/games/knowledge-race/player/finish.webp', frames: 6, fps: 6 }
+  },
+  opponents: [
+    { src: '/assets/games/knowledge-race/opponents/car-1-blue.webp', frames: 4, fps: 7 },
+    { src: '/assets/games/knowledge-race/opponents/car-2-green.webp', frames: 4, fps: 7 },
+    { src: '/assets/games/knowledge-race/opponents/car-3-red.webp', frames: 4, fps: 7 },
+    { src: '/assets/games/knowledge-race/opponents/car-4-purple.webp', frames: 4, fps: 7 },
+    { src: '/assets/games/knowledge-race/opponents/car-5-silver-cyan.webp', frames: 4, fps: 7 }
+  ]
+} as const;
+
+type SpriteImageMap = Record<string, HTMLImageElement>;
 
 const normalizeQuestions = (questions: KnowledgeRaceQuestion[]) => {
   return (Array.isArray(questions) ? questions : []).filter(q => {
@@ -171,6 +190,10 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
   const animationRef = useRef<number | null>(null);
   const lastFrameRef = useRef<number>(0);
   const completedRef = useRef(false);
+  const raceSpritesRef = useRef<SpriteImageMap>({});
+  const spriteStartRef = useRef(performance.now());
+  const answerTimerRef = useRef<number | null>(null);
+  const [spritesReady, setSpritesReady] = useState(false);
 
   const usableQuestions = useMemo(() => normalizeQuestions(questions), [questions]);
   const questionDeck = useMemo(() => shuffleArray(usableQuestions), [usableQuestions]);
@@ -216,6 +239,21 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
     boostTimer: 0,
     smokeTimer: 0
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    const entries: [string, string][] = [
+      ...Object.entries(RACE_SPRITES.player).map(([key, value]) => [`player-${key}`, value.src] as [string, string]),
+      ...RACE_SPRITES.opponents.map((value, index) => [`opponent-${index}`, value.src] as [string, string])
+    ];
+    Promise.all(entries.map(([key, src]) => new Promise<void>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => { raceSpritesRef.current[key] = image; resolve(); };
+      image.onerror = reject;
+      image.src = src;
+    }))).then(() => { if (!cancelled) setSpritesReady(true); }).catch(() => { if (!cancelled) setSpritesReady(false); });
+    return () => { cancelled = true; if (answerTimerRef.current !== null) window.clearTimeout(answerTimerRef.current); };
+  }, []);
 
   const canPlay = usableQuestions.length > 0;
   const currentProgress = Math.min(currentQuestionIndex, questionDeck.length);
@@ -334,7 +372,8 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
       speed,
       color,
       passed: false,
-      wobbleSeed: Math.random() * 1000
+      wobbleSeed: Math.random() * 1000,
+      spriteIndex: Math.floor(Math.random() * RACE_SPRITES.opponents.length)
     };
 
     const canSpawn = trafficRef.current.every(car => Math.abs(car.x - newCar.x) > 52 || car.y > 120);
@@ -433,7 +472,8 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
       playerRef.current.boostTimer = 10;
       createSparks(playerRef.current.x, playerRef.current.y + 20);
 
-      window.setTimeout(() => {
+      if (answerTimerRef.current !== null) window.clearTimeout(answerTimerRef.current);
+      answerTimerRef.current = window.setTimeout(() => {
         const nextIndex = currentQuestionIndexRef.current + 1;
         updateQuestionIndex(nextIndex);
         gateRef.current = null;
@@ -465,7 +505,8 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
 
     updateWeakIds(Array.from(new Set([...weakQuestionIdsRef.current, question.id])));
 
-    window.setTimeout(() => {
+    if (answerTimerRef.current !== null) window.clearTimeout(answerTimerRef.current);
+    answerTimerRef.current = window.setTimeout(() => {
       const nextIndex = currentQuestionIndexRef.current + 1;
       updateQuestionIndex(nextIndex);
       gateRef.current = null;
@@ -485,6 +526,8 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
   };
 
   const resetGame = () => {
+    if (answerTimerRef.current !== null) window.clearTimeout(answerTimerRef.current);
+    answerTimerRef.current = null;
     completedRef.current = false;
     updateScore(0);
     updateLives(MAX_LIVES);
@@ -594,7 +637,45 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
     ctx.closePath();
   };
 
+  const drawRaceSprite = (
+    ctx: CanvasRenderingContext2D,
+    image: HTMLImageElement,
+    frames: number,
+    fps: number,
+    car: PlayerState | TrafficCar,
+    isPlayer: boolean
+  ) => {
+    const elapsed = (performance.now() - spriteStartRef.current) / 1000;
+    const frame = Math.floor(elapsed * fps) % frames;
+    const sourceW = image.naturalWidth / frames;
+    const sourceH = image.naturalHeight;
+    const visualH = isPlayer ? Math.max(116, car.h * 1.58) : Math.max(102, car.h * 1.42);
+    const visualW = visualH;
+    ctx.save();
+    ctx.translate(car.x, car.y);
+    ctx.rotate('angle' in car ? car.angle : 0);
+    ctx.shadowBlur = isPlayer ? 14 : 7;
+    ctx.shadowColor = isPlayer ? 'rgba(245,158,11,.5)' : 'rgba(15,23,42,.42)';
+    ctx.drawImage(image, frame * sourceW, 0, sourceW, sourceH, -visualW / 2, -visualH / 2, visualW, visualH);
+    ctx.restore();
+  };
+
   const drawCar = (ctx: CanvasRenderingContext2D, car: PlayerState | TrafficCar, isPlayer = false) => {
+    if (spritesReady) {
+      if (isPlayer) {
+        const player = car as PlayerState;
+        const state = gameState === 'victory' ? 'finish' : player.boostTimer > 0 ? 'turbo' : player.speed > 1 ? 'drive' : 'idle';
+        const config = RACE_SPRITES.player[state];
+        const image = raceSpritesRef.current[`player-${state}`];
+        if (image) { drawRaceSprite(ctx, image, config.frames, config.fps, car, true); return; }
+      } else {
+        const traffic = car as TrafficCar;
+        const index = traffic.spriteIndex % RACE_SPRITES.opponents.length;
+        const config = RACE_SPRITES.opponents[index];
+        const image = raceSpritesRef.current[`opponent-${index}`];
+        if (image) { drawRaceSprite(ctx, image, config.frames, config.fps, car, false); return; }
+      }
+    }
     ctx.save();
     ctx.translate(car.x, car.y);
     ctx.rotate('angle' in car ? car.angle : 0);
@@ -657,8 +738,22 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
     const { width, height, roadWidth } = dimensionsRef.current;
     const distance = distanceRef.current;
 
-    ctx.fillStyle = '#166534';
+    ctx.fillStyle = '#0b3b2e';
     ctx.fillRect(0, 0, width, height);
+
+    const boardY = (distance * 0.55) % 180;
+    ctx.font = '900 13px Tajawal, Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let y = -180 + boardY; y < height + 180; y += 180) {
+      const leftX = width / 2 - roadWidth / 2 - 68;
+      const rightX = width / 2 + roadWidth / 2 + 68;
+      [leftX, rightX].forEach(x => {
+        ctx.fillStyle = '#075985'; ctx.fillRect(x - 48, y, 96, 30);
+        ctx.strokeStyle = 'rgba(103,232,249,.7)'; ctx.strokeRect(x - 48, y, 96, 30);
+        ctx.fillStyle = '#fff'; ctx.fillText('◉ راصد', x, y + 15);
+      });
+    }
 
     ctx.fillStyle = '#1e293b';
     ctx.fillRect(width / 2 - roadWidth / 2, 0, roadWidth, height);
@@ -1024,8 +1119,9 @@ return (
 
       {gameState === 'menu' && (
         <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[2rem] border border-warning/30 bg-slate-900/90 shadow-2xl p-7 text-center animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md rounded-[2rem] p-7 text-center animate-in fade-in zoom-in-95 duration-200" style={{ background: 'linear-gradient(160deg, rgba(28,52,88,.98), rgba(7,21,47,.99))', border: '1px solid rgba(251,191,36,.42)', boxShadow: '0 28px 80px rgba(0,0,0,.58), 0 0 38px rgba(245,158,11,.13)' }}>
             <div className="text-6xl mb-3">🏎️</div>
+            <div className={`mx-auto mb-3 w-fit rounded-full px-3 py-1 text-[10px] font-black border ${spritesReady ? 'bg-emerald-400/10 border-emerald-300/25 text-emerald-200' : 'bg-slate-800 border-white/10 text-slate-300'}`}>{spritesReady ? 'السيارات الاحترافية جاهزة • 5 منافسين' : 'جارٍ تجهيز سيارات السباق...'}</div>
             <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-l from-amber-300 to-orange-500 mb-2">طريق المعرفة</h1>
             <p className="text-sm font-bold text-slate-300 leading-6 mb-6">
               سباق حقيقي: تجاوز السيارات، افتح بوابات الأسئلة، واستعمل التيربو لتصبح بطل الحلبة.
@@ -1050,9 +1146,10 @@ return (
 
       {gameState === 'quiz' && currentQuestion && (
         <div className="absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-[2rem] border border-sky-300/30 bg-slate-900/92 shadow-2xl p-5 sm:p-7 text-center animate-in fade-in zoom-in-95 duration-200">
-            <div className="text-sky-300 text-2xl sm:text-3xl font-black mb-3">⚡ نقطة تفتيش معرفية ⚡</div>
-            <h2 className="text-lg sm:text-2xl font-black text-white leading-8 mb-5">{currentQuestion.question}</h2>
+          <div className="w-full max-w-lg rounded-[2rem] p-5 sm:p-7 text-center animate-in fade-in zoom-in-95 duration-200" style={{ background: 'rgba(255,255,255,.98)', border: '2px solid rgba(251,191,36,.62)', boxShadow: '0 28px 75px rgba(0,0,0,.52)' }}>
+            <div className="flex items-center justify-between gap-3 mb-4"><div className="text-orange-600 text-xl sm:text-2xl font-black">⚡ بوابة المعرفة</div><div className="rounded-full px-3 py-1 text-[11px] font-black text-orange-800 bg-orange-100 border border-orange-300" dir="ltr">{currentProgress + 1} / {totalRounds}</div></div>
+            <div className="h-1.5 rounded-full overflow-hidden mb-5 bg-slate-200"><div className="h-full rounded-full bg-gradient-to-l from-orange-500 to-yellow-400" style={{ width: `${Math.max(8, ((currentProgress + 1) / totalRounds) * 100)}%` }} /></div>
+            <div className="rounded-2xl p-4 mb-4 text-right bg-white border border-sky-200 shadow-sm"><p className="text-[11px] font-black text-orange-600 mb-2">أجب بصورة صحيحة لتفعيل التيربو</p><h2 className="text-lg sm:text-2xl font-black text-slate-950 leading-8">{currentQuestion.question}</h2></div>
 
             <div className="grid grid-cols-1 gap-3">
               {questionOptions.map((option, index) => {
@@ -1072,10 +1169,10 @@ return (
                         ? 'bg-green-400/20 border-green-400 text-white'
                         : isWrongSelection
                           ? 'bg-red-400/10 border-red-400/40 text-white'
-                          : 'bg-white/5 border-white/10 text-white hover:bg-amber-400/15 hover:border-amber-300'
+                          : 'bg-white border-sky-200 text-slate-950 hover:bg-orange-50 hover:border-orange-300 shadow-sm'
                     }`}
                   >
-                    <span className="inline-flex w-8 h-8 rounded-full bg-slate-800 items-center justify-center text-amber-300 ml-3">{index + 1}</span>
+                    <span className="inline-flex w-8 h-8 rounded-full bg-orange-100 border border-orange-200 items-center justify-center text-orange-700 ml-3">{index + 1}</span>
                     {option}
                   </button>
                 );
@@ -1085,7 +1182,7 @@ return (
             {feedback && (
               <div className={`mt-4 rounded-2xl border p-3 ${feedback.type === 'correct' ? 'bg-green-400/10 border-green-400/30' : 'bg-red-400/10 border-red-400/30'}`}>
                 <p className={`text-base sm:text-xl font-black ${feedback.type === 'correct' ? 'text-green-300' : 'text-red-300'}`}>{feedback.message}</p>
-                {feedback.explanation && <p className="mt-1 text-xs font-bold text-slate-300 leading-5">{feedback.explanation}</p>}
+                {feedback.explanation && <p className="mt-1 text-xs font-bold text-slate-700 leading-5">{feedback.explanation}</p>}
               </div>
             )}
           </div>
@@ -1094,7 +1191,7 @@ return (
 
       {(gameState === 'gameover' || gameState === 'victory') && (
         <div className="absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900/92 shadow-2xl p-7 text-center animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md rounded-[2rem] p-7 text-center animate-in fade-in zoom-in-95 duration-200" style={{ background: 'linear-gradient(160deg, rgba(28,52,88,.99), rgba(7,21,47,.99))', border: '1px solid rgba(251,191,36,.38)', boxShadow: '0 28px 80px rgba(0,0,0,.60)' }}>
             <div className="text-6xl mb-3">{gameState === 'victory' ? '🏁' : '💥'}</div>
             <h2 className={`text-4xl font-black mb-3 ${gameState === 'victory' ? 'text-yellow-300' : 'text-red-400'}`}>
               {gameState === 'victory' ? 'بطل الحلبة!' : 'انتهى السباق'}
@@ -1104,6 +1201,7 @@ return (
                 ? `أنهيت السباق وجمعت ${score} نقطة.`
                 : 'فقدت جميع المحاولات. راجع الأسئلة ثم حاول مرة أخرى.'}
             </p>
+            <div className="grid grid-cols-2 gap-3 mb-5"><div className="rounded-2xl p-3 bg-white/5 border border-white/10"><p className="text-xs text-slate-300 font-bold">التجاوزات</p><p className="text-2xl text-yellow-300 font-black">{overtakesRef.current}</p></div><div className="rounded-2xl p-3 bg-white/5 border border-white/10"><p className="text-xs text-slate-300 font-bold">المحاولات المتبقية</p><p className="text-2xl text-cyan-200 font-black">{lives}</p></div></div>
             <button
               type="button"
               onClick={startGame}
