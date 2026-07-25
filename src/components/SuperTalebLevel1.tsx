@@ -115,6 +115,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const playerRef = useRef({ x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0 });
   const inputRef = useRef({ left: false, right: false, jump: false, run: false });
   const cameraRef = useRef(0);
+  const dimensionsForCameraRef = useRef(1);
   const particlesRef = useRef<Particle[]>([]);
   const answeredRef = useRef(new Set<number>());
   const weakRef = useRef<string[]>([]);
@@ -127,6 +128,8 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [showIntro, setShowIntro] = useState(true);
+  const [runEnabled, setRunEnabled] = useState(false);
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>(() => window.innerWidth >= window.innerHeight ? 'landscape' : 'portrait');
 
   const setStateSafe = useCallback((s: GameState) => { stateRef.current = s; setGameState(s); }, []);
   const syncStats = useCallback(() => setStats({ ...statsRef.current }), []);
@@ -145,7 +148,8 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     particlesRef.current = [];
     answeredRef.current.clear(); weakRef.current = [];
     statsRef.current = { lives: 3, coins: 0, stars: 0, score: 0, correct: 0, wrong: 0 };
-    syncStats(); setActiveQuestion(null); setSelectedAnswer(null); setFeedback(null); setShowIntro(true); setStateSafe('playing');
+    inputRef.current = { left: false, right: false, jump: false, run: false };
+    syncStats(); setActiveQuestion(null); setSelectedAnswer(null); setFeedback(null); setShowIntro(true); setRunEnabled(false); setStateSafe('playing');
   }, [questionPool.length, setStateSafe, syncStats]);
 
   const finish = useCallback((completed: boolean) => {
@@ -162,6 +166,8 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const openQuestion = useCallback((box: Box) => {
     if (box.opened || stateRef.current !== 'playing') return;
     const idx = box.questionIndex % questionPool.length;
+    playerRef.current.vx = 0;
+    inputRef.current = { left: false, right: false, jump: false, run: inputRef.current.run };
     activeBoxRef.current = box;
     setActiveQuestion({ q: questionPool[idx], index: idx });
     setSelectedAnswer(null); setFeedback(null); setStateSafe('question');
@@ -187,11 +193,24 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     syncStats();
     window.setTimeout(() => {
       setActiveQuestion(null); setSelectedAnswer(null); setFeedback(null); activeBoxRef.current = null;
+      playerRef.current.vx = 0;
+      playerRef.current.vy = 0;
+      playerRef.current.invincible = Math.max(playerRef.current.invincible, 1.25);
+      inputRef.current.left = false;
+      inputRef.current.right = false;
+      inputRef.current.jump = false;
       if (statsRef.current.lives <= 0) finish(false); else setStateSafe('playing');
     }, 900);
   };
 
   useEffect(() => {
+    const clearMovement = () => {
+      inputRef.current.left = false;
+      inputRef.current.right = false;
+      inputRef.current.jump = false;
+    };
+    window.addEventListener('blur', clearMovement);
+    document.addEventListener('visibilitychange', clearMovement);
     const key = (down: boolean) => (e: KeyboardEvent) => {
       if (['ArrowLeft', 'a', 'A'].includes(e.key)) inputRef.current.left = down;
       if (['ArrowRight', 'd', 'D'].includes(e.key)) inputRef.current.right = down;
@@ -200,7 +219,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     };
     const kd = key(true), ku = key(false);
     window.addEventListener('keydown', kd); window.addEventListener('keyup', ku);
-    return () => { window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); };
+    return () => { window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); window.removeEventListener('blur', clearMovement); document.removeEventListener('visibilitychange', clearMovement); };
   }, []);
 
   useEffect(() => {
@@ -212,7 +231,13 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       const r = canvas.getBoundingClientRect(); canvas.width = Math.max(1, Math.floor(r.width * dpr)); canvas.height = Math.max(1, Math.floor(r.height * dpr));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
-    resize(); window.addEventListener('resize', resize);
+    const handleViewportChange = () => {
+      resize();
+      setOrientation(window.innerWidth >= window.innerHeight ? 'landscape' : 'portrait');
+    };
+    handleViewportChange();
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('orientationchange', handleViewportChange);
 
     const roundRect = (x: number, y: number, w: number, h: number, r: number) => {
       ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
@@ -318,13 +343,18 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         if(overlap(p,e)&&p.invincible<=0){const stomp=p.vy>120&&prevY+p.h<=e.y+18;if(stomp){e.hp--;e.hitFlash=.2;p.vy=-520;spawnBurst(e.x+e.w/2,e.y+10,'#F59E0B',12);if(e.hp<=0){e.alive=false;statsRef.current.score+=e.kind==='report'?12:6;syncStats();}}else{statsRef.current.lives--;syncStats();p.invincible=1.4;p.vx=-p.facing*300;p.vy=-420;if(statsRef.current.lives<=0){finish(false);return;}}}
       }
       if(p.x>5000){finish(true);return;}
-      const target=clamp(p.x-w*.32,0,WORLD_W-w);cameraRef.current+= (target-cameraRef.current)*Math.min(1,dt*6);
+      const logicalW = w / (dimensionsForCameraRef.current || 1); const target=clamp(p.x-logicalW*.32,0,WORLD_W-logicalW);cameraRef.current+= (target-cameraRef.current)*Math.min(1,dt*6);
       for(const q of particlesRef.current){q.x+=q.vx*dt;q.y+=q.vy*dt;q.vy+=550*dt;q.life-=dt;}particlesRef.current=particlesRef.current.filter(q=>q.life>0);
     };
 
     const render = (timeMs: number) => {
       const w=canvas.clientWidth,h=canvas.clientHeight,t=timeMs/1000,cam=cameraRef.current;ctx.clearRect(0,0,w,h);drawBackground(w,h,cam);
-      ctx.save(); const sy=(h-760)/2; ctx.translate(0,sy);
+      ctx.save(); const portraitView = h > w;
+      const sceneScale = portraitView ? clamp(h / 790, .86, 1.08) : clamp(h / 760, .72, 1.04);
+      dimensionsForCameraRef.current = sceneScale;
+      const sy = (h - 760 * sceneScale) / 2;
+      ctx.translate(0, sy);
+      ctx.scale(sceneScale, sceneScale);
       for(const p of levelRef.current.platforms)drawPlatform(p,cam);
       drawDoor(cam);
       for(const c of levelRef.current.coins)drawCoin(c,cam,t);
@@ -335,7 +365,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     };
 
     const loop=(ts:number)=>{const dt=Math.min(.033,(ts-lastRef.current)/1000||0);lastRef.current=ts;update(dt,canvas.clientWidth);render(ts);rafRef.current=requestAnimationFrame(loop);};rafRef.current=requestAnimationFrame(loop);
-    return()=>{window.removeEventListener('resize',resize);if(rafRef.current)cancelAnimationFrame(rafRef.current);};
+    return()=>{window.removeEventListener('resize',handleViewportChange);window.removeEventListener('orientationchange',handleViewportChange);if(rafRef.current)cancelAnimationFrame(rafRef.current);};
   }, [finish, openQuestion, showIntro, syncStats]);
 
   const touchButton=(key:keyof typeof inputRef.current)=>(down:boolean)=>()=>{inputRef.current[key]=down;};
@@ -344,7 +374,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     <canvas ref={canvasRef} style={{width:'100%',height:'100%',display:'block',touchAction:'none'}} />
 
     {gameState==='playing' && <>
-      <div style={{position:'absolute',top:12,left:12,right:12,display:'flex',justifyContent:'space-between',alignItems:'center',pointerEvents:'none'}}>
+      <div style={{position:'absolute',top:orientation==='landscape'?8:12,left:12,right:12,display:'flex',justifyContent:'space-between',alignItems:'center',pointerEvents:'none',transform:orientation==='landscape'?'scale(.92)':'none',transformOrigin:'top center'}}>
         <button onClick={onClose} style={{pointerEvents:'auto',width:46,height:46,borderRadius:16,border:'1px solid rgba(255,255,255,.35)',background:'rgba(7,21,47,.85)',color:'#fff',fontSize:23}}>×</button>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
           <Hud text={`❤️ ${stats.lives}`} color="#EF4444" />
@@ -353,14 +383,14 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
           <Hud text={`النقاط ${stats.score}`} color="#38BDF8" />
         </div>
       </div>
-      <div style={{position:'absolute',bottom:22,left:18,right:18,display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
+      <div style={{position:'absolute',bottom:orientation==='landscape'?10:22,left:orientation==='landscape'?28:18,right:orientation==='landscape'?28:18,display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
         <div style={{display:'flex',gap:12,direction:'ltr'}}>
           <Control label="◀" onDown={touchButton('left')(true)} onUp={touchButton('left')(false)} />
           <Control label="▶" onDown={touchButton('right')(true)} onUp={touchButton('right')(false)} />
         </div>
         <div style={{display:'flex',gap:12}}>
           <Control label="قفز" accent onDown={touchButton('jump')(true)} onUp={touchButton('jump')(false)} />
-          <Control label="جري" onDown={touchButton('run')(true)} onUp={touchButton('run')(false)} />
+          <button onClick={() => { const next = !runEnabled; setRunEnabled(next); inputRef.current.run = next; }} style={{width:64,height:64,borderRadius:22,border:runEnabled?'3px solid #FDE68A':'2px solid rgba(255,255,255,.55)',background:runEnabled?'linear-gradient(145deg,#0EA5E9,#0369A1)':'rgba(7,21,47,.78)',color:'#fff',fontSize:16,fontWeight:900,boxShadow:runEnabled?'0 0 24px rgba(56,189,248,.65)':'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>جري</button>
         </div>
       </div>
     </>}
