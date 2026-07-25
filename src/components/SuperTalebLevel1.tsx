@@ -116,6 +116,8 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const inputRef = useRef({ left: false, right: false, jump: false, run: false });
   const cameraRef = useRef(0);
   const dimensionsForCameraRef = useRef(1);
+  const environmentAssetsRef = useRef<{ gate?: HTMLImageElement; yard?: HTMLImageElement; terrain?: HTMLImageElement }>({});
+  const environmentReadyRef = useRef(false);
   const particlesRef = useRef<Particle[]>([]);
   const answeredRef = useRef(new Set<number>());
   const weakRef = useRef<string[]>([]);
@@ -167,7 +169,8 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     if (box.opened || stateRef.current !== 'playing') return;
     const idx = box.questionIndex % questionPool.length;
     playerRef.current.vx = 0;
-    inputRef.current = { left: false, right: false, jump: false, run: inputRef.current.run };
+    inputRef.current = { left: false, right: false, jump: false, run: false };
+    setRunEnabled(false);
     activeBoxRef.current = box;
     setActiveQuestion({ q: questionPool[idx], index: idx });
     setSelectedAnswer(null); setFeedback(null); setStateSafe('question');
@@ -199,15 +202,45 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       inputRef.current.left = false;
       inputRef.current.right = false;
       inputRef.current.jump = false;
+      inputRef.current.run = false;
+      setRunEnabled(false);
       if (statsRef.current.lives <= 0) finish(false); else setStateSafe('playing');
     }, 900);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.onload = async () => {
+        try { if ('decode' in image) await image.decode(); } catch {}
+        if (image.naturalWidth > 0 && image.naturalHeight > 0) resolve(image); else reject(new Error(`Invalid image: ${src}`));
+      };
+      image.onerror = () => reject(new Error(`Failed to load: ${src}`));
+      image.src = src;
+    });
+    Promise.all([
+      loadImage('/assets/games/super-taleb/level-1/source/background-school-gate.png'),
+      loadImage('/assets/games/super-taleb/level-1/source/background-school-yard.png'),
+      loadImage('/assets/games/super-taleb/level-1/source/terrain-atlas.png')
+    ]).then(([gate, yard, terrain]) => {
+      if (cancelled) return;
+      environmentAssetsRef.current = { gate, yard, terrain };
+      environmentReadyRef.current = true;
+    }).catch(error => {
+      console.warn('Super Taleb environment assets fallback to Canvas', error);
+      environmentReadyRef.current = false;
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const clearMovement = () => {
       inputRef.current.left = false;
       inputRef.current.right = false;
       inputRef.current.jump = false;
+      inputRef.current.run = false;
+      setRunEnabled(false);
     };
     window.addEventListener('blur', clearMovement);
     document.addEventListener('visibilitychange', clearMovement);
@@ -244,31 +277,54 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     };
 
     const drawBackground = (w: number, h: number, cam: number) => {
-      const sky = ctx.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#38BDF8'); sky.addColorStop(.55, '#BAE6FD'); sky.addColorStop(1, '#F0FDF4'); ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
-      // mountains
-      ctx.save(); ctx.translate(-(cam * .08) % 1000, 0); ctx.fillStyle = '#94A3B8';
-      for (let i = -1; i < 4; i++) { const x = i * 700; ctx.beginPath(); ctx.moveTo(x, 330); ctx.lineTo(x + 170, 180); ctx.lineTo(x + 330, 330); ctx.lineTo(x + 510, 145); ctx.lineTo(x + 700, 330); ctx.closePath(); ctx.fill(); }
-      ctx.restore();
-      // school campus middle layer
-      ctx.save(); ctx.translate(-(cam * .22) % 1200, 0);
-      for (let i = -1; i < 5; i++) {
-        const x = i * 420; ctx.fillStyle = i % 2 ? '#E8C792' : '#F2D5A4'; roundRect(x, 255, 330, 250, 12); ctx.fill();
-        ctx.fillStyle = '#0F4C81'; for (let c = 0; c < 4; c++) { roundRect(x + 30 + c * 70, 305, 42, 72, 12); ctx.fill(); }
-        ctx.fillStyle = '#C79A5E'; ctx.fillRect(x, 490, 330, 15);
+      const sky = ctx.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, '#38BDF8'); sky.addColorStop(.55, '#BAE6FD'); sky.addColorStop(1, '#F0FDF4');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+
+      const assets = environmentAssetsRef.current;
+      if (environmentReadyRef.current && assets.gate && assets.yard) {
+        const drawCover = (image: HTMLImageElement, dx: number, dy: number, dw: number, dh: number) => {
+          const scale = Math.max(dw / image.naturalWidth, dh / image.naturalHeight);
+          const sw = dw / scale, sh = dh / scale;
+          const sx = Math.max(0, (image.naturalWidth - sw) / 2);
+          const sy = Math.max(0, image.naturalHeight - sh);
+          ctx.drawImage(image, sx, sy, Math.min(sw, image.naturalWidth), Math.min(sh, image.naturalHeight), dx, dy, dw, dh);
+        };
+        const parallaxCam = cam * .34;
+        const gateW = 1540;
+        drawCover(assets.gate, -parallaxCam, 0, gateW, h);
+        const yardW = 1500;
+        let yardX = gateW - parallaxCam - 80;
+        while (yardX > 0) yardX -= yardW;
+        while (yardX < w + yardW) {
+          drawCover(assets.yard, yardX, 0, yardW, h);
+          yardX += yardW;
+        }
+        const shade = ctx.createLinearGradient(0, 0, 0, h);
+        shade.addColorStop(0, 'rgba(7,21,47,.02)');
+        shade.addColorStop(.72, 'rgba(7,21,47,.02)');
+        shade.addColorStop(1, 'rgba(7,21,47,.20)');
+        ctx.fillStyle = shade; ctx.fillRect(0, 0, w, h);
+      } else {
+        // Visual fallback until the source images finish decoding.
+        ctx.save(); ctx.translate(-(cam * .08) % 1000, 0); ctx.fillStyle = '#94A3B8';
+        for (let i = -1; i < 4; i++) { const x = i * 700; ctx.beginPath(); ctx.moveTo(x, 330); ctx.lineTo(x + 170, 180); ctx.lineTo(x + 330, 330); ctx.lineTo(x + 510, 145); ctx.lineTo(x + 700, 330); ctx.closePath(); ctx.fill(); }
+        ctx.restore();
+        ctx.save(); ctx.translate(-(cam * .22) % 1200, 0);
+        for (let i = -1; i < 5; i++) {
+          const x = i * 420; ctx.fillStyle = i % 2 ? '#E8C792' : '#F2D5A4'; roundRect(x, 255, 330, 250, 12); ctx.fill();
+          ctx.fillStyle = '#0F4C81'; for (let c = 0; c < 4; c++) { roundRect(x + 30 + c * 70, 305, 42, 72, 12); ctx.fill(); }
+        }
+        ctx.restore();
       }
-      ctx.restore();
-      // trees and lamps
-      ctx.save(); ctx.translate(-(cam * .45) % 480, 0);
-      for (let i = -1; i < 8; i++) { const x = i * 135; ctx.fillStyle = '#5B3A22'; ctx.fillRect(x + 64, 380, 12, 125); ctx.fillStyle = '#2F9E44'; ctx.beginPath(); ctx.arc(x + 70, 365, 52, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#111827'; ctx.fillRect(x + 12, 380, 5, 125); ctx.beginPath(); ctx.arc(x + 14, 375, 13, 0, Math.PI * 2); ctx.fill(); }
-      ctx.restore();
-      // top sign generated by code, exact safe text
+
+      // Exact runtime text: no ministry-restricted word is embedded in the image.
       if (cam < 520) {
-        const sx = 120 - cam * .85; roundRect(sx, 115, 390, 92, 16); ctx.fillStyle = '#F8E7C8'; ctx.fill(); ctx.strokeStyle = '#8B5E34'; ctx.lineWidth = 5; ctx.stroke();
+        const sx = 120 - cam * .85; roundRect(sx, 115, 390, 92, 16); ctx.fillStyle = 'rgba(248,231,200,.96)'; ctx.fill(); ctx.strokeStyle = '#8B5E34'; ctx.lineWidth = 5; ctx.stroke();
         ctx.fillStyle = '#0F172A'; ctx.textAlign = 'center'; ctx.font = '700 28px sans-serif'; ctx.fillText('مدرسة راصد للتعليم', sx + 195, 165);
         ctx.fillStyle = '#0B6FB8'; ctx.font = '700 18px sans-serif'; ctx.fillText('راصد', sx + 195, 192);
       }
     };
-
     const drawPlatform = (p: Platform, cam: number) => {
       const x = p.x - cam; if (x + p.w < -50 || x > canvas.clientWidth + 50) return;
       ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#8B5A2B' : '#7A4A22'; roundRect(x, p.y, p.w, p.h, 8); ctx.fill();
@@ -329,7 +385,9 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     const update = (dt: number, w: number) => {
       if (stateRef.current !== 'playing' || showIntro) return;
       const p=playerRef.current, inp=inputRef.current; const speed=inp.run?RUN_SPEED:MOVE_SPEED;
-      p.vx = inp.left&&!inp.right?-speed:inp.right&&!inp.left?speed:p.vx*.78; if(Math.abs(p.vx)<4)p.vx=0; if(p.vx)p.facing=Math.sign(p.vx);
+      const movingLeft = inp.left && !inp.right;
+      const movingRight = (inp.right && !inp.left) || (inp.run && !inp.left);
+      p.vx = movingLeft ? -speed : movingRight ? speed : p.vx * .78; if(Math.abs(p.vx)<4)p.vx=0; if(p.vx)p.facing=Math.sign(p.vx);
       if(inp.jump&&p.grounded){p.vy=-JUMP_SPEED;p.grounded=false;inp.jump=false;spawnBurst(p.x+p.w/2,p.y+p.h,'#F8FAFC',6);} p.vy+=GRAVITY*dt; p.invincible=Math.max(0,p.invincible-dt);
       const prevY=p.y; p.x=clamp(p.x+p.vx*dt,0,WORLD_W-p.w); p.y+=p.vy*dt; p.grounded=false;
       for(const plat of levelRef.current.platforms){
@@ -348,13 +406,15 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     };
 
     const render = (timeMs: number) => {
-      const w=canvas.clientWidth,h=canvas.clientHeight,t=timeMs/1000,cam=cameraRef.current;ctx.clearRect(0,0,w,h);drawBackground(w,h,cam);
+      const w=canvas.clientWidth,h=canvas.clientHeight,t=timeMs/1000,cam=cameraRef.current;ctx.clearRect(0,0,w,h);
       ctx.save(); const portraitView = h > w;
-      const sceneScale = portraitView ? clamp(h / 790, .86, 1.08) : clamp(h / 760, .72, 1.04);
+      const heightFit = h / 760;
+      const sceneScale = portraitView ? clamp(heightFit, .78, 1.08) : clamp(heightFit, .42, 1.04);
       dimensionsForCameraRef.current = sceneScale;
-      const sy = (h - 760 * sceneScale) / 2;
+      const sy = Math.max(0, (h - 760 * sceneScale) / 2);
       ctx.translate(0, sy);
       ctx.scale(sceneScale, sceneScale);
+      drawBackground(w / sceneScale, 760, cam);
       for(const p of levelRef.current.platforms)drawPlatform(p,cam);
       drawDoor(cam);
       for(const c of levelRef.current.coins)drawCoin(c,cam,t);
@@ -390,7 +450,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         </div>
         <div style={{display:'flex',gap:12}}>
           <Control label="قفز" accent onDown={touchButton('jump')(true)} onUp={touchButton('jump')(false)} />
-          <button onClick={() => { const next = !runEnabled; setRunEnabled(next); inputRef.current.run = next; }} style={{width:64,height:64,borderRadius:22,border:runEnabled?'3px solid #FDE68A':'2px solid rgba(255,255,255,.55)',background:runEnabled?'linear-gradient(145deg,#0EA5E9,#0369A1)':'rgba(7,21,47,.78)',color:'#fff',fontSize:16,fontWeight:900,boxShadow:runEnabled?'0 0 24px rgba(56,189,248,.65)':'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>جري</button>
+          <button onClick={() => { const next = !runEnabled; setRunEnabled(next); inputRef.current.run = next; }} style={{width:64,height:64,borderRadius:22,border:runEnabled?'3px solid #FDE68A':'2px solid rgba(255,255,255,.55)',background:runEnabled?'linear-gradient(145deg,#0EA5E9,#0369A1)':'rgba(7,21,47,.78)',color:'#fff',fontSize:16,fontWeight:900,boxShadow:runEnabled?'0 0 24px rgba(56,189,248,.65)':'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{runEnabled?'إيقاف':'جري'}</button>
         </div>
       </div>
     </>}
