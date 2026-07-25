@@ -1,0 +1,23 @@
+{
+  "game": "super_taleb",
+  "level": 1,
+  "schoolName": "مدرسة راصد للتعليم",
+  "identity": "Oman",
+  "status": "source-assets-started",
+  "source": {
+    "schoolGate": "source/background-school-gate.png",
+    "schoolYard": "source/background-school-yard.png",
+    "terrainAtlas": "source/terrain-atlas.png"
+  },
+  "plannedRuntime": {
+    "backgroundFar": "background-far.webp",
+    "backgroundMiddle": "background-middle.webp",
+    "foregroundTerrain": "foreground-terrain.webp",
+    "playerIdle": "player/idle.webp",
+    "playerWalk": "player/walk.webp",
+    "playerRun": "player/run.webp",
+    "playerJump": "player/jump.webp",
+    "worksheetEnemy": "enemies/worksheet.webp",
+    "reportEnemy": "enemies/report.webp"
+  }
+}
