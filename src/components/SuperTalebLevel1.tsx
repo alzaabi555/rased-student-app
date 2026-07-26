@@ -359,36 +359,26 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       const assets = environmentAssetsRef.current;
       let image: HTMLImageElement | undefined;
       if (environmentReadyRef.current) {
-        if (p.kind === 'ground') image = p.w > 800 ? assets.groundMain : assets.groundGrassWide;
-        else if (p.kind === 'wood') image = assets.bridgeLong || assets.platformBridge;
-        else if (p.kind === 'moving') image = assets.platformBridge || assets.platformShort;
+        // Do not use ground-main: it contains a composed sample scene, not a walkable terrain tile.
+        if (p.kind === 'ground') image = p.w >= 700 ? assets.groundGrassWide : assets.groundStoneWide;
+        else if (p.kind === 'wood' || p.kind === 'moving') image = assets.bridgeLong || assets.platformBridge;
         else if (p.w >= 165) image = assets.platformLong;
         else if (p.w >= 145) image = assets.platformStepWide || assets.platformShort;
         else image = assets.platformGrassShort || assets.platformShort;
       }
-      const visualTop = p.y - (p.kind === 'ground' ? 18 : 12);
+
       if (image) {
-        // The cropped terrain object is aligned to the exact collision surface.
-        ctx.drawImage(image, x, visualTop, p.w, p.h + (p.y - visualTop));
+        // The first visible row of every cropped WebP is the physical collision surface.
+        // Student feet collide at p.y and the image begins at the same coordinate.
+        const drawY = p.y;
+        const drawH = p.kind === 'ground' ? Math.max(p.h, 165) : Math.max(p.h, 72);
+        ctx.drawImage(image, x, drawY, p.w, drawH);
       } else {
-        ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#8B5A2B' : '#7A4A22';
-        roundRect(x, visualTop, p.w, p.h + (p.y - visualTop), 8); ctx.fill();
-      }
-      // Strong, consistent walkable edge: the feet collide exactly at p.y.
-      const edgeGradient = ctx.createLinearGradient(0, p.y - 12, 0, p.y + 7);
-      if (p.kind === 'wood' || p.kind === 'moving') {
-        edgeGradient.addColorStop(0, '#F6C36A'); edgeGradient.addColorStop(.42, '#B86A26'); edgeGradient.addColorStop(1, '#5A3218');
-      } else {
-        edgeGradient.addColorStop(0, '#86EF62'); edgeGradient.addColorStop(.36, '#35A853'); edgeGradient.addColorStop(1, '#166534');
-      }
-      ctx.fillStyle = edgeGradient;
-      roundRect(x, p.y - 12, p.w, 18, p.kind === 'ground' ? 3 : 7); ctx.fill();
-      ctx.strokeStyle = p.kind === 'wood' || p.kind === 'moving' ? 'rgba(255,235,170,.95)' : 'rgba(220,255,205,.95)';
-      ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x + 3, p.y - 10); ctx.lineTo(x + p.w - 3, p.y - 10); ctx.stroke();
-      // Both ends are clearly marked, so gaps and pits can be seen before reaching them.
-      if (p.kind !== 'ground') {
-        ctx.fillStyle = 'rgba(15,23,42,.28)';
-        ctx.fillRect(x, p.y - 8, 4, 14); ctx.fillRect(x + p.w - 4, p.y - 8, 4, 14);
+        // Fallback keeps exactly the same collision top without adding a fake green strip.
+        ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#8B5A2B' : '#6B4423';
+        roundRect(x, p.y, p.w, p.h, p.kind === 'ground' ? 3 : 8); ctx.fill();
+        ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#D89B54' : '#4DAA4B';
+        ctx.fillRect(x, p.y, p.w, Math.min(13, p.h));
       }
     };
     const drawCoin = (c: Coin, cam: number, time: number) => {
@@ -489,17 +479,15 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       ctx.translate(0, sy);
       ctx.scale(sceneScale, sceneScale);
       drawBackground(w / sceneScale, 760, cam);
-      // Darken the intentional gaps so the player never mistakes the background for solid ground.
+      // Subtle depth beneath real gaps; no artificial walkable line is drawn.
       const groundPieces = levelRef.current.platforms.filter(p => p.kind === 'ground').sort((a,b) => a.x - b.x);
       for (let i = 0; i < groundPieces.length - 1; i++) {
         const left = groundPieces[i].x + groundPieces[i].w - cam;
         const right = groundPieces[i + 1].x - cam;
         if (right > left && right > -60 && left < w / sceneScale + 60) {
-          const pit = ctx.createLinearGradient(0, GROUND_Y - 6, 0, 760);
-          pit.addColorStop(0, 'rgba(2,6,23,.40)'); pit.addColorStop(1, 'rgba(2,6,23,.92)');
-          ctx.fillStyle = pit; ctx.fillRect(left, GROUND_Y - 5, right - left, 120);
-          ctx.strokeStyle = 'rgba(250,204,21,.80)'; ctx.lineWidth = 3; ctx.setLineDash([8,7]);
-          ctx.beginPath(); ctx.moveTo(left + 3, GROUND_Y - 7); ctx.lineTo(right - 3, GROUND_Y - 7); ctx.stroke(); ctx.setLineDash([]);
+          const pit = ctx.createLinearGradient(0, GROUND_Y, 0, 760);
+          pit.addColorStop(0, 'rgba(15,23,42,.18)'); pit.addColorStop(1, 'rgba(2,6,23,.78)');
+          ctx.fillStyle = pit; ctx.fillRect(left, GROUND_Y, right - left, 110);
         }
       }
       for(const p of levelRef.current.platforms)drawPlatform(p,cam);
@@ -549,7 +537,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     </Card></Overlay>}
 
     {gameState==='playing' && showIntro && <Overlay><Card compact={orientation==='landscape'}>
-      <div style={{fontSize:50}}>🏫</div><h2 style={title}>مرحبًا بك يا سوبر طالب</h2><p style={body}>استخدم أزرار الحركة والقفز. امشِ فوق الحواف الخضراء أو الخشبية الواضحة، واقفز فوق الفجوات، ثم افتح صناديق المعرفة حتى تصل إلى باب الفصل.</p>
+      <div style={{fontSize:50}}>🏫</div><h2 style={title}>مرحبًا بك يا سوبر طالب</h2><p style={body}>استخدم أزرار الحركة والقفز. امشِ فوق الأرض الحجرية والعشبية والجسور الخشبية، واقفز فوق الفجوات، ثم افتح صناديق المعرفة حتى تصل إلى باب الفصل.</p>
       <button style={primary} onClick={()=>setShowIntro(false)}>ابدأ الرحلة</button>
     </Card></Overlay>}
 
