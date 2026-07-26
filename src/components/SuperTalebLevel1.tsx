@@ -60,7 +60,15 @@ const overlap = (a: Rect, b: Rect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y 
 
 const createLevel = (questionCount: number) => {
   const platforms: Platform[] = [
-    { x: 0, y: GROUND_Y, w: 850, h: 180, kind: 'ground' },
+    // --- تم تعديل هذه المنطقة لحل مشكلة الجسر والمشي على التربة ---
+    // 1. قطعة العشب اليسرى
+    { x: 0, y: GROUND_Y, w: 300, h: 180, kind: 'ground' },
+    // 2. الجسر الخشبي في المنتصف (تم خفض مستوى y بمقدار 70 بكسل لكي ينزل الطالب إليه)
+    { x: 300, y: GROUND_Y + 70, w: 250, h: 30, kind: 'wood' },
+    // 3. قطعة العشب اليمنى
+    { x: 550, y: GROUND_Y, w: 300, h: 180, kind: 'ground' },
+    
+    // --- باقي المنصات كما هي ---
     { x: 940, y: GROUND_Y, w: 640, h: 180, kind: 'ground' },
     { x: 1720, y: GROUND_Y, w: 720, h: 180, kind: 'ground' },
     { x: 2560, y: GROUND_Y, w: 560, h: 180, kind: 'ground' },
@@ -113,9 +121,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const questionPool = useMemo(() => (questions?.length ? questions : fallbackQuestions), [questions]);
   const levelRef = useRef(createLevel(questionPool.length));
   
-  // تمت إضافة animTimer لعداد الحركة
   const playerRef = useRef({ x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0, animTimer: 0 });
-  
   const inputRef = useRef({ left: false, right: false, jump: false, run: false });
   const cameraRef = useRef(0);
   const dimensionsForCameraRef = useRef(1);
@@ -235,23 +241,14 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       image.src = src;
     });
     const assetPaths: Record<string, string> = {
-      // تمت إضافة ملف صورة الطالب (تأكد أن الصورة بصيغة png وذات خلفية شفافة)
       student: '/assets/games/super-taleb/level-1/runtime/student-sprite.png',
+      terrainAtlas: '/assets/games/super-taleb/level-1/runtime/terrain-atlas.png', // تم إضافة الأطلس
       gate: '/assets/games/super-taleb/level-1/source/background-school-gate.png',
       yard: '/assets/games/super-taleb/level-1/source/background-school-yard.png',
-      groundMain: '/assets/games/super-taleb/level-1/runtime/ground-main.webp',
-      groundGrassWide: '/assets/games/super-taleb/level-1/runtime/ground-grass-wide.webp',
-      groundStoneWide: '/assets/games/super-taleb/level-1/runtime/ground-stone-wide.webp',
-      platformLong: '/assets/games/super-taleb/level-1/runtime/platform-long.webp',
-      platformBridge: '/assets/games/super-taleb/level-1/runtime/platform-bridge.webp',
-      platformShort: '/assets/games/super-taleb/level-1/runtime/platform-short.webp',
-      platformStepWide: '/assets/games/super-taleb/level-1/runtime/platform-step-wide.webp',
-      bridgeLong: '/assets/games/super-taleb/level-1/runtime/bridge-long.webp',
-      platformGrassShort: '/assets/games/super-taleb/level-1/runtime/platform-grass-short.webp',
+      // تم الإبقاء على الأصول الأخرى كاحتياطي لتجنب أي أخطاء، ولكن سيتم استخدام الأطلس للمنصات
+      classroomDoor: '/assets/games/super-taleb/level-1/runtime/classroom-door.webp',
       questionBlock: '/assets/games/super-taleb/level-1/runtime/question-block.webp',
-      rewardCrate: '/assets/games/super-taleb/level-1/runtime/reward-crate.webp',
-      knowledgeBlock: '/assets/games/super-taleb/level-1/runtime/knowledge-block.webp',
-      classroomDoor: '/assets/games/super-taleb/level-1/runtime/classroom-door.webp'
+      rewardCrate: '/assets/games/super-taleb/level-1/runtime/reward-crate.webp'
     };
     Promise.all(Object.entries(assetPaths).map(async ([key, path]) => [key, await loadImage(path)] as const)).then(entries => {
       if (cancelled) return;
@@ -351,23 +348,32 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     
     const drawPlatform = (p: Platform, cam: number) => {
       const x = p.x - cam;
+      // لا ترسم المنصات الخارجة عن الشاشة لتخفيف الضغط
       if (x + p.w < -50 || x > canvas.clientWidth / Math.max(.45, dimensionsForCameraRef.current) + 50) return;
-      const assets = environmentAssetsRef.current;
-      let image: HTMLImageElement | undefined;
       
-      if (environmentReadyRef.current) {
-        if (p.kind === 'ground') image = p.w >= 700 ? assets.groundGrassWide : assets.groundStoneWide;
-        else if (p.kind === 'wood' || p.kind === 'moving') image = assets.bridgeLong || assets.platformBridge;
-        else if (p.w >= 165) image = assets.platformLong;
-        else if (p.w >= 145) image = assets.platformStepWide || assets.platformShort;
-        else image = assets.platformGrassShort || assets.platformShort;
-      }
+      const atlas = environmentAssetsRef.current.terrainAtlas;
 
-      if (image) {
-        // تم إلغاء الإزاحة الوهمية؛ الرسم يعتمد على الفيزياء الحقيقية (p.y)
+      if (environmentReadyRef.current && atlas) {
+        // إحداثيات القص من الصورة الشاملة terrain-atlas.png
+        let sx = 0, sy = 0, sw = 100, sh = 100;
+        
+        if (p.kind === 'ground') {
+          // قطعة التربة الرئيسية (السطر الثاني تقريباً من الصورة)
+          sx = 0; sy = 160; sw = 600; sh = 140;
+        } else if (p.kind === 'wood') {
+          // صورة الجسر الخشبي (السطر الخامس)
+          sx = 150; sy = 620; sw = 330; sh = 50;
+        } else if (p.kind === 'stone' || p.kind === 'moving') {
+          // المنصات الصغيرة العلوية
+          sx = 580; sy = 300; sw = 200; sh = 80;
+        }
+
         const drawH = p.kind === 'ground' ? Math.max(p.h, 165) : Math.max(p.h, 72);
-        ctx.drawImage(image, x, p.y, p.w, drawH);
+        
+        // رسم الجزء المقصوص من الأطلس في مكان المنصة الفيزيائي
+        ctx.drawImage(atlas, sx, sy, sw, sh, x, p.y, p.w, drawH);
       } else {
+        // الأشكال الاحتياطية
         ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#8B5A2B' : '#6B4423';
         roundRect(x, p.y, p.w, p.h, p.kind === 'ground' ? 3 : 8); ctx.fill();
         ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#D89B54' : '#4DAA4B';
@@ -417,37 +423,31 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       const y = p.y;
       
       ctx.save();
-      // نقل نقطة الرسم إلى مركز اللاعب لتسهيل الانعكاس (Flip) يميناً ويساراً
       ctx.translate(x + p.w / 2, y + p.h / 2);
       if (p.facing < 0) ctx.scale(-1, 1);
 
-      // تأثير الوميض الشفاف عند الإصابة
       if (p.invincible > 0 && Math.floor(p.invincible * 14) % 2 === 0) ctx.globalAlpha = 0.35;
 
       const assets = environmentAssetsRef.current;
       
-      // رسم صورة الـ Sprite Sheet للطالب
       if (environmentReadyRef.current && assets.student) {
         const img = assets.student;
-        
-        // الصورة المرفقة تحتوي على 6 أعمدة وصفين
         const cols = 6;
         const rows = 2;
         const frameW = img.naturalWidth / cols;
         const frameH = img.naturalHeight / rows;
 
         let col = 0;
-        const row = 0; // سنستخدم الصف العلوي لحركة المشي
+        const row = 0; 
 
         if (!p.grounded) {
-          col = 3; // إطار محدد لمحاكاة القفز
+          col = 3; 
         } else if (Math.abs(p.vx) > 4) {
-          col = p.runFrame % cols; // تمرير إطارات المشي
+          col = p.runFrame % cols;
         } else {
-          col = 0; // وضع الوقوف
+          col = 0; 
         }
 
-        // رسم الإطار المقصوص مع توسيع الأبعاد بصرياً حول صندوق التصادم الفيزيائي الصلب
         ctx.drawImage(
           img,
           col * frameW, row * frameH, frameW, frameH,
@@ -455,7 +455,6 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         );
         
       } else {
-        // --- الاحتياطي الهندسي (Fallback) ---
         const moving = Math.abs(p.vx) > 20; 
         const step = moving ? Math.sin(time * 14) * 7 : 0; 
         const bounce = moving ? Math.abs(Math.sin(time * 14)) * 2 : Math.sin(time * 3) * 1.5; 
@@ -494,6 +493,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       const movingLeft = inp.left && !inp.right;
       const movingRight = (inp.right && !inp.left) || (inp.run && !inp.left);
 
+      const prevX = p.x;
       const prevY = p.y;
 
       // 1. الحركة الأفقية والـ Animation
@@ -505,7 +505,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       if (p.animTimer > 0.08) {
         p.animTimer = 0;
         if (Math.abs(p.vx) > 4 && p.grounded) {
-          p.runFrame = (p.runFrame + 1) % 6; // تبديل إطارات المشي الـ 6
+          p.runFrame = (p.runFrame + 1) % 6; 
         } else {
           p.runFrame = 0;
         }
@@ -520,7 +520,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       
       p.invincible = Math.max(0, p.invincible - dt);
 
-      // 2. تحديث حركة المنصات المتحركة
+      // 2. حركة المنصات المتحركة
       for (const plat of levelRef.current.platforms) {
         if (plat.kind === 'moving') {
           plat.x += (plat.vx || 0) * dt;
@@ -531,46 +531,51 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         }
       }
 
-      // 3. التصادم الأفقي (الجدران والصناديق)
+      // 3. التصادم الأفقي (فقط المنصات الأرضية الأساسية تمنع المرور من الجانب)
       p.x = clamp(p.x + p.vx * dt, 0, WORLD_W - p.w);
-      const solids = [...levelRef.current.platforms, ...levelRef.current.boxes];
-      
-      for (const block of solids) {
-        if (overlap(p, block)) {
-          if (p.vx > 0) { // الاصطدام يميناً
+      for (const block of levelRef.current.platforms) {
+        if (block.kind === 'ground' && overlap(p, block)) {
+          if (prevX + p.w <= block.x + 15) { 
             p.x = block.x - p.w;
             p.vx = 0;
-          } else if (p.vx < 0) { // الاصطدام يساراً
+          } else if (prevX >= block.x + block.w - 15) { 
             p.x = block.x + block.w;
             p.vx = 0;
           }
         }
       }
 
-      // 4. التصادم العمودي (الأرضيات وضرب الرأس)
+      // 4. التصادم العمودي (One-way platforms)
       p.vy += GRAVITY * dt;
       p.y += p.vy * dt;
       p.grounded = false;
 
-      for (const block of solids) {
+      for (const block of levelRef.current.platforms) {
         if (overlap(p, block)) {
-          if (p.vy >= 0) { // الهبوط والوقوف
+          // الهبوط على المنصة من الأعلى
+          if (p.vy > 0 && prevY + p.h <= block.y + 25) { 
             p.y = block.y - p.h;
             p.vy = 0;
             p.grounded = true;
-            if ('kind' in block && block.kind === 'moving') p.x += (block.vx || 0) * dt;
-          } else if (p.vy < 0) { // القفز لأعلى وضرب الجسم
+            if (block.kind === 'moving') p.x += (block.vx || 0) * dt;
+          } 
+          // الاصطدام من الأسفل للأرضية الأساسية فقط
+          else if (p.vy < 0 && block.kind === 'ground' && prevY >= block.y + block.h - 15) {
             p.y = block.y + block.h;
             p.vy = 0;
-            // تفعيل سؤال الصندوق عند ضربه من الأسفل
-            if ('questionIndex' in block && !(block as Box).opened) {
-              openQuestion(block as Box);
-            }
           }
         }
       }
 
-      // 5. السقوط خارج الشاشة والتفاعل مع العملات والأعداء
+      // 5. صناديق الأسئلة تُفتح بمجرد اللمس (Any-touch collision)
+      for (const b of levelRef.current.boxes) {
+        if (!b.opened && overlap(p, b)) {
+          openQuestion(b);
+          break; 
+        }
+      }
+
+      // 6. التعامل مع السقوط والعملات والأعداء
       if (p.y > 850) {
         statsRef.current.lives--; syncStats();
         if (statsRef.current.lives <= 0) { finish(false); return; }
@@ -605,6 +610,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
 
       if (p.x > 5000) { finish(true); return; }
 
+      // 7. تحريك الكاميرا
       const logicalW = w / (dimensionsForCameraRef.current || 1);
       const target = clamp(p.x - logicalW * .32, 0, WORLD_W - logicalW);
       cameraRef.current += (target - cameraRef.current) * Math.min(1, dt * 6);
