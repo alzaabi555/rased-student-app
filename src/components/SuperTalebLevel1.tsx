@@ -122,6 +122,8 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const answeredRef = useRef(new Set<number>());
   const weakRef = useRef<string[]>([]);
   const activeBoxRef = useRef<Box | null>(null);
+  const answerLockedRef = useRef(false);
+  const answerTimerRef = useRef<number | null>(null);
   const statsRef = useRef({ lives: 3, coins: 0, stars: 0, score: 0, correct: 0, wrong: 0 });
 
   const [gameState, setGameState] = useState<GameState>('menu');
@@ -144,6 +146,8 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   };
 
   const resetGame = useCallback(() => {
+    if (answerTimerRef.current) { window.clearTimeout(answerTimerRef.current); answerTimerRef.current = null; }
+    answerLockedRef.current = false;
     levelRef.current = createLevel(questionPool.length);
     playerRef.current = { x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0 };
     cameraRef.current = 0;
@@ -172,6 +176,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     inputRef.current = { left: false, right: false, jump: false, run: false };
     setRunEnabled(false);
     activeBoxRef.current = box;
+    answerLockedRef.current = false;
     setActiveQuestion({ q: questionPool[idx], index: idx });
     setSelectedAnswer(null); setFeedback(null); setStateSafe('question');
   }, [questionPool, setStateSafe]);
@@ -182,19 +187,24 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   };
 
   const answer = (optionIndex: number) => {
-    if (!activeQuestion || selectedAnswer !== null) return;
+    if (!activeQuestion || selectedAnswer !== null || answerLockedRef.current) return;
+    answerLockedRef.current = true;
     const correct = optionIndex === getCorrectIndex(activeQuestion.q);
     setSelectedAnswer(optionIndex); setFeedback(correct ? 'correct' : 'wrong');
     answeredRef.current.add(activeQuestion.index);
+    if (activeBoxRef.current) activeBoxRef.current.opened = true;
     if (correct) {
       statsRef.current.score += 10; statsRef.current.stars += 1; statsRef.current.correct += 1;
-      if (activeBoxRef.current) { activeBoxRef.current.opened = true; spawnBurst(activeBoxRef.current.x + 29, activeBoxRef.current.y, '#FACC15', 18); }
+      if (activeBoxRef.current) spawnBurst(activeBoxRef.current.x + 29, activeBoxRef.current.y, '#FACC15', 18);
     } else {
-      statsRef.current.wrong += 1; weakRef.current.push(activeQuestion.q.id);
+      statsRef.current.wrong += 1;
+      if (!weakRef.current.includes(activeQuestion.q.id)) weakRef.current.push(activeQuestion.q.id);
       statsRef.current.lives = Math.max(0, statsRef.current.lives - 1);
+      if (activeBoxRef.current) spawnBurst(activeBoxRef.current.x + 29, activeBoxRef.current.y, '#EF4444', 10);
     }
     syncStats();
-    window.setTimeout(() => {
+    if (answerTimerRef.current) window.clearTimeout(answerTimerRef.current);
+    answerTimerRef.current = window.setTimeout(() => {
       setActiveQuestion(null); setSelectedAnswer(null); setFeedback(null); activeBoxRef.current = null;
       playerRef.current.vx = 0;
       playerRef.current.vy = 0;
@@ -204,8 +214,10 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       inputRef.current.jump = false;
       inputRef.current.run = false;
       setRunEnabled(false);
+      answerLockedRef.current = false;
+      answerTimerRef.current = null;
       if (statsRef.current.lives <= 0) finish(false); else setStateSafe('playing');
-    }, 900);
+    }, correct ? 720 : 980);
   };
 
   useEffect(() => {
@@ -290,14 +302,17 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
           const sy = Math.max(0, image.naturalHeight - sh);
           ctx.drawImage(image, sx, sy, Math.min(sw, image.naturalWidth), Math.min(sh, image.naturalHeight), dx, dy, dw, dh);
         };
-        const parallaxCam = cam * .34;
-        const gateW = 1540;
-        drawCover(assets.gate, -parallaxCam, 0, gateW, h);
-        const yardW = 1500;
-        let yardX = gateW - parallaxCam - 80;
-        while (yardX > 0) yardX -= yardW;
+        const parallaxCam = cam * .30;
+        const gateW = 1320;
+        const drawFull = (image: HTMLImageElement, dx: number, dy: number, dw: number, dh: number) => {
+          ctx.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, dx, dy, dw, dh);
+        };
+        // The opening always uses the complete school-gate artwork rather than a cropped center section.
+        drawFull(assets.gate, -parallaxCam, 0, gateW, h);
+        const yardW = 1320;
+        let yardX = gateW - parallaxCam - 20;
         while (yardX < w + yardW) {
-          drawCover(assets.yard, yardX, 0, yardW, h);
+          drawFull(assets.yard, yardX, 0, yardW, h);
           yardX += yardW;
         }
         const shade = ctx.createLinearGradient(0, 0, 0, h);
@@ -327,7 +342,22 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     };
     const drawPlatform = (p: Platform, cam: number) => {
       const x = p.x - cam; if (x + p.w < -50 || x > canvas.clientWidth + 50) return;
-      ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#8B5A2B' : '#7A4A22'; roundRect(x, p.y, p.w, p.h, 8); ctx.fill();
+      ctx.save();
+      roundRect(x, p.y, p.w, p.h, 8); ctx.clip();
+      const terrain = environmentAssetsRef.current.terrain;
+      if (environmentReadyRef.current && terrain && p.kind !== 'moving') {
+        // Use the generated terrain atlas as the real foreground material.
+        const sourceY = Math.floor(terrain.naturalHeight * .55);
+        const sourceH = Math.max(1, terrain.naturalHeight - sourceY);
+        const tileW = Math.max(180, Math.min(420, p.w));
+        for (let tx = x; tx < x + p.w; tx += tileW) {
+          ctx.drawImage(terrain, 0, sourceY, terrain.naturalWidth, sourceH, tx, p.y, tileW + 1, p.h);
+        }
+        ctx.fillStyle = 'rgba(85,45,20,.13)'; ctx.fillRect(x, p.y, p.w, p.h);
+      } else {
+        ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#8B5A2B' : '#7A4A22'; ctx.fillRect(x, p.y, p.w, p.h);
+      }
+      ctx.restore();
       ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#D89B54' : '#E4C18B'; ctx.fillRect(x, p.y, p.w, Math.min(18, p.h));
       ctx.fillStyle = '#3A9B43'; ctx.fillRect(x, p.y - 6, p.w, 8);
       if (p.kind === 'wood' || p.kind === 'moving') { ctx.strokeStyle = '#5B351A'; ctx.lineWidth = 3; for (let xx = x + 25; xx < x + p.w; xx += 45) { ctx.beginPath(); ctx.moveTo(xx, p.y + 2); ctx.lineTo(xx, p.y + p.h - 2); ctx.stroke(); } }
@@ -408,10 +438,10 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     const render = (timeMs: number) => {
       const w=canvas.clientWidth,h=canvas.clientHeight,t=timeMs/1000,cam=cameraRef.current;ctx.clearRect(0,0,w,h);
       ctx.save(); const portraitView = h > w;
-      const heightFit = h / 760;
-      const sceneScale = portraitView ? clamp(heightFit, .78, 1.08) : clamp(heightFit, .42, 1.04);
+      const heightFit = h / 690;
+      const sceneScale = portraitView ? clamp(h / 760, .78, 1.08) : clamp(heightFit, .58, .88);
       dimensionsForCameraRef.current = sceneScale;
-      const sy = Math.max(0, (h - 760 * sceneScale) / 2);
+      const sy = portraitView ? Math.max(0, (h - 760 * sceneScale) / 2) : Math.min(0, h - (GROUND_Y + 12) * sceneScale);
       ctx.translate(0, sy);
       ctx.scale(sceneScale, sceneScale);
       drawBackground(w / sceneScale, 760, cam);
@@ -425,7 +455,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     };
 
     const loop=(ts:number)=>{const dt=Math.min(.033,(ts-lastRef.current)/1000||0);lastRef.current=ts;update(dt,canvas.clientWidth);render(ts);rafRef.current=requestAnimationFrame(loop);};rafRef.current=requestAnimationFrame(loop);
-    return()=>{window.removeEventListener('resize',handleViewportChange);window.removeEventListener('orientationchange',handleViewportChange);if(rafRef.current)cancelAnimationFrame(rafRef.current);};
+    return()=>{if(answerTimerRef.current)window.clearTimeout(answerTimerRef.current);window.removeEventListener('resize',handleViewportChange);window.removeEventListener('orientationchange',handleViewportChange);if(rafRef.current)cancelAnimationFrame(rafRef.current);};
   }, [finish, openQuestion, showIntro, syncStats]);
 
   const touchButton=(key:keyof typeof inputRef.current)=>(down:boolean)=>()=>{inputRef.current[key]=down;};
@@ -455,31 +485,31 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       </div>
     </>}
 
-    {gameState==='menu' && <Overlay><Card>
+    {gameState==='menu' && <Overlay><Card compact={orientation==='landscape'}>
       <div style={{fontSize:58}}>🎓</div><h1 style={title}>سوبر طالب</h1><p style={sub}>المرحلة الأولى: مدرسة راصد للتعليم</p>
       <p style={body}>تحرك واقفز، اجمع العملات ونجوم المعرفة، وافتح صناديق الأسئلة حتى تصل إلى الفصل الدراسي.</p>
       <button style={primary} onClick={resetGame}>ابدأ المرحلة</button><button style={secondary} onClick={onClose}>العودة</button>
     </Card></Overlay>}
 
-    {gameState==='playing' && showIntro && <Overlay><Card>
+    {gameState==='playing' && showIntro && <Overlay><Card compact={orientation==='landscape'}>
       <div style={{fontSize:50}}>🏫</div><h2 style={title}>مرحبًا بك يا سوبر طالب</h2><p style={body}>استخدم أزرار الحركة والقفز. افتح صناديق المعرفة، وتجاوز ورقة العمل والتقرير حتى تصل إلى باب الفصل.</p>
       <button style={primary} onClick={()=>setShowIntro(false)}>ابدأ الرحلة</button>
     </Card></Overlay>}
 
     {gameState==='question' && activeQuestion && <Overlay blur>
-      <div style={{width:'min(640px,92vw)',background:'#fff',border:'3px solid #38BDF8',borderRadius:28,padding:24,boxShadow:'0 25px 80px rgba(0,0,0,.42)'}}>
+      <div style={{width:orientation==='landscape'?'min(720px,72vw)':'min(640px,92vw)',maxHeight:orientation==='landscape'?'82vh':'90vh',overflowY:'auto',background:'#fff',border:'3px solid #38BDF8',borderRadius:orientation==='landscape'?20:28,padding:orientation==='landscape'?16:24,boxShadow:'0 25px 80px rgba(0,0,0,.42)'}}>
         <div style={{color:'#0369A1',fontWeight:900,fontSize:18}}>⚡ صندوق المعرفة</div>
-        <h2 style={{color:'#0F172A',fontSize:'clamp(22px,4vw,34px)',margin:'14px 0 20px',lineHeight:1.5}}>{activeQuestion.q.question}</h2>
+        <h2 style={{color:'#0F172A',fontSize:orientation==='landscape'?'clamp(20px,2.5vw,28px)':'clamp(22px,4vw,34px)',margin:orientation==='landscape'?'8px 0 12px':'14px 0 20px',lineHeight:1.5}}>{activeQuestion.q.question}</h2>
         <div style={{display:'grid',gap:11}}>{activeQuestion.q.options.map((o,i)=>{
           const correct=i===getCorrectIndex(activeQuestion.q); const chosen=selectedAnswer===i; let bg='#fff',border='#BAE6FD',color='#0F172A';
           if(selectedAnswer!==null&&correct){bg='#16A34A';border='#15803D';color='#fff';}else if(chosen){bg='#EF4444';border='#B91C1C';color='#fff';}
-          return <button key={i} disabled={selectedAnswer!==null} onClick={()=>answer(i)} style={{display:'flex',gap:12,alignItems:'center',padding:'15px 17px',borderRadius:16,border:`2px solid ${border}`,background:bg,color,fontSize:18,fontWeight:800,textAlign:'right'}}><span style={{width:34,height:34,borderRadius:10,display:'grid',placeItems:'center',background:chosen||correct?'rgba(255,255,255,.22)':'#E0F2FE'}}>{i+1}</span>{o}</button>
+          return <button key={i} disabled={selectedAnswer!==null} onClick={()=>answer(i)} style={{display:'flex',gap:12,alignItems:'center',padding:orientation==='landscape'?'10px 14px':'15px 17px',borderRadius:16,border:`2px solid ${border}`,background:bg,color,fontSize:orientation==='landscape'?16:18,fontWeight:800,textAlign:'right'}}><span style={{width:34,height:34,borderRadius:10,display:'grid',placeItems:'center',background:chosen||correct?'rgba(255,255,255,.22)':'#E0F2FE'}}>{i+1}</span>{o}</button>
         })}</div>
         {feedback&&<div style={{marginTop:14,fontWeight:900,color:feedback==='correct'?'#15803D':'#B91C1C',fontSize:20}}>{feedback==='correct'?'أحسنت! حصلت على نجمة معرفة ⭐':'حاول في الصندوق التالي، تستطيع النجاح'}</div>}
       </div>
     </Overlay>}
 
-    {(gameState==='won'||gameState==='gameover')&&<Overlay><Card>
+    {(gameState==='won'||gameState==='gameover')&&<Overlay><Card compact={orientation==='landscape'}>
       <div style={{fontSize:60}}>{gameState==='won'?'🏆':'🌟'}</div><h2 style={title}>{gameState==='won'?'اكتملت المرحلة الأولى':'انتهت المحاولات'}</h2>
       <p style={sub}>{gameState==='won'?'وصلت إلى الفصل الدراسي بنجاح':'أعد المرحلة واجمع مزيدًا من المعرفة'}</p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,margin:'20px 0'}}><Stat label="النقاط" value={stats.score}/><Stat label="العملات" value={stats.coins}/><Stat label="نجوم المعرفة" value={stats.stars}/><Stat label="الإجابات الصحيحة" value={stats.correct}/></div>
@@ -491,7 +521,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
 function Hud({text,color}:{text:string;color:string}){return <div style={{padding:'9px 13px',borderRadius:14,background:'rgba(7,21,47,.84)',border:`1px solid ${color}88`,color:'#fff',fontWeight:900,fontSize:15,boxShadow:'0 8px 25px rgba(0,0,0,.18)'}}>{text}</div>}
 function Control({label,accent,onDown,onUp}:{label:string;accent?:boolean;onDown:()=>void;onUp:()=>void}){return <button onPointerDown={e=>{e.preventDefault();onDown()}} onPointerUp={e=>{e.preventDefault();onUp()}} onPointerCancel={onUp} onPointerLeave={onUp} style={{width:64,height:64,borderRadius:22,border:'2px solid rgba(255,255,255,.55)',background:accent?'linear-gradient(145deg,#F59E0B,#EA580C)':'rgba(7,21,47,.78)',color:'#fff',fontSize:label.length>1?16:27,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{label}</button>}
 function Overlay({children,blur}:{children:React.ReactNode;blur?:boolean}){return <div style={{position:'absolute',inset:0,display:'grid',placeItems:'center',padding:18,background:'rgba(2,12,32,.64)',backdropFilter:blur?'blur(5px)':'blur(2px)',overflow:'auto'}}>{children}</div>}
-function Card({children}:{children:React.ReactNode}){return <div style={{width:'min(560px,92vw)',textAlign:'center',padding:'30px 26px',borderRadius:30,background:'linear-gradient(145deg,rgba(7,28,60,.98),rgba(10,54,91,.97))',border:'2px solid rgba(56,189,248,.65)',boxShadow:'0 30px 90px rgba(0,0,0,.53)',color:'#fff'}}>{children}</div>}
+function Card({children,compact=false}:{children:React.ReactNode;compact?:boolean}){return <div style={{width:compact?'min(620px,72vw)':'min(560px,92vw)',maxHeight:compact?'82vh':'90vh',overflowY:'auto',textAlign:'center',padding:compact?'18px 22px':'30px 26px',borderRadius:30,background:'linear-gradient(145deg,rgba(7,28,60,.98),rgba(10,54,91,.97))',border:'2px solid rgba(56,189,248,.65)',boxShadow:'0 30px 90px rgba(0,0,0,.53)',color:'#fff'}}>{children}</div>}
 function Stat({label,value}:{label:string;value:number}){return <div style={{padding:14,borderRadius:16,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.16)'}}><div style={{fontSize:24,fontWeight:950,color:'#FACC15'}}>{value}</div><div style={{fontSize:14,color:'#D7E7F6'}}>{label}</div></div>}
 const title:React.CSSProperties={margin:'8px 0',fontSize:'clamp(30px,6vw,48px)',fontWeight:950,color:'#F8FAFC'};
 const sub:React.CSSProperties={margin:'5px 0 12px',color:'#38BDF8',fontSize:19,fontWeight:900};
