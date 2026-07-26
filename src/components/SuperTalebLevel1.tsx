@@ -366,14 +366,29 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         else if (p.w >= 145) image = assets.platformStepWide || assets.platformShort;
         else image = assets.platformGrassShort || assets.platformShort;
       }
+      const visualTop = p.y - (p.kind === 'ground' ? 18 : 12);
       if (image) {
-        // Each terrain element is an actual cropped asset with transparent background.
-        ctx.drawImage(image, x, p.y - (p.kind === 'ground' ? 8 : 2), p.w, p.h + (p.kind === 'ground' ? 8 : 2));
+        // The cropped terrain object is aligned to the exact collision surface.
+        ctx.drawImage(image, x, visualTop, p.w, p.h + (p.y - visualTop));
       } else {
         ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#8B5A2B' : '#7A4A22';
-        roundRect(x, p.y, p.w, p.h, 8); ctx.fill();
-        ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#D89B54' : '#E4C18B'; ctx.fillRect(x, p.y, p.w, Math.min(18, p.h));
-        ctx.fillStyle = '#3A9B43'; ctx.fillRect(x, p.y - 6, p.w, 8);
+        roundRect(x, visualTop, p.w, p.h + (p.y - visualTop), 8); ctx.fill();
+      }
+      // Strong, consistent walkable edge: the feet collide exactly at p.y.
+      const edgeGradient = ctx.createLinearGradient(0, p.y - 12, 0, p.y + 7);
+      if (p.kind === 'wood' || p.kind === 'moving') {
+        edgeGradient.addColorStop(0, '#F6C36A'); edgeGradient.addColorStop(.42, '#B86A26'); edgeGradient.addColorStop(1, '#5A3218');
+      } else {
+        edgeGradient.addColorStop(0, '#86EF62'); edgeGradient.addColorStop(.36, '#35A853'); edgeGradient.addColorStop(1, '#166534');
+      }
+      ctx.fillStyle = edgeGradient;
+      roundRect(x, p.y - 12, p.w, 18, p.kind === 'ground' ? 3 : 7); ctx.fill();
+      ctx.strokeStyle = p.kind === 'wood' || p.kind === 'moving' ? 'rgba(255,235,170,.95)' : 'rgba(220,255,205,.95)';
+      ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x + 3, p.y - 10); ctx.lineTo(x + p.w - 3, p.y - 10); ctx.stroke();
+      // Both ends are clearly marked, so gaps and pits can be seen before reaching them.
+      if (p.kind !== 'ground') {
+        ctx.fillStyle = 'rgba(15,23,42,.28)';
+        ctx.fillRect(x, p.y - 8, 4, 14); ctx.fillRect(x + p.w - 4, p.y - 8, 4, 14);
       }
     };
     const drawCoin = (c: Coin, cam: number, time: number) => {
@@ -466,12 +481,27 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     const render = (timeMs: number) => {
       const w=canvas.clientWidth,h=canvas.clientHeight,t=timeMs/1000,cam=cameraRef.current;ctx.clearRect(0,0,w,h);
       ctx.save(); const portraitView = h > w;
-      const sceneScale = portraitView ? clamp(h / 760, .78, 1.08) : clamp(h / 570, .78, 1.02);
+      const sceneScale = portraitView ? clamp(h / 700, .86, 1.12) : clamp(h / 560, .80, 1.04);
       dimensionsForCameraRef.current = sceneScale;
-      const sy = portraitView ? Math.max(0, (h - 760 * sceneScale) / 2) : h - (GROUND_Y + 28) * sceneScale;
+      // Reserve a visible gameplay band below the collision surface; controls no longer hide the ground.
+      const bottomClearance = portraitView ? 150 : 118;
+      const sy = h - (GROUND_Y + bottomClearance) * sceneScale;
       ctx.translate(0, sy);
       ctx.scale(sceneScale, sceneScale);
       drawBackground(w / sceneScale, 760, cam);
+      // Darken the intentional gaps so the player never mistakes the background for solid ground.
+      const groundPieces = levelRef.current.platforms.filter(p => p.kind === 'ground').sort((a,b) => a.x - b.x);
+      for (let i = 0; i < groundPieces.length - 1; i++) {
+        const left = groundPieces[i].x + groundPieces[i].w - cam;
+        const right = groundPieces[i + 1].x - cam;
+        if (right > left && right > -60 && left < w / sceneScale + 60) {
+          const pit = ctx.createLinearGradient(0, GROUND_Y - 6, 0, 760);
+          pit.addColorStop(0, 'rgba(2,6,23,.40)'); pit.addColorStop(1, 'rgba(2,6,23,.92)');
+          ctx.fillStyle = pit; ctx.fillRect(left, GROUND_Y - 5, right - left, 120);
+          ctx.strokeStyle = 'rgba(250,204,21,.80)'; ctx.lineWidth = 3; ctx.setLineDash([8,7]);
+          ctx.beginPath(); ctx.moveTo(left + 3, GROUND_Y - 7); ctx.lineTo(right - 3, GROUND_Y - 7); ctx.stroke(); ctx.setLineDash([]);
+        }
+      }
       for(const p of levelRef.current.platforms)drawPlatform(p,cam);
       drawDoor(cam);
       for(const c of levelRef.current.coins)drawCoin(c,cam,t);
@@ -500,14 +530,14 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
           <Hud text={`النقاط ${stats.score}`} color="#38BDF8" />
         </div>
       </div>
-      <div style={{position:'absolute',bottom:orientation==='landscape'?10:22,left:orientation==='landscape'?28:18,right:orientation==='landscape'?28:18,display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
+      <div style={{position:'absolute',bottom:orientation==='landscape'?8:14,left:orientation==='landscape'?28:18,right:orientation==='landscape'?28:18,display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
         <div style={{display:'flex',gap:12,direction:'ltr'}}>
           <Control label="◀" onDown={touchButton('left')(true)} onUp={touchButton('left')(false)} />
           <Control label="▶" onDown={touchButton('right')(true)} onUp={touchButton('right')(false)} />
         </div>
         <div style={{display:'flex',gap:12}}>
           <Control label="قفز" accent onDown={touchButton('jump')(true)} onUp={touchButton('jump')(false)} />
-          <button onClick={() => { const next = !runEnabled; setRunEnabled(next); inputRef.current.run = next; }} style={{width:64,height:64,borderRadius:22,border:runEnabled?'3px solid #FDE68A':'2px solid rgba(255,255,255,.55)',background:runEnabled?'linear-gradient(145deg,#0EA5E9,#0369A1)':'rgba(7,21,47,.78)',color:'#fff',fontSize:16,fontWeight:900,boxShadow:runEnabled?'0 0 24px rgba(56,189,248,.65)':'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{runEnabled?'إيقاف':'جري'}</button>
+          <button onClick={() => { const next = !runEnabled; setRunEnabled(next); inputRef.current.run = next; }} style={{width:64,height:64,borderRadius:22,border:runEnabled?'3px solid #FDE68A':'2px solid rgba(255,255,255,.55)',background:runEnabled?'linear-gradient(145deg,rgba(14,165,233,.92),rgba(3,105,161,.92))':'rgba(7,21,47,.68)',color:'#fff',fontSize:16,fontWeight:900,boxShadow:runEnabled?'0 0 24px rgba(56,189,248,.65)':'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{runEnabled?'إيقاف':'جري'}</button>
         </div>
       </div>
     </>}
@@ -519,7 +549,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     </Card></Overlay>}
 
     {gameState==='playing' && showIntro && <Overlay><Card compact={orientation==='landscape'}>
-      <div style={{fontSize:50}}>🏫</div><h2 style={title}>مرحبًا بك يا سوبر طالب</h2><p style={body}>استخدم أزرار الحركة والقفز. افتح صناديق المعرفة، وتجاوز ورقة العمل والتقرير حتى تصل إلى باب الفصل.</p>
+      <div style={{fontSize:50}}>🏫</div><h2 style={title}>مرحبًا بك يا سوبر طالب</h2><p style={body}>استخدم أزرار الحركة والقفز. امشِ فوق الحواف الخضراء أو الخشبية الواضحة، واقفز فوق الفجوات، ثم افتح صناديق المعرفة حتى تصل إلى باب الفصل.</p>
       <button style={primary} onClick={()=>setShowIntro(false)}>ابدأ الرحلة</button>
     </Card></Overlay>}
 
@@ -546,7 +576,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
 }
 
 function Hud({text,color}:{text:string;color:string}){return <div style={{padding:'9px 13px',borderRadius:14,background:'rgba(7,21,47,.84)',border:`1px solid ${color}88`,color:'#fff',fontWeight:900,fontSize:15,boxShadow:'0 8px 25px rgba(0,0,0,.18)'}}>{text}</div>}
-function Control({label,accent,onDown,onUp}:{label:string;accent?:boolean;onDown:()=>void;onUp:()=>void}){return <button onPointerDown={e=>{e.preventDefault();onDown()}} onPointerUp={e=>{e.preventDefault();onUp()}} onPointerCancel={onUp} onPointerLeave={onUp} style={{width:64,height:64,borderRadius:22,border:'2px solid rgba(255,255,255,.55)',background:accent?'linear-gradient(145deg,#F59E0B,#EA580C)':'rgba(7,21,47,.78)',color:'#fff',fontSize:label.length>1?16:27,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{label}</button>}
+function Control({label,accent,onDown,onUp}:{label:string;accent?:boolean;onDown:()=>void;onUp:()=>void}){return <button onPointerDown={e=>{e.preventDefault();onDown()}} onPointerUp={e=>{e.preventDefault();onUp()}} onPointerCancel={onUp} onPointerLeave={onUp} style={{width:64,height:64,borderRadius:22,border:'2px solid rgba(255,255,255,.55)',background:accent?'linear-gradient(145deg,rgba(245,158,11,.92),rgba(234,88,12,.92))':'rgba(7,21,47,.68)',color:'#fff',fontSize:label.length>1?16:27,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{label}</button>}
 function Overlay({children,blur}:{children:React.ReactNode;blur?:boolean}){return <div style={{position:'absolute',inset:0,display:'grid',placeItems:'center',padding:18,background:'rgba(2,12,32,.64)',backdropFilter:blur?'blur(5px)':'blur(2px)',overflow:'auto'}}>{children}</div>}
 function Card({children,compact=false}:{children:React.ReactNode;compact?:boolean}){return <div style={{width:compact?'min(480px,54vw)':'min(560px,92vw)',maxHeight:compact?'68vh':'90vh',overflowY:'auto',textAlign:'center',padding:compact?'12px 18px':'30px 26px',borderRadius:30,background:'linear-gradient(145deg,rgba(7,28,60,.98),rgba(10,54,91,.97))',border:'2px solid rgba(56,189,248,.65)',boxShadow:'0 30px 90px rgba(0,0,0,.53)',color:'#fff'}}>{children}</div>}
 function Stat({label,value}:{label:string;value:number}){return <div style={{padding:14,borderRadius:16,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.16)'}}><div style={{fontSize:24,fontWeight:950,color:'#FACC15'}}>{value}</div><div style={{fontSize:14,color:'#D7E7F6'}}>{label}</div></div>}
