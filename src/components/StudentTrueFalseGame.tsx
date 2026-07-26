@@ -77,7 +77,7 @@ const normalizeQuestions = (questions: TrueFalseQuestion[]) => {
   return (Array.isArray(questions) ? questions : []).filter(q => {
     if (!q || q.active === false) return false;
     if (!q.question) return false;
-    return q.questionType === 'true_false' || typeof q.correctAnswerIndex === 'number';
+    return q.questionType === 'true_false' || typeof q.correctAnswerIndex === 'number' || Boolean(q.correctAnswerText);
   });
 };
 
@@ -152,9 +152,11 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
   onComplete
 }) => {
   const usableQuestions = useMemo(() => normalizeQuestions(questions), [questions]);
-  const questionDeck = useMemo(() => shuffleArray(usableQuestions), [usableQuestions]);
+  const questionDeck = useMemo(() => shuffleArray(usableQuestions).slice(0, Math.min(10, usableQuestions.length)), [usableQuestions]);
 
   const timerRef = useRef<number | null>(null);
+  const transitionTimerRef = useRef<number | null>(null);
+  const answerLockedRef = useRef(false);
   const completedRef = useRef(false);
   const gameStateRef = useRef<GameState>('menu');
   const questionIndexRef = useRef(0);
@@ -230,6 +232,12 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
     setWeakQuestionIds(next);
   };
 
+  const clearTransitionTimer = () => {
+    if (transitionTimerRef.current) {
+      window.clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+  };
   const clearTimer = () => {
     if (timerRef.current) {
       window.clearInterval(timerRef.current);
@@ -243,7 +251,7 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
 
     const result: TrueFalseResult = {
       gameType: 'true_false',
-      score: scoreRef.current,
+      score: correctRef.current * 10,
       correct: correctRef.current,
       wrong: wrongRef.current,
       maxStreak: maxStreakRef.current,
@@ -283,6 +291,7 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
 
   const finishGame = (completed: boolean) => {
     clearTimer();
+    clearTransitionTimer();
     playSfx('finish', soundEnabled);
     syncGameState('finished');
     saveResult(completed);
@@ -329,6 +338,9 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
 
   const startGame = () => {
     if (!canPlay) return;
+    clearTimer();
+    clearTransitionTimer();
+    answerLockedRef.current = false;
     playSfx('start', soundEnabled);
     completedRef.current = false;
     questionIndexRef.current = 0;
@@ -363,15 +375,15 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
 
   const goNext = (nextLives = livesRef.current) => {
     clearTimer();
-    window.setTimeout(() => {
+    clearTransitionTimer();
+    transitionTimerRef.current = window.setTimeout(() => {
       setFeedback(null);
       setLastAnswer(null);
-
+      transitionTimerRef.current = null;
       if (nextLives <= 0) {
         finishGame(false);
         return;
       }
-
       const nextIndex = questionIndexRef.current + 1;
       if (nextIndex >= questionDeck.length) {
         questionIndexRef.current = nextIndex;
@@ -379,15 +391,15 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
         finishGame(true);
         return;
       }
-
       questionIndexRef.current = nextIndex;
       setQuestionIndex(nextIndex);
+      answerLockedRef.current = false;
       syncGameState('playing');
-    }, 1200);
+    }, 900);
   };
-
  const handleAnswer = (answerIndex: number) => {
-    if (gameStateRef.current !== 'playing' || !currentQuestion) return;
+    if (gameStateRef.current !== 'playing' || !currentQuestion || answerLockedRef.current) return;
+    answerLockedRef.current = true;
     clearTimer();
 
     const correctIndex = currentQuestion.correctAnswerIndex ?? 0;
@@ -438,6 +450,8 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
 
   const resetGame = () => {
     clearTimer();
+    clearTransitionTimer();
+    answerLockedRef.current = false;
     completedRef.current = false;
     questionIndexRef.current = 0;
     scoreRef.current = 0;
@@ -462,30 +476,23 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
   };
 
   const optionClass = (index: number) => {
-    const base = 'relative overflow-hidden rounded-[1.7rem] border p-5 min-h-[112px] flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-[0_18px_36px_rgba(0,0,0,0.28)] text-white disabled:cursor-not-allowed';
-
+    const base = 'relative overflow-hidden rounded-3xl border min-h-[94px] sm:min-h-[108px] p-4 flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-sm disabled:cursor-not-allowed';
     if (gameState === 'feedback' && currentQuestion) {
       const correctIndex = currentQuestion.correctAnswerIndex ?? 0;
-      if (index === correctIndex) {
-        return `${base} bg-gradient-to-br from-emerald-400/45 to-emerald-800/75 border-emerald-200/70 ring-4 ring-emerald-300/15`;
-      }
-      if (lastAnswer === index) {
-        return `${base} bg-gradient-to-br from-rose-400/45 to-red-900/75 border-red-200/70 ring-4 ring-red-300/15`;
-      }
+      if (index === correctIndex) return `${base} bg-emerald-50 border-emerald-500 ring-4 ring-emerald-100 text-emerald-700`;
+      if (lastAnswer === index) return `${base} bg-red-50 border-red-500 ring-4 ring-red-100 text-red-700`;
     }
-
     return index === 0
-      ? `${base} bg-gradient-to-br from-emerald-400/35 to-emerald-800/65 border-emerald-200/50 hover:from-emerald-400/50 hover:to-emerald-800/80`
-      : `${base} bg-gradient-to-br from-rose-400/35 to-red-900/65 border-red-200/50 hover:from-rose-400/50 hover:to-red-900/80`;
+      ? `${base} bg-white border-emerald-200 text-emerald-700 hover:border-emerald-400 hover:shadow-md`
+      : `${base} bg-white border-red-200 text-red-700 hover:border-red-400 hover:shadow-md`;
   };
-
-  const timeColor = timeLeft <= 5 ? 'text-red-200' : timeLeft <= 10 ? 'text-yellow-200' : 'text-sky-200';
+  const timeColor = timeLeft <= 5 ? 'text-red-200' : timeLeft <= 10 ? 'text-amber-500' : 'text-sky-200';
   const timeBarColor = timeLeft <= 5 ? 'from-red-500 to-orange-400' : timeLeft <= 10 ? 'from-yellow-400 to-orange-400' : 'from-emerald-400 to-sky-400';
 
   return (
-    <div className="fixed inset-0 z-[2147483647] text-white overflow-hidden font-['Tajawal']" dir="rtl">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,#10b981_0%,transparent_32%),radial-gradient(circle_at_bottom_left,#ef4444_0%,transparent_30%),linear-gradient(135deg,#0f172a_0%,#172554_45%,#064e3b_100%)]" />
-      <div className="absolute inset-0 bg-black/10" />
+    <div className="fixed inset-0 z-[2147483647] bg-slate-50 text-slate-900 overflow-hidden font-['Tajawal']" dir="rtl">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,.18)_0%,transparent_34%),radial-gradient(circle_at_bottom_left,rgba(239,68,68,.12)_0%,transparent_34%),linear-gradient(180deg,#f8fafc_0%,#eef6ff_100%)]" />
+      <div className="absolute inset-0 bg-white/10" />
       <div
         className="absolute inset-0 opacity-[0.10]"
         style={{
@@ -497,14 +504,14 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
       <div className="absolute top-20 right-8 w-48 h-48 rounded-full bg-emerald-300/10 blur-3xl" />
       <div className="absolute bottom-24 left-8 w-56 h-56 rounded-full bg-red-300/10 blur-3xl" />
 
-      <header className="relative z-20 pt-[max(env(safe-area-inset-top),14px)] px-4 pb-3 flex items-center justify-between gap-3 pointer-events-none">
+      <header className="relative z-20 pt-[max(env(safe-area-inset-top),8px)] px-3 sm:px-4 pb-2 flex items-center justify-between gap-3 pointer-events-none">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-11 h-11 rounded-2xl bg-slate-950/60 border border-white/15 backdrop-blur-xl flex items-center justify-center text-emerald-200 shadow-[0_16px_36px_rgba(0,0,0,0.30)]">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-200 shadow-[0_16px_36px_rgba(0,0,0,0.30)]">
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-base font-black truncate drop-shadow-sm">صح أم خطأ</h1>
-            <p className="text-[10px] font-bold text-slate-200/90 truncate">تحدي سريع لتثبيت المعلومة ✅❌</p>
+            <h1 className="text-sm sm:text-base font-black text-slate-900 truncate">صح أم خطأ</h1>
+            <p className="text-[10px] font-bold text-slate-500 truncate">تحدي سريع لتثبيت المعلومة ✅❌</p>
           </div>
         </div>
 
@@ -512,7 +519,7 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
           <button
             type="button"
             onClick={() => setSoundEnabled(prev => !prev)}
-            className={`w-10 h-10 rounded-2xl border backdrop-blur-xl flex items-center justify-center active:scale-95 shadow-[0_16px_36px_rgba(0,0,0,0.26)] ${soundEnabled ? 'bg-emerald-500/20 border-emerald-200/30 text-emerald-100' : 'bg-slate-950/55 border-white/15 text-slate-300'}`}
+            className={`w-10 h-10 rounded-2xl border backdrop-blur-xl flex items-center justify-center active:scale-95 shadow-[0_16px_36px_rgba(0,0,0,0.26)] ${soundEnabled ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-slate-950/55 border-white/15 text-slate-300'}`}
             aria-label="تشغيل أو إيقاف الصوت"
           >
             <Volume2 className="w-5 h-5" />
@@ -521,7 +528,7 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-10 h-10 rounded-2xl bg-slate-950/60 border border-white/15 backdrop-blur-xl flex items-center justify-center active:scale-95 shadow-[0_16px_36px_rgba(0,0,0,0.30)]"
+            className="w-10 h-10 rounded-2xl bg-white border border-slate-200 flex items-center justify-center active:scale-95 shadow-[0_16px_36px_rgba(0,0,0,0.30)]"
             aria-label="إغلاق اللعبة"
           >
             <X className="w-5 h-5" />
@@ -529,17 +536,17 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
         </div>
       </header>
 
-      <main className="relative z-10 h-[calc(100dvh-78px)] overflow-y-auto overscroll-contain custom-scrollbar px-4 pb-[calc(env(safe-area-inset-bottom)+122px)]">
-        <div className="max-w-xl mx-auto min-h-full flex flex-col justify-center py-4">
+      <main className="relative z-10 h-[calc(100dvh-62px)] overflow-y-auto overscroll-contain custom-scrollbar px-3 sm:px-4 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+        <div className="max-w-2xl mx-auto min-h-full flex flex-col justify-center py-3 sm:py-4">
           {gameState === 'menu' && (
-            <section className="rounded-[2rem] border border-white/15 bg-slate-950/72 backdrop-blur-xl p-6 text-center shadow-[0_28px_70px_rgba(0,0,0,0.40)] relative overflow-hidden">
+            <section className="rounded-3xl border border-slate-200 bg-white/95 backdrop-blur-xl p-5 sm:p-6 text-center shadow-[0_28px_70px_rgba(0,0,0,0.40)] relative overflow-hidden">
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-emerald-300 via-sky-300 to-red-300" />
               <div className="mx-auto w-20 h-20 rounded-[2rem] bg-gradient-to-br from-emerald-300 to-sky-500 flex items-center justify-center shadow-[0_20px_42px_rgba(16,185,129,0.32)] mb-4">
                 <Zap className="w-10 h-10 text-slate-950" />
               </div>
-              <h2 className="text-3xl font-black mb-2">تحدي صح أم خطأ</h2>
-              <p className="text-sm font-bold text-slate-200 leading-7 mb-5">
-                أجب بسرعة قبل انتهاء الوقت. الإجابات الصحيحة المتتالية تمنحك نقاطًا إضافية.
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">تحدي صح أم خطأ</h2>
+              <p className="text-sm font-bold text-slate-600 leading-7 mb-5">
+                أجب بسرعة قبل انتهاء الوقت. كل إجابة صحيحة تمنحك 10 نقاط، والسلسلة تعرض أفضل تتابع صحيح.
               </p>
 
               {!canPlay ? (
@@ -563,27 +570,27 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
           {(gameState === 'playing' || gameState === 'feedback') && currentQuestion && (
             <section className="space-y-4">
              <div className="grid grid-cols-4 gap-2">
-  <div className="rounded-2xl bg-slate-950/90 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
-    <p className="text-[9px] font-black text-slate-100 mb-1">
+  <div className="rounded-2xl bg-white border border-slate-200 p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+    <p className="text-[9px] font-black text-slate-500 mb-1">
       النقاط
     </p>
-    <p className="text-xl font-black text-yellow-300 drop-shadow">
+    <p className="text-xl font-black text-indigo-600">
       {score}
     </p>
   </div>
 
-  <div className="rounded-2xl bg-slate-950/80 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
-    <p className="text-[9px] font-black text-slate-100 mb-1">
+  <div className="rounded-2xl bg-white border border-slate-200 p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+    <p className="text-[9px] font-black text-slate-500 mb-1">
       السلسلة
     </p>
-    <p className="text-xl font-black text-emerald-300 drop-shadow flex items-center justify-center gap-1">
+    <p className="text-xl font-black text-emerald-600 flex items-center justify-center gap-1">
       <Flame className="w-4 h-4" />
       {streak}
     </p>
   </div>
 
-  <div className="rounded-2xl bg-slate-950/80 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
-    <p className="text-[9px] font-black text-slate-100 mb-1">
+  <div className="rounded-2xl bg-white border border-slate-200 p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+    <p className="text-[9px] font-black text-slate-500 mb-1">
       الوقت
     </p>
     <p className={`text-xl font-black drop-shadow ${timeColor}`}>
@@ -591,36 +598,36 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
     </p>
   </div>
 
-  <div className="rounded-2xl bg-slate-950/90 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
-    <p className="text-[9px] font-black text-slate-100 mb-1">
+  <div className="rounded-2xl bg-white border border-slate-200 p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+    <p className="text-[9px] font-black text-slate-500 mb-1">
       محاولات
     </p>
-    <p className="text-xl font-black text-red-300 drop-shadow flex items-center justify-center gap-1">
+    <p className="text-xl font-black text-red-600 flex items-center justify-center gap-1">
       <Heart className="w-4 h-4" />
       {lives}
     </p>
   </div>
 </div>
 
-              <div className="rounded-full bg-slate-950/55 border border-white/15 h-3 overflow-hidden shadow-inner">
+              <div className="rounded-full bg-slate-200 border border-slate-300 h-3 overflow-hidden shadow-inner">
                 <div className={`h-full bg-gradient-to-l ${timeBarColor} transition-all duration-300`} style={{ width: `${Math.max(4, (timeLeft / QUESTION_SECONDS) * 100)}%` }} />
               </div>
 
-              <div className="rounded-full bg-slate-950/45 border border-white/10 h-2 overflow-hidden">
+              <div className="rounded-full bg-slate-200 border border-slate-300 h-2 overflow-hidden">
                 <div className="h-full bg-gradient-to-l from-emerald-300 to-sky-300 transition-all duration-300" style={{ width: `${progress}%` }} />
               </div>
 
-              <div className="rounded-[2rem] bg-slate-950/72 backdrop-blur-xl border border-white/15 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] text-center relative overflow-hidden">
+              <div className="rounded-3xl bg-white/95 backdrop-blur-xl border border-slate-200 p-4 sm:p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] text-center relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-sky-400/10 blur-3xl" />
                 <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-emerald-400/10 blur-3xl" />
                 <div className="relative z-10">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-3 py-1 text-[10px] font-black text-slate-100 mb-4">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/15 px-3 py-1 text-[10px] font-black text-slate-500 mb-4">
                     <Timer className="w-3.5 h-3.5 text-sky-200" />
                     السؤال {Math.min(questionIndex + 1, questionDeck.length)} من {questionDeck.length}
                   </div>
 
                   <h2
-                    className="text-[clamp(1.05rem,4.6vw,1.55rem)] font-black leading-[1.9] text-white break-words whitespace-pre-wrap max-h-[38dvh] overflow-y-auto px-1 custom-scrollbar"
+                    className="text-[clamp(1.05rem,4.6vw,1.55rem)] font-black leading-[1.9] text-slate-900 break-words whitespace-pre-wrap max-h-[30dvh] overflow-y-auto px-1 custom-scrollbar"
                     dir="rtl"
                   >
                     {currentQuestion.question}
@@ -635,9 +642,9 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
                   onClick={() => handleAnswer(0)}
                   className={optionClass(0)}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/18 via-transparent to-black/15" />
-                  <ShieldCheck className="relative w-10 h-10 text-emerald-100 drop-shadow" />
-                  <span className="relative text-2xl font-black drop-shadow">صح</span>
+                  <div className="absolute inset-y-0 right-0 w-1 bg-current opacity-70" />
+                  <ShieldCheck className="relative w-10 h-10 text-emerald-600" />
+                  <span className="relative text-xl sm:text-2xl font-black">صح</span>
                 </button>
 
                 <button
@@ -646,42 +653,27 @@ const StudentTrueFalseGame: React.FC<StudentTrueFalseGameProps> = ({
                   onClick={() => handleAnswer(1)}
                   className={optionClass(1)}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/18 via-transparent to-black/15" />
-                  <ShieldX className="relative w-10 h-10 text-red-100 drop-shadow" />
-                  <span className="relative text-2xl font-black drop-shadow">خطأ</span>
+                  <div className="absolute inset-y-0 right-0 w-1 bg-current opacity-70" />
+                  <ShieldX className="relative w-10 h-10 text-red-600" />
+                  <span className="relative text-xl sm:text-2xl font-black">خطأ</span>
                 </button>
               </div>
 
               {feedback && (
-                <div
-                  className={`rounded-3xl border p-4 shadow-[0_18px_40px_rgba(0,0,0,0.35)] ${
-                    feedback.type === 'correct'
-                      ? 'bg-emerald-950/85 border-emerald-300/50'
-                      : 'bg-red-950/85 border-red-300/50'
-                  }`}
-                >
-                  <p className={`text-base font-black mb-2 ${feedback.type === 'correct' ? 'text-emerald-200' : 'text-red-200'}`}>
-                    {feedback.message}
-                  </p>
-
-                  {feedback.explanation && (
-                    <div className="rounded-2xl bg-white/10 border border-white/10 p-3">
-                      <p className="text-[12px] font-bold text-white leading-7 break-words whitespace-pre-wrap">
-                        {feedback.explanation}
-                      </p>
-                    </div>
-                  )}
+                <div className={`fixed z-[2147483647] left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+12px)] max-w-xl mx-auto rounded-2xl border p-3 shadow-xl ${feedback.type === 'correct' ? 'bg-emerald-50 border-emerald-300' : 'bg-red-50 border-red-300'}`}>
+                  <p className={`text-sm font-black mb-1 ${feedback.type === 'correct' ? 'text-emerald-700' : 'text-red-700'}`}>{feedback.message}</p>
+                  {feedback.explanation && <p className="text-[11px] font-bold text-slate-700 leading-6 break-words whitespace-pre-wrap">{feedback.explanation}</p>}
                 </div>
               )}
             </section>
           )}
 
           {gameState === 'finished' && (
-            <section className="rounded-[2rem] border border-white/15 bg-slate-950/72 backdrop-blur-xl p-6 text-center shadow-[0_28px_70px_rgba(0,0,0,0.40)] relative overflow-hidden">
+            <section className="rounded-3xl border border-slate-200 bg-white/95 backdrop-blur-xl p-5 sm:p-6 text-center shadow-[0_28px_70px_rgba(0,0,0,0.40)] relative overflow-hidden">
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-yellow-300 via-emerald-300 to-sky-300" />
-              <Trophy className="w-16 h-16 mx-auto text-yellow-200 mb-3 drop-shadow" />
-              <h2 className="text-3xl font-black mb-2">انتهى التحدي</h2>
-              <p className="text-sm font-bold text-slate-200 leading-7 mb-5">
+              <Trophy className="w-16 h-16 mx-auto text-amber-500 mb-3 drop-shadow" />
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">انتهى التحدي</h2>
+              <p className="text-sm font-bold text-slate-600 leading-7 mb-5">
                 نتيجتك {score} نقطة. إجابات صحيحة {correct}، وإجابات خاطئة {wrong}. أفضل سلسلة {maxStreak}.
               </p>
               <button

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   X,
   Play,
@@ -220,7 +220,7 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
   onComplete
 }) => {
   const allPairs = useMemo(() => buildPairs(questions), [questions]);
-  const gamePairs = useMemo(() => shuffleArray(allPairs).slice(0, Math.min(8, allPairs.length)), [allPairs]);
+  const gamePairs = useMemo(() => shuffleArray(allPairs).slice(0, Math.min(6, allPairs.length)), [allPairs]);
 
   const initialTerms = useMemo<MatchCard[]>(() => {
     return shuffleArray(
@@ -249,6 +249,8 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
   const matchedRef = useRef(0);
   const wrongRef = useRef(0);
   const weakIdsRef = useRef<string[]>([]);
+  const selectionLockedRef = useRef(false);
+  const feedbackTimerRef = useRef<number | null>(null);
 
   const [gameState, setGameState] = useState<GameState>('menu');
   const [terms, setTerms] = useState<MatchCard[]>(initialTerms);
@@ -267,6 +269,18 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
 
   const canPlay = gamePairs.length >= 2;
   const progress = gamePairs.length > 0 ? Math.round((matchedPairIds.length / gamePairs.length) * 100) : 0;
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (gameState !== 'menu') return;
+    setTerms(initialTerms);
+    setDefinitions(initialDefinitions);
+  }, [initialTerms, initialDefinitions, gameState]);
 
   const resetRoundState = () => {
     setSelectedTermId(null);
@@ -345,6 +359,9 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
 
   const startGame = () => {
     if (!canPlay) return;
+    if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = null;
+    selectionLockedRef.current = false;
     completedRef.current = false;
     scoreRef.current = 0;
     matchedRef.current = 0;
@@ -365,6 +382,9 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
   };
 
   const resetGame = () => {
+    if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = null;
+    selectionLockedRef.current = false;
     completedRef.current = false;
     setGameState('menu');
     setMatchedPairIds([]);
@@ -385,9 +405,11 @@ const StudentMatchCardsGame: React.FC<StudentMatchCardsGameProps> = ({
   const isMatched = (pairId: string) => matchedPairIds.includes(pairId);
 
 const resolveSelection = (termId: string, definitionId: string) => {
+    if (selectionLockedRef.current) return;
+    selectionLockedRef.current = true;
     const termCard = terms.find(card => card.id === termId);
     const definitionCard = definitions.find(card => card.id === definitionId);
-    if (!termCard || !definitionCard) return;
+    if (!termCard || !definitionCard) { selectionLockedRef.current = false; return; }
 
     if (termCard.pairId === definitionCard.pairId) {
       const pair = getPair(termCard.pairId);
@@ -410,12 +432,13 @@ const resolveSelection = (termId: string, definitionId: string) => {
       });
       resetRoundState();
 
-      window.setTimeout(() => {
+      if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
+      feedbackTimerRef.current = window.setTimeout(() => {
         setFeedback(null);
-        if (nextMatchedIds.length >= gamePairs.length) {
-          finishGame(true);
-        }
-      }, 1000);
+        selectionLockedRef.current = false;
+        feedbackTimerRef.current = null;
+        if (nextMatchedIds.length >= gamePairs.length) finishGame(true);
+      }, 760);
       return;
     }
 
@@ -435,17 +458,18 @@ const resolveSelection = (termId: string, definitionId: string) => {
       detail: wrongPair?.explanation
     });
 
-    window.setTimeout(() => {
+    if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = window.setTimeout(() => {
       resetRoundState();
       setFeedback(null);
-      if (nextLives <= 0) {
-        finishGame(false);
-      }
-    }, 1000);
+      selectionLockedRef.current = false;
+      feedbackTimerRef.current = null;
+      if (nextLives <= 0) finishGame(false);
+    }, 900);
   };
 
   const handleCardClick = (card: MatchCard) => {
-    if (gameState !== 'playing' || isMatched(card.pairId)) return;
+    if (gameState !== 'playing' || isMatched(card.pairId) || selectionLockedRef.current) return;
 
     if (card.side === 'term') {
       setSelectedTermId(card.id);
@@ -465,28 +489,14 @@ const resolveSelection = (termId: string, definitionId: string) => {
     const selected = card.id === selectedTermId || card.id === selectedDefinitionId;
     const matchedCard = isMatched(card.pairId);
     const wrongCard = wrongFlashIds.includes(card.id);
-    const sideTone = card.side === 'term'
-      ? 'from-sky-500/24 to-indigo-900/68 border-sky-200/35'
-      : 'from-emerald-500/24 to-teal-900/68 border-emerald-200/35';
-
-    // 👇 تم تصغير الحشوات (p) والارتفاعات في الجوال لكي تتسع بجانب بعضها
-    const base = 'relative w-full min-h-[72px] sm:min-h-[96px] rounded-[1rem] sm:rounded-[1.35rem] border p-2 sm:p-3.5 text-start transition-all active:scale-[0.985] shadow-[0_16px_34px_rgba(0,0,0,0.28)] overflow-hidden';
-
-    if (matchedCard) {
-      return `${base} bg-gradient-to-br from-emerald-400/45 to-emerald-900/80 border-emerald-200/70 opacity-80`;
-    }
-
-    if (wrongCard) {
-      return `${base} bg-gradient-to-br from-red-400/45 to-red-950/85 border-red-200/70 animate-pulse`;
-    }
-
-    if (selected) {
-      return `${base} bg-gradient-to-br from-yellow-300/45 to-orange-900/75 border-yellow-200/80 ring-4 ring-yellow-300/15`;
-    }
-
-    return `${base} bg-gradient-to-br ${sideTone} hover:brightness-110`;
+    const base = 'relative w-full min-h-[68px] sm:min-h-[78px] rounded-2xl border p-2.5 sm:p-3 text-start transition-all active:scale-[0.985] shadow-sm overflow-hidden disabled:cursor-default';
+    if (matchedCard) return `${base} bg-emerald-50 border-emerald-400 opacity-80`;
+    if (wrongCard) return `${base} bg-red-50 border-red-400 animate-pulse`;
+    if (selected) return `${base} bg-amber-50 border-amber-400 ring-4 ring-amber-200/60 shadow-md`;
+    return card.side === 'term'
+      ? `${base} bg-white border-sky-200 hover:border-sky-400 hover:shadow-md`
+      : `${base} bg-white border-emerald-200 hover:border-emerald-400 hover:shadow-md`;
   };
-
   const renderCard = (card: MatchCard, index: number) => {
     const matchedCard = isMatched(card.pairId);
     return (
@@ -497,13 +507,13 @@ const resolveSelection = (termId: string, definitionId: string) => {
         onClick={() => handleCardClick(card)}
         className={cardClass(card)}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-white/14 via-transparent to-black/18" />
+        <div className={`absolute inset-y-0 right-0 w-1 ${card.side === 'term' ? 'bg-sky-400' : 'bg-emerald-400'}`} />
         <div className="relative z-10 flex items-start gap-1.5 sm:gap-2">
-          <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl border flex items-center justify-center shrink-0 font-black text-[10px] sm:text-xs ${matchedCard ? 'bg-emerald-300 text-slate-950 border-emerald-100' : 'bg-slate-950/45 text-white border-white/15'}`}>
+          <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl border flex items-center justify-center shrink-0 font-black text-[10px] sm:text-xs ${matchedCard ? 'bg-emerald-500 text-white border-emerald-400' : card.side === 'term' ? 'bg-sky-100 text-sky-800 border-sky-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200'}`}>
             {matchedCard ? <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4" /> : index + 1}
           </div>
           {/* 👇 تم تصغير الخط قليلاً في الجوال ليناسب العمودين */}
-          <p className="text-[clamp(0.68rem,2.8vw,0.96rem)] sm:text-[clamp(0.78rem,3.3vw,0.96rem)] font-black leading-5 sm:leading-6 text-white break-words whitespace-pre-wrap mt-0.5">
+          <p className="text-[clamp(0.68rem,2.8vw,0.96rem)] sm:text-[clamp(0.78rem,3.3vw,0.96rem)] font-black leading-5 sm:leading-6 text-slate-800 break-words whitespace-pre-wrap mt-0.5">
             {card.text}
           </p>
         </div>
@@ -512,9 +522,9 @@ const resolveSelection = (termId: string, definitionId: string) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[2147483647] text-white overflow-hidden font-['Tajawal']" dir="rtl">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,#38bdf8_0%,transparent_30%),radial-gradient(circle_at_bottom_left,#10b981_0%,transparent_30%),linear-gradient(135deg,#0f172a_0%,#172554_48%,#042f2e_100%)]" />
-      <div className="absolute inset-0 bg-black/10" />
+    <div className="fixed inset-0 z-[2147483647] bg-slate-50 text-slate-900 overflow-hidden font-['Tajawal']" dir="rtl">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,.18)_0%,transparent_34%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,.14)_0%,transparent_34%),linear-gradient(180deg,#f8fafc_0%,#eef6ff_100%)]" />
+      <div className="absolute inset-0 bg-white/10" />
       <div
         className="absolute inset-0 opacity-[0.10]"
         style={{
@@ -524,14 +534,14 @@ const resolveSelection = (termId: string, definitionId: string) => {
         }}
       />
 
-      <header className="relative z-20 pt-[max(env(safe-area-inset-top),14px)] px-4 pb-3 flex items-center justify-between gap-3 pointer-events-none">
+      <header className="relative z-20 pt-[max(env(safe-area-inset-top),8px)] px-3 sm:px-4 pb-2 flex items-center justify-between gap-3 pointer-events-none">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-11 h-11 rounded-2xl bg-slate-950/60 border border-white/15 backdrop-blur-xl flex items-center justify-center text-sky-200 shadow-[0_16px_36px_rgba(0,0,0,0.30)]">
+          <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600 shadow-[0_16px_36px_rgba(0,0,0,0.30)]">
             <Puzzle className="w-6 h-6" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-base font-black truncate drop-shadow-sm">طابق المفهوم</h1>
-            <p className="text-[10px] font-bold text-slate-200/90 truncate">اربط المفهوم بالتعريف الصحيح 🧩</p>
+            <h1 className="text-sm sm:text-base font-black text-slate-900 truncate">طابق المفهوم</h1>
+            <p className="text-[10px] font-bold text-slate-500 truncate">اربط المفهوم بالتعريف الصحيح 🧩</p>
           </div>
         </div>
 
@@ -539,7 +549,7 @@ const resolveSelection = (termId: string, definitionId: string) => {
           <button
             type="button"
             onClick={() => setSoundEnabled(prev => !prev)}
-            className={`w-10 h-10 rounded-2xl border backdrop-blur-xl flex items-center justify-center active:scale-95 shadow-[0_16px_36px_rgba(0,0,0,0.26)] ${soundEnabled ? 'bg-emerald-500/20 border-emerald-200/30 text-emerald-100' : 'bg-slate-950/55 border-white/15 text-slate-300'}`}
+            className={`w-10 h-10 rounded-2xl border backdrop-blur-xl flex items-center justify-center active:scale-95 shadow-[0_16px_36px_rgba(0,0,0,0.26)] ${soundEnabled ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-white border-slate-200 text-slate-500'}`}
             aria-label="تشغيل أو إيقاف الصوت"
           >
             <Volume2 className="w-5 h-5" />
@@ -547,7 +557,7 @@ const resolveSelection = (termId: string, definitionId: string) => {
           <button
             type="button"
             onClick={onClose}
-            className="w-10 h-10 rounded-2xl bg-slate-950/60 border border-white/15 backdrop-blur-xl flex items-center justify-center active:scale-95 shadow-[0_16px_36px_rgba(0,0,0,0.30)]"
+            className="w-10 h-10 rounded-2xl bg-white border border-slate-200 flex items-center justify-center active:scale-95 shadow-[0_16px_36px_rgba(0,0,0,0.30)]"
             aria-label="إغلاق اللعبة"
           >
             <X className="w-5 h-5" />
@@ -555,16 +565,16 @@ const resolveSelection = (termId: string, definitionId: string) => {
         </div>
       </header>
 
-      <main className="relative z-10 h-[calc(100dvh-78px)] overflow-y-auto overscroll-contain custom-scrollbar px-4 pb-[calc(env(safe-area-inset-bottom)+122px)]">
-        <div className="max-w-5xl mx-auto min-h-full flex flex-col justify-center py-4">
+      <main className="relative z-10 h-[calc(100dvh-62px)] overflow-y-auto overscroll-contain custom-scrollbar px-3 sm:px-4 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+        <div className="max-w-6xl mx-auto min-h-full flex flex-col justify-start sm:justify-center py-3 sm:py-4">
           {gameState === 'menu' && (
-            <section className="max-w-xl mx-auto w-full rounded-[2rem] border border-white/15 bg-slate-950/72 backdrop-blur-xl p-6 text-center shadow-[0_28px_70px_rgba(0,0,0,0.40)] relative overflow-hidden">
+            <section className="max-w-lg mx-auto w-full rounded-3xl border border-slate-200 bg-white/95 backdrop-blur-xl p-5 sm:p-6 text-center shadow-[0_28px_70px_rgba(0,0,0,0.40)] relative overflow-hidden">
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-sky-300 via-emerald-300 to-yellow-300" />
               <div className="mx-auto w-20 h-20 rounded-[2rem] bg-gradient-to-br from-sky-300 to-emerald-400 flex items-center justify-center shadow-[0_20px_42px_rgba(56,189,248,0.32)] mb-4">
                 <Layers3 className="w-10 h-10 text-slate-950" />
               </div>
-              <h2 className="text-3xl font-black mb-2">تحدي طابق المفهوم</h2>
-              <p className="text-sm font-bold text-slate-200 leading-7 mb-5">
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">تحدي طابق المفهوم</h2>
+              <p className="text-sm font-bold text-slate-600 leading-7 mb-5">
                 اختر مفهومًا من العمود الأول ثم اختر تعريفه الصحيح من العمود الثاني. البطاقات المتطابقة ستُقفل تلقائيًا.
               </p>
 
@@ -587,46 +597,46 @@ const resolveSelection = (termId: string, definitionId: string) => {
           )}
 
           {gameState === 'playing' && (
-            <section className="space-y-4">
+            <section className="space-y-3">
               <div className="grid grid-cols-4 gap-2">
-                <div className="rounded-2xl bg-slate-950/80 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
-                  <p className="text-[9px] font-black text-slate-100 mb-1">النقاط</p>
-                  <p className="text-lg font-black text-yellow-300 drop-shadow">{score}</p>
+                <div className="rounded-2xl bg-white border border-slate-200 p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+                  <p className="text-[9px] font-black text-slate-500 mb-1">النقاط</p>
+                  <p className="text-lg font-black text-indigo-600">{score}</p>
                 </div>
-                <div className="rounded-2xl bg-slate-950/80 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
-                  <p className="text-[9px] font-black text-slate-100 mb-1">مطابقة</p>
-                  <p className="text-lg font-black text-emerald-300 drop-shadow">{matched}/{gamePairs.length}</p>
+                <div className="rounded-2xl bg-white border border-slate-200 p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+                  <p className="text-[9px] font-black text-slate-500 mb-1">مطابقة</p>
+                  <p className="text-lg font-black text-emerald-600">{matched}/{gamePairs.length}</p>
                 </div>
-                <div className="rounded-2xl bg-slate-950/80 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
-                  <p className="text-[9px] font-black text-slate-100 mb-1">خطأ</p>
-                  <p className="text-lg font-black text-red-300 drop-shadow">{wrong}</p>
+                <div className="rounded-2xl bg-white border border-slate-200 p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+                  <p className="text-[9px] font-black text-slate-500 mb-1">خطأ</p>
+                  <p className="text-lg font-black text-red-600">{wrong}</p>
                 </div>
-                <div className="rounded-2xl bg-slate-950/80 border border-white/20 backdrop-blur-xl p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
-                  <p className="text-[9px] font-black text-slate-100 mb-1">محاولات</p>
-                  <p className="text-lg font-black text-red-300 drop-shadow flex items-center justify-center gap-1"><Heart className="w-4 h-4" />{lives}</p>
+                <div className="rounded-2xl bg-white border border-slate-200 p-2.5 text-center shadow-[0_14px_32px_rgba(0,0,0,0.35)]">
+                  <p className="text-[9px] font-black text-slate-500 mb-1">محاولات</p>
+                  <p className="text-lg font-black text-red-600 flex items-center justify-center gap-1"><Heart className="w-4 h-4" />{lives}</p>
                 </div>
               </div>
 
-              <div className="rounded-full bg-slate-950/45 border border-white/10 h-3 overflow-hidden">
+              <div className="rounded-full bg-slate-200 border border-slate-300 h-3 overflow-hidden">
                 <div className="h-full bg-gradient-to-l from-emerald-300 to-sky-300 transition-all duration-300" style={{ width: `${Math.max(4, progress)}%` }} />
               </div>
 
               {/* 👇 تم تغيير grid-cols-1 إلى grid-cols-2 لكي يظهرا بجانب بعضهما دائماً */}
-              <div className="grid grid-cols-2 gap-2 sm:gap-4">
-                <div className="rounded-[1.2rem] sm:rounded-[1.8rem] bg-slate-950/62 border border-sky-200/20 backdrop-blur-xl p-2 sm:p-3 shadow-[0_22px_54px_rgba(0,0,0,0.34)]">
+              <div className="grid grid-cols-2 gap-2 sm:gap-4 min-h-0">
+                <div className="rounded-[1.2rem] sm:rounded-[1.8rem] bg-sky-50/90 border border-sky-200 p-2 sm:p-3 shadow-[0_22px_54px_rgba(0,0,0,0.34)]">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between px-1 sm:px-2 mb-2 sm:mb-3 gap-1">
-                    <h3 className="text-xs sm:text-sm font-black text-sky-100 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />المفاهيم</h3>
-                    <span className="text-[9px] sm:text-[10px] font-black text-slate-300">اختر بطاقة</span>
+                    <h3 className="text-xs sm:text-sm font-black text-sky-800 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />المفاهيم</h3>
+                    <span className="text-[9px] sm:text-[10px] font-black text-slate-500">اختر بطاقة</span>
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:gap-2.5">
                     {terms.map((card, index) => renderCard(card, index))}
                   </div>
                 </div>
 
-                <div className="rounded-[1.2rem] sm:rounded-[1.8rem] bg-slate-950/62 border border-emerald-200/20 backdrop-blur-xl p-2 sm:p-3 shadow-[0_22px_54px_rgba(0,0,0,0.34)]">
+                <div className="rounded-[1.2rem] sm:rounded-[1.8rem] bg-emerald-50/90 border border-emerald-200 p-2 sm:p-3 shadow-[0_22px_54px_rgba(0,0,0,0.34)]">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between px-1 sm:px-2 mb-2 sm:mb-3 gap-1">
-                    <h3 className="text-xs sm:text-sm font-black text-emerald-100 flex items-center gap-1.5"><Link2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />التعريفات</h3>
-                    <span className="text-[9px] sm:text-[10px] font-black text-slate-300">طابقها</span>
+                    <h3 className="text-xs sm:text-sm font-black text-emerald-800 flex items-center gap-1.5"><Link2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />التعريفات</h3>
+                    <span className="text-[9px] sm:text-[10px] font-black text-slate-500">طابقها</span>
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:gap-2.5">
                     {definitions.map((card, index) => renderCard(card, index))}
@@ -634,11 +644,11 @@ const resolveSelection = (termId: string, definitionId: string) => {
                 </div>
               </div>
               {feedback && (
-                <div className={`rounded-3xl border p-4 shadow-[0_18px_40px_rgba(0,0,0,0.35)] ${feedback.type === 'correct' ? 'bg-emerald-950/85 border-emerald-300/50' : 'bg-red-950/85 border-red-300/50'}`}>
-                  <p className={`text-base font-black mb-2 ${feedback.type === 'correct' ? 'text-emerald-200' : 'text-red-200'}`}>{feedback.message}</p>
+                <div className={`fixed z-[2147483647] left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+12px)] max-w-xl mx-auto rounded-2xl border p-3 shadow-xl ${feedback.type === 'correct' ? 'bg-emerald-50 border-emerald-300' : 'bg-red-50 border-red-300'}`}>
+                  <p className={`text-base font-black mb-2 ${feedback.type === 'correct' ? 'text-emerald-700' : 'text-red-700'}`}>{feedback.message}</p>
                   {feedback.detail && (
-                    <div className="rounded-2xl bg-white/10 border border-white/10 p-3">
-                      <p className="text-[12px] font-bold text-white leading-7 break-words whitespace-pre-wrap">{feedback.detail}</p>
+                    <div className="rounded-2xl bg-white border border-slate-200 p-3">
+                      <p className="text-[12px] font-bold text-slate-700 leading-6 break-words whitespace-pre-wrap">{feedback.detail}</p>
                     </div>
                   )}
                 </div>
@@ -647,11 +657,11 @@ const resolveSelection = (termId: string, definitionId: string) => {
           )}
 
           {gameState === 'finished' && (
-            <section className="max-w-xl mx-auto w-full rounded-[2rem] border border-white/15 bg-slate-950/72 backdrop-blur-xl p-6 text-center shadow-[0_28px_70px_rgba(0,0,0,0.40)] relative overflow-hidden">
+            <section className="max-w-lg mx-auto w-full rounded-3xl border border-slate-200 bg-white/95 backdrop-blur-xl p-5 sm:p-6 text-center shadow-[0_28px_70px_rgba(0,0,0,0.40)] relative overflow-hidden">
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-yellow-300 via-emerald-300 to-sky-300" />
-              <Trophy className="w-16 h-16 mx-auto text-yellow-200 mb-3 drop-shadow" />
-              <h2 className="text-3xl font-black mb-2">انتهت المطابقة</h2>
-              <p className="text-sm font-bold text-slate-200 leading-7 mb-5">
+              <Trophy className="w-16 h-16 mx-auto text-amber-500 mb-3 drop-shadow" />
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">انتهت المطابقة</h2>
+              <p className="text-sm font-bold text-slate-600 leading-7 mb-5">
                 طابقت {matched} من {gamePairs.length} أزواج، وأخطأت {wrong} مرة. نتيجتك {score} نقطة.
               </p>
               <button
