@@ -104,7 +104,7 @@ const buildLayout = (
 ): TileLayout => {
   const rows = Math.ceil(boardSize / columns);
   const padding = Math.max(10, Math.min(width, height) * 0.035);
-  const boardW = Math.max(220, Math.min(width - padding * 2, height - padding * 2));
+  const boardW = Math.max(1, Math.min(width - padding * 2, height - padding * 2));
   const tileSize = boardW / columns;
   const boardX = (width - boardW) / 2;
   const boardY = (height - boardW) / 2;
@@ -496,8 +496,8 @@ const SnakeLadderCanvasBoard: React.FC<SnakeLadderCanvasBoardProps> = ({
 
     const rect = wrapper.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const width = Math.max(240, Math.floor(rect.width));
-    const height = Math.max(240, Math.floor(rect.height));
+    const width = Math.max(1, Math.floor(rect.width));
+    const height = Math.max(1, Math.floor(rect.height));
 
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
@@ -518,8 +518,18 @@ const SnakeLadderCanvasBoard: React.FC<SnakeLadderCanvasBoardProps> = ({
 
   useEffect(() => {
     resize();
+    const wrapper = wrapperRef.current;
+    const observer = typeof ResizeObserver !== 'undefined' && wrapper
+      ? new ResizeObserver(() => resize())
+      : null;
+    if (wrapper && observer) observer.observe(wrapper);
     window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
+    window.addEventListener('orientationchange', resize);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('orientationchange', resize);
+    };
   }, [boardSize, columns]);
 
   useEffect(() => {
@@ -564,7 +574,7 @@ const SnakeLadderCanvasBoard: React.FC<SnakeLadderCanvasBoardProps> = ({
   );
 
   return (
-    <div ref={wrapperRef} className="relative w-full h-full min-h-[240px] overflow-hidden rounded-3xl bg-slate-100">
+    <div ref={wrapperRef} className="relative w-full h-full min-h-0 overflow-hidden rounded-3xl bg-slate-100">
       <canvas
         ref={canvasRef}
         className={canvasClassName}

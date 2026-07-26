@@ -344,7 +344,7 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
   };
 
   const statsBlock = (
-    <section className="grid grid-cols-4 lg:grid-cols-2 gap-2">
+    <section className="grid grid-cols-4 gap-2">
       <div className="bg-bgCard border border-borderColor rounded-2xl p-2.5 text-center shadow-sm">
         <p className="text-[8px] font-bold text-textSecondary mb-1">النقاط</p>
         <p className="text-base font-black text-primary">{score}</p>
@@ -386,7 +386,7 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
   );
 
   const controlBlock = (
-    <section className="bg-bgCard border border-borderColor rounded-3xl p-4 shadow-sm">
+    <section className="bg-bgCard border border-borderColor rounded-2xl p-3 shadow-sm">
       {completed ? (
         <div className="text-center">
           <Trophy className="w-11 h-11 text-warning mx-auto mb-2" />
@@ -454,14 +454,14 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
 
   return (
     <div className="fixed inset-0 z-[99999] bg-bgMain text-textPrimary flex flex-col" dir="rtl">
-      <header className="bg-bgCard border-b border-borderColor pt-[max(env(safe-area-inset-top),14px)] px-4 pb-3 shadow-sm shrink-0">
+      <header className="bg-bgCard border-b border-borderColor pt-[max(env(safe-area-inset-top),8px)] px-3 sm:px-4 pb-2 shadow-sm shrink-0">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
               <Dice5 className="w-6 h-6" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base font-black text-textPrimary truncate">السلم والثعبان التعليمي</h1>
+              <h1 className="text-sm sm:text-base font-black text-textPrimary truncate">السلم والثعبان التعليمي</h1>
               <p className="text-[10px] font-bold text-textSecondary truncate">لوحة Canvas تفاعلية مرتبطة بأسئلة المعلم 🐍🪜</p>
             </div>
           </div>
@@ -477,9 +477,9 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden overscroll-contain custom-scrollbar p-3 sm:p-4 pb-[calc(env(safe-area-inset-bottom)+168px)] lg:pb-4">
-        <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)] gap-3 sm:gap-4" dir="rtl">
-          <aside className="order-2 lg:order-1 space-y-3 lg:h-full lg:min-h-0 lg:overflow-y-auto custom-scrollbar lg:pb-2">
+      <main className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden overscroll-contain custom-scrollbar p-2.5 sm:p-4 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+        <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)] gap-3 sm:gap-4 lg:h-full" dir="rtl">
+          <aside className="order-2 lg:order-1 space-y-2.5 lg:h-full lg:min-h-0 lg:overflow-y-auto custom-scrollbar lg:pb-2">
             {!canPlay && (
               <section className="bg-warning/10 border border-warning/20 rounded-3xl p-4 text-center shadow-sm">
                 <HelpCircle className="w-10 h-10 text-warning mx-auto mb-3" />
@@ -492,7 +492,7 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
 
             {statsBlock}
 
-            <section className="bg-bgCard border border-borderColor rounded-3xl p-3 shadow-sm">
+            <section className="bg-bgCard border border-borderColor rounded-2xl p-2.5 shadow-sm">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
                   <Star className="w-4 h-4" />
@@ -507,8 +507,8 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
             {controlBlock}
           </aside>
 
-          <section className="order-1 lg:order-2 rounded-3xl overflow-hidden border border-borderColor shadow-card bg-bgCard min-h-[230px] lg:min-h-0 lg:h-full">
-            <div className="w-full h-[clamp(230px,calc(100dvh-390px),680px)] max-h-[680px] lg:h-full lg:min-h-0 lg:max-h-none bg-bgMain">
+          <section className="order-1 lg:order-2 rounded-3xl overflow-hidden border border-borderColor shadow-card bg-bgCard w-full min-h-0 lg:h-full flex items-start lg:items-center justify-center">
+            <div className="w-full aspect-square lg:aspect-auto lg:h-full lg:max-w-[min(100%,calc(100dvh-92px))] bg-bgMain">
               <SnakeLadderCanvasBoard
                 currentTile={position}
                 boardSize={BOARD_SIZE}
@@ -524,8 +524,8 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
       </main>
 
       {currentQuestion && (
-        <div className="fixed inset-0 z-[100000] bg-slate-900/30 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-bgCard border border-borderColor rounded-3xl p-5 shadow-elevated animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[100000] bg-slate-900/40 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-md max-h-[88dvh] overflow-y-auto bg-bgCard border border-borderColor rounded-3xl p-4 sm:p-5 shadow-elevated animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
                 <HelpCircle className="w-5 h-5" />
