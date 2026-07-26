@@ -116,7 +116,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const inputRef = useRef({ left: false, right: false, jump: false, run: false });
   const cameraRef = useRef(0);
   const dimensionsForCameraRef = useRef(1);
-  const environmentAssetsRef = useRef<{ gate?: HTMLImageElement; yard?: HTMLImageElement; terrain?: HTMLImageElement }>({});
+  const environmentAssetsRef = useRef<Record<string, HTMLImageElement>>({});
   const environmentReadyRef = useRef(false);
   const particlesRef = useRef<Particle[]>([]);
   const answeredRef = useRef(new Set<number>());
@@ -163,7 +163,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     setStateSafe(completed ? 'won' : 'gameover');
     const s = statsRef.current;
     onComplete({
-      gameType: 'super_taleb', score: s.score, pointsEarned: s.score, coins: s.coins, knowledgeStars: s.stars,
+      gameType: 'super_taleb', score: s.correct * 10, pointsEarned: s.correct * 10, coins: s.coins, knowledgeStars: s.stars,
       correctAnswers: s.correct, wrongAnswers: s.wrong, totalQuestions: answeredRef.current.size,
       weakQuestionIds: [...weakRef.current], level: 1, completed, playedAt: new Date().toISOString(),
     });
@@ -231,13 +231,26 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       image.onerror = () => reject(new Error(`Failed to load: ${src}`));
       image.src = src;
     });
-    Promise.all([
-      loadImage('/assets/games/super-taleb/level-1/source/background-school-gate.png'),
-      loadImage('/assets/games/super-taleb/level-1/source/background-school-yard.png'),
-      loadImage('/assets/games/super-taleb/level-1/source/terrain-atlas.png')
-    ]).then(([gate, yard, terrain]) => {
+    const assetPaths: Record<string, string> = {
+      gate: '/assets/games/super-taleb/level-1/source/background-school-gate.png',
+      yard: '/assets/games/super-taleb/level-1/source/background-school-yard.png',
+      groundMain: '/assets/games/super-taleb/level-1/runtime/ground-main.webp',
+      groundGrassWide: '/assets/games/super-taleb/level-1/runtime/ground-grass-wide.webp',
+      groundStoneWide: '/assets/games/super-taleb/level-1/runtime/ground-stone-wide.webp',
+      platformLong: '/assets/games/super-taleb/level-1/runtime/platform-long.webp',
+      platformBridge: '/assets/games/super-taleb/level-1/runtime/platform-bridge.webp',
+      platformShort: '/assets/games/super-taleb/level-1/runtime/platform-short.webp',
+      platformStepWide: '/assets/games/super-taleb/level-1/runtime/platform-step-wide.webp',
+      bridgeLong: '/assets/games/super-taleb/level-1/runtime/bridge-long.webp',
+      platformGrassShort: '/assets/games/super-taleb/level-1/runtime/platform-grass-short.webp',
+      questionBlock: '/assets/games/super-taleb/level-1/runtime/question-block.webp',
+      rewardCrate: '/assets/games/super-taleb/level-1/runtime/reward-crate.webp',
+      knowledgeBlock: '/assets/games/super-taleb/level-1/runtime/knowledge-block.webp',
+      classroomDoor: '/assets/games/super-taleb/level-1/runtime/classroom-door.webp'
+    };
+    Promise.all(Object.entries(assetPaths).map(async ([key, path]) => [key, await loadImage(path)] as const)).then(entries => {
       if (cancelled) return;
-      environmentAssetsRef.current = { gate, yard, terrain };
+      environmentAssetsRef.current = Object.fromEntries(entries);
       environmentReadyRef.current = true;
     }).catch(error => {
       console.warn('Super Taleb environment assets fallback to Canvas', error);
@@ -341,28 +354,28 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       }
     };
     const drawPlatform = (p: Platform, cam: number) => {
-      const x = p.x - cam; if (x + p.w < -50 || x > canvas.clientWidth + 50) return;
-      ctx.save();
-      roundRect(x, p.y, p.w, p.h, 8); ctx.clip();
-      const terrain = environmentAssetsRef.current.terrain;
-      if (environmentReadyRef.current && terrain && p.kind !== 'moving') {
-        // Use the generated terrain atlas as the real foreground material.
-        const sourceY = Math.floor(terrain.naturalHeight * .55);
-        const sourceH = Math.max(1, terrain.naturalHeight - sourceY);
-        const tileW = Math.max(180, Math.min(420, p.w));
-        for (let tx = x; tx < x + p.w; tx += tileW) {
-          ctx.drawImage(terrain, 0, sourceY, terrain.naturalWidth, sourceH, tx, p.y, tileW + 1, p.h);
-        }
-        ctx.fillStyle = 'rgba(85,45,20,.13)'; ctx.fillRect(x, p.y, p.w, p.h);
-      } else {
-        ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#8B5A2B' : '#7A4A22'; ctx.fillRect(x, p.y, p.w, p.h);
+      const x = p.x - cam;
+      if (x + p.w < -50 || x > canvas.clientWidth / Math.max(.45, dimensionsForCameraRef.current) + 50) return;
+      const assets = environmentAssetsRef.current;
+      let image: HTMLImageElement | undefined;
+      if (environmentReadyRef.current) {
+        if (p.kind === 'ground') image = p.w > 800 ? assets.groundMain : assets.groundGrassWide;
+        else if (p.kind === 'wood') image = assets.bridgeLong || assets.platformBridge;
+        else if (p.kind === 'moving') image = assets.platformBridge || assets.platformShort;
+        else if (p.w >= 165) image = assets.platformLong;
+        else if (p.w >= 145) image = assets.platformStepWide || assets.platformShort;
+        else image = assets.platformGrassShort || assets.platformShort;
       }
-      ctx.restore();
-      ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#D89B54' : '#E4C18B'; ctx.fillRect(x, p.y, p.w, Math.min(18, p.h));
-      ctx.fillStyle = '#3A9B43'; ctx.fillRect(x, p.y - 6, p.w, 8);
-      if (p.kind === 'wood' || p.kind === 'moving') { ctx.strokeStyle = '#5B351A'; ctx.lineWidth = 3; for (let xx = x + 25; xx < x + p.w; xx += 45) { ctx.beginPath(); ctx.moveTo(xx, p.y + 2); ctx.lineTo(xx, p.y + p.h - 2); ctx.stroke(); } }
+      if (image) {
+        // Each terrain element is an actual cropped asset with transparent background.
+        ctx.drawImage(image, x, p.y - (p.kind === 'ground' ? 8 : 2), p.w, p.h + (p.kind === 'ground' ? 8 : 2));
+      } else {
+        ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#8B5A2B' : '#7A4A22';
+        roundRect(x, p.y, p.w, p.h, 8); ctx.fill();
+        ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#D89B54' : '#E4C18B'; ctx.fillRect(x, p.y, p.w, Math.min(18, p.h));
+        ctx.fillStyle = '#3A9B43'; ctx.fillRect(x, p.y - 6, p.w, 8);
+      }
     };
-
     const drawCoin = (c: Coin, cam: number, time: number) => {
       if (c.collected) return; const x = c.x - cam; const s = 14 + Math.sin(time * 7 + c.x) * 2;
       const g = ctx.createRadialGradient(x - 4, c.y - 4, 2, x, c.y, s); g.addColorStop(0, '#FFF7AE'); g.addColorStop(.35, '#FACC15'); g.addColorStop(1, '#D97706'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, c.y, s * .72, s, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#FFF3A3'; ctx.lineWidth = 2; ctx.stroke();
@@ -370,11 +383,19 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     };
 
     const drawQuestionBox = (b: Box, cam: number, time: number) => {
-      const x = b.x - cam; if (x + b.w < 0 || x > canvas.clientWidth) return; const bob = b.opened ? 0 : Math.sin(time * 4 + b.x) * 3;
-      ctx.save(); ctx.translate(0, bob); roundRect(x, b.y, b.w, b.h, 10); ctx.fillStyle = b.opened ? '#64748B' : '#F59E0B'; ctx.fill(); ctx.strokeStyle = b.opened ? '#94A3B8' : '#FEF3C7'; ctx.lineWidth = 4; ctx.stroke();
-      ctx.fillStyle = '#FFF'; ctx.font = '900 34px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(b.opened ? '✓' : '?', x + b.w / 2, b.y + 40); ctx.restore();
+      const x = b.x - cam;
+      if (x + b.w < 0 || x > canvas.clientWidth / Math.max(.45, dimensionsForCameraRef.current)) return;
+      const bob = b.opened ? 0 : Math.sin(time * 4 + b.x) * 3;
+      const image = b.opened ? environmentAssetsRef.current.rewardCrate : environmentAssetsRef.current.questionBlock;
+      ctx.save(); ctx.translate(0, bob);
+      if (environmentReadyRef.current && image) ctx.drawImage(image, x - 8, b.y - 10, b.w + 16, b.h + 18);
+      else {
+        roundRect(x, b.y, b.w, b.h, 10); ctx.fillStyle = b.opened ? '#64748B' : '#F59E0B'; ctx.fill();
+        ctx.strokeStyle = b.opened ? '#94A3B8' : '#FEF3C7'; ctx.lineWidth = 4; ctx.stroke();
+        ctx.fillStyle = '#FFF'; ctx.font = '900 34px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(b.opened ? '✓' : '?', x + b.w / 2, b.y + 40);
+      }
+      ctx.restore();
     };
-
     const drawEnemy = (e: Enemy, cam: number, time: number) => {
       if (!e.alive) return; const x = e.x - cam; const bob = Math.sin(time * 8 + e.x) * 2; ctx.save(); ctx.translate(x, e.y + bob);
       ctx.shadowColor = e.hitFlash > 0 ? '#FFF' : 'transparent'; ctx.shadowBlur = 18;
@@ -408,10 +429,17 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     };
 
     const drawDoor = (cam: number) => {
-      const x=5060-cam; if(x>canvas.clientWidth+150)return; roundRect(x,GROUND_Y-205,125,205,10); ctx.fillStyle='#E8D2A5'; ctx.fill(); ctx.strokeStyle='#8B5E34'; ctx.lineWidth=5; ctx.stroke(); roundRect(x+25,GROUND_Y-165,76,165,12); ctx.fillStyle='#183B56'; ctx.fill(); ctx.strokeStyle='#8EC5E8'; ctx.stroke(); ctx.fillStyle='#FACC15'; ctx.beginPath(); ctx.arc(x+88,GROUND_Y-78,5,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='#0F172A';ctx.font='700 19px sans-serif';ctx.textAlign='center';ctx.fillText('الفصل الدراسي',x+62,GROUND_Y-220);
+      const x = 5060 - cam;
+      if (x > canvas.clientWidth / Math.max(.45, dimensionsForCameraRef.current) + 180) return;
+      const door = environmentAssetsRef.current.classroomDoor;
+      if (environmentReadyRef.current && door) {
+        ctx.drawImage(door, x - 35, GROUND_Y - 260, 195, 260);
+      } else {
+        roundRect(x, GROUND_Y - 205, 125, 205, 10); ctx.fillStyle = '#E8D2A5'; ctx.fill(); ctx.strokeStyle = '#8B5E34'; ctx.lineWidth = 5; ctx.stroke();
+        roundRect(x + 25, GROUND_Y - 165, 76, 165, 12); ctx.fillStyle = '#183B56'; ctx.fill(); ctx.strokeStyle = '#8EC5E8'; ctx.stroke();
+      }
+      ctx.fillStyle = '#0F172A'; ctx.font = '700 19px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('الفصل الدراسي', x + 62, GROUND_Y - 272);
     };
-
     const update = (dt: number, w: number) => {
       if (stateRef.current !== 'playing' || showIntro) return;
       const p=playerRef.current, inp=inputRef.current; const speed=inp.run?RUN_SPEED:MOVE_SPEED;
@@ -425,10 +453,10 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         if(p.vy>=0 && prevY+p.h<=plat.y+10 && p.y+p.h>=plat.y && p.x+p.w>plat.x+5 && p.x<plat.x+plat.w-5){p.y=plat.y-p.h;p.vy=0;p.grounded=true;if(plat.kind==='moving')p.x+=(plat.vx||0)*dt;}
       }
       if(p.y>850){statsRef.current.lives--;syncStats();if(statsRef.current.lives<=0){finish(false);return;}p.x=Math.max(80,cameraRef.current+100);p.y=GROUND_Y-PLAYER_H;p.vx=0;p.vy=0;p.invincible=1.5;}
-      for(const c of levelRef.current.coins){if(!c.collected&&overlap(p,{x:c.x-16,y:c.y-18,w:32,h:36})){c.collected=true;statsRef.current.coins++;statsRef.current.score+=2;spawnBurst(c.x,c.y,'#FACC15',8);syncStats();}}
+      for(const c of levelRef.current.coins){if(!c.collected&&overlap(p,{x:c.x-16,y:c.y-18,w:32,h:36})){c.collected=true;statsRef.current.coins++;spawnBurst(c.x,c.y,'#FACC15',8);syncStats();}}
       for(const b of levelRef.current.boxes){if(!b.opened&&overlap(p,b)){openQuestion(b);break;}}
       for(const e of levelRef.current.enemies){if(!e.alive)continue;e.x+=e.vx*dt;if(e.x<e.minX||e.x+e.w>e.maxX){e.vx*=-1;e.x=clamp(e.x,e.minX,e.maxX-e.w);}e.hitFlash=Math.max(0,e.hitFlash-dt);
-        if(overlap(p,e)&&p.invincible<=0){const stomp=p.vy>120&&prevY+p.h<=e.y+18;if(stomp){e.hp--;e.hitFlash=.2;p.vy=-520;spawnBurst(e.x+e.w/2,e.y+10,'#F59E0B',12);if(e.hp<=0){e.alive=false;statsRef.current.score+=e.kind==='report'?12:6;syncStats();}}else{statsRef.current.lives--;syncStats();p.invincible=1.4;p.vx=-p.facing*300;p.vy=-420;if(statsRef.current.lives<=0){finish(false);return;}}}
+        if(overlap(p,e)&&p.invincible<=0){const stomp=p.vy>120&&prevY+p.h<=e.y+18;if(stomp){e.hp--;e.hitFlash=.2;p.vy=-520;spawnBurst(e.x+e.w/2,e.y+10,'#F59E0B',12);if(e.hp<=0){e.alive=false;syncStats();}}else{statsRef.current.lives--;syncStats();p.invincible=1.4;p.vx=-p.facing*300;p.vy=-420;if(statsRef.current.lives<=0){finish(false);return;}}}
       }
       if(p.x>5000){finish(true);return;}
       const logicalW = w / (dimensionsForCameraRef.current || 1); const target=clamp(p.x-logicalW*.32,0,WORLD_W-logicalW);cameraRef.current+= (target-cameraRef.current)*Math.min(1,dt*6);
@@ -438,10 +466,9 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     const render = (timeMs: number) => {
       const w=canvas.clientWidth,h=canvas.clientHeight,t=timeMs/1000,cam=cameraRef.current;ctx.clearRect(0,0,w,h);
       ctx.save(); const portraitView = h > w;
-      const heightFit = h / 690;
-      const sceneScale = portraitView ? clamp(h / 760, .78, 1.08) : clamp(heightFit, .58, .88);
+      const sceneScale = portraitView ? clamp(h / 760, .78, 1.08) : clamp(h / 570, .78, 1.02);
       dimensionsForCameraRef.current = sceneScale;
-      const sy = portraitView ? Math.max(0, (h - 760 * sceneScale) / 2) : Math.min(0, h - (GROUND_Y + 12) * sceneScale);
+      const sy = portraitView ? Math.max(0, (h - 760 * sceneScale) / 2) : h - (GROUND_Y + 28) * sceneScale;
       ctx.translate(0, sy);
       ctx.scale(sceneScale, sceneScale);
       drawBackground(w / sceneScale, 760, cam);
@@ -497,13 +524,13 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     </Card></Overlay>}
 
     {gameState==='question' && activeQuestion && <Overlay blur>
-      <div style={{width:orientation==='landscape'?'min(720px,72vw)':'min(640px,92vw)',maxHeight:orientation==='landscape'?'82vh':'90vh',overflowY:'auto',background:'#fff',border:'3px solid #38BDF8',borderRadius:orientation==='landscape'?20:28,padding:orientation==='landscape'?16:24,boxShadow:'0 25px 80px rgba(0,0,0,.42)'}}>
+      <div style={{width:orientation==='landscape'?'min(560px,58vw)':'min(640px,92vw)',maxHeight:orientation==='landscape'?'70vh':'90vh',overflowY:'auto',background:'#fff',border:'3px solid #38BDF8',borderRadius:orientation==='landscape'?20:28,padding:orientation==='landscape'?12:24,boxShadow:'0 25px 80px rgba(0,0,0,.42)'}}>
         <div style={{color:'#0369A1',fontWeight:900,fontSize:18}}>⚡ صندوق المعرفة</div>
-        <h2 style={{color:'#0F172A',fontSize:orientation==='landscape'?'clamp(20px,2.5vw,28px)':'clamp(22px,4vw,34px)',margin:orientation==='landscape'?'8px 0 12px':'14px 0 20px',lineHeight:1.5}}>{activeQuestion.q.question}</h2>
+        <h2 style={{color:'#0F172A',fontSize:orientation==='landscape'?'clamp(17px,2vw,23px)':'clamp(22px,4vw,34px)',margin:orientation==='landscape'?'8px 0 12px':'14px 0 20px',lineHeight:1.5}}>{activeQuestion.q.question}</h2>
         <div style={{display:'grid',gap:11}}>{activeQuestion.q.options.map((o,i)=>{
           const correct=i===getCorrectIndex(activeQuestion.q); const chosen=selectedAnswer===i; let bg='#fff',border='#BAE6FD',color='#0F172A';
           if(selectedAnswer!==null&&correct){bg='#16A34A';border='#15803D';color='#fff';}else if(chosen){bg='#EF4444';border='#B91C1C';color='#fff';}
-          return <button key={i} disabled={selectedAnswer!==null} onClick={()=>answer(i)} style={{display:'flex',gap:12,alignItems:'center',padding:orientation==='landscape'?'10px 14px':'15px 17px',borderRadius:16,border:`2px solid ${border}`,background:bg,color,fontSize:orientation==='landscape'?16:18,fontWeight:800,textAlign:'right'}}><span style={{width:34,height:34,borderRadius:10,display:'grid',placeItems:'center',background:chosen||correct?'rgba(255,255,255,.22)':'#E0F2FE'}}>{i+1}</span>{o}</button>
+          return <button key={i} disabled={selectedAnswer!==null} onClick={()=>answer(i)} style={{display:'flex',gap:12,alignItems:'center',padding:orientation==='landscape'?'8px 12px':'15px 17px',borderRadius:16,border:`2px solid ${border}`,background:bg,color,fontSize:orientation==='landscape'?15:18,fontWeight:800,textAlign:'right'}}><span style={{width:34,height:34,borderRadius:10,display:'grid',placeItems:'center',background:chosen||correct?'rgba(255,255,255,.22)':'#E0F2FE'}}>{i+1}</span>{o}</button>
         })}</div>
         {feedback&&<div style={{marginTop:14,fontWeight:900,color:feedback==='correct'?'#15803D':'#B91C1C',fontSize:20}}>{feedback==='correct'?'أحسنت! حصلت على نجمة معرفة ⭐':'حاول في الصندوق التالي، تستطيع النجاح'}</div>}
       </div>
@@ -521,7 +548,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
 function Hud({text,color}:{text:string;color:string}){return <div style={{padding:'9px 13px',borderRadius:14,background:'rgba(7,21,47,.84)',border:`1px solid ${color}88`,color:'#fff',fontWeight:900,fontSize:15,boxShadow:'0 8px 25px rgba(0,0,0,.18)'}}>{text}</div>}
 function Control({label,accent,onDown,onUp}:{label:string;accent?:boolean;onDown:()=>void;onUp:()=>void}){return <button onPointerDown={e=>{e.preventDefault();onDown()}} onPointerUp={e=>{e.preventDefault();onUp()}} onPointerCancel={onUp} onPointerLeave={onUp} style={{width:64,height:64,borderRadius:22,border:'2px solid rgba(255,255,255,.55)',background:accent?'linear-gradient(145deg,#F59E0B,#EA580C)':'rgba(7,21,47,.78)',color:'#fff',fontSize:label.length>1?16:27,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{label}</button>}
 function Overlay({children,blur}:{children:React.ReactNode;blur?:boolean}){return <div style={{position:'absolute',inset:0,display:'grid',placeItems:'center',padding:18,background:'rgba(2,12,32,.64)',backdropFilter:blur?'blur(5px)':'blur(2px)',overflow:'auto'}}>{children}</div>}
-function Card({children,compact=false}:{children:React.ReactNode;compact?:boolean}){return <div style={{width:compact?'min(620px,72vw)':'min(560px,92vw)',maxHeight:compact?'82vh':'90vh',overflowY:'auto',textAlign:'center',padding:compact?'18px 22px':'30px 26px',borderRadius:30,background:'linear-gradient(145deg,rgba(7,28,60,.98),rgba(10,54,91,.97))',border:'2px solid rgba(56,189,248,.65)',boxShadow:'0 30px 90px rgba(0,0,0,.53)',color:'#fff'}}>{children}</div>}
+function Card({children,compact=false}:{children:React.ReactNode;compact?:boolean}){return <div style={{width:compact?'min(480px,54vw)':'min(560px,92vw)',maxHeight:compact?'68vh':'90vh',overflowY:'auto',textAlign:'center',padding:compact?'12px 18px':'30px 26px',borderRadius:30,background:'linear-gradient(145deg,rgba(7,28,60,.98),rgba(10,54,91,.97))',border:'2px solid rgba(56,189,248,.65)',boxShadow:'0 30px 90px rgba(0,0,0,.53)',color:'#fff'}}>{children}</div>}
 function Stat({label,value}:{label:string;value:number}){return <div style={{padding:14,borderRadius:16,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.16)'}}><div style={{fontSize:24,fontWeight:950,color:'#FACC15'}}>{value}</div><div style={{fontSize:14,color:'#D7E7F6'}}>{label}</div></div>}
 const title:React.CSSProperties={margin:'8px 0',fontSize:'clamp(30px,6vw,48px)',fontWeight:950,color:'#F8FAFC'};
 const sub:React.CSSProperties={margin:'5px 0 12px',color:'#38BDF8',fontSize:19,fontWeight:900};
