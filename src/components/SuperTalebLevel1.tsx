@@ -297,7 +297,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    const ctx = canvas.getContext('2d'); if (!ctx) return; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
 
     const resize = () => {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -346,7 +346,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         const shade = ctx.createLinearGradient(0, 0, 0, h);
         shade.addColorStop(0, 'rgba(7,21,47,.02)');
         shade.addColorStop(.72, 'rgba(7,21,47,.02)');
-        shade.addColorStop(1, 'rgba(7,21,47,.20)');
+        shade.addColorStop(1, 'rgba(7,21,47,.08)');
         ctx.fillStyle = shade; ctx.fillRect(0, 0, w, h);
       } else {
         // Visual fallback until the source images finish decoding.
@@ -417,7 +417,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     const drawQuestionBox = (b: Box, cam: number, time: number) => {
       const x = b.x - cam;
       if (x + b.w < 0 || x > canvas.clientWidth / Math.max(.45, dimensionsForCameraRef.current)) return;
-      const bob = b.opened ? 0 : Math.sin(time * 4 + b.x) * 3;
+      const bob = b.opened ? 0 : Math.sin(time * 3 + b.x) * 1;
       const image = b.opened ? environmentAssetsRef.current.woodCrate : environmentAssetsRef.current.questionBox;
       ctx.save(); ctx.translate(0, bob);
       if (environmentReadyRef.current && image) ctx.drawImage(image, x - 8, b.y - 10, b.w + 16, b.h + 18);
@@ -436,7 +436,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       if (e.vx < 0) { ctx.translate(x + e.w, e.y + bob); ctx.scale(-1,1); }
       else ctx.translate(x, e.y + bob);
       if(e.hitFlash>0){ctx.shadowColor='#FFF';ctx.shadowBlur=18;}
-      if(environmentReadyRef.current&&image)ctx.drawImage(image,-8,-14,e.w+16,e.h+20);
+      if(environmentReadyRef.current&&image)ctx.drawImage(image,-6,0,e.w+12,e.h);
       else{ctx.fillStyle=e.kind==='worksheet'?'#F7F0DF':'#5B21B6';roundRect(0,0,e.w,e.h,9);ctx.fill();}
       ctx.restore();
     };
@@ -466,8 +466,8 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       if(environmentReadyRef.current&&image){
         const raw=Math.floor(time*anim.fps);
         const frame=anim.loop?raw%anim.frames:Math.min(anim.frames-1,raw%anim.frames);
-        const visualH=112, visualW=112;
-        ctx.drawImage(image,frame*256,0,256,256,-visualW/2,-visualH*(228/256),visualW,visualH);
+        const visualH=122, visualW=122;
+        ctx.drawImage(image,frame*256,0,256,256,-visualW/2,-visualH*(228/256)+14,visualW,visualH);
       }else{
         ctx.fillStyle='#fff';roundRect(-p.w/2,-p.h,p.w,p.h,12);ctx.fill();
       }
