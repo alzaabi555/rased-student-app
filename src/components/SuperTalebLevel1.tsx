@@ -112,7 +112,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const stateRef = useRef<GameState>('menu');
   const questionPool = useMemo(() => (questions?.length ? questions : fallbackQuestions), [questions]);
   const levelRef = useRef(createLevel(questionPool.length));
-  const playerRef = useRef({ x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0, supportIndex: -1, landTimer: 0 });
+  const playerRef = useRef({ x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0, supportIndex: -1, landTimer: 0, checkpointX: 105, hazardCooldown: 0 });
   const inputRef = useRef({ left: false, right: false, jump: false, run: false });
   const cameraRef = useRef(0);
   const dimensionsForCameraRef = useRef(1);
@@ -149,7 +149,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     if (answerTimerRef.current) { window.clearTimeout(answerTimerRef.current); answerTimerRef.current = null; }
     answerLockedRef.current = false;
     levelRef.current = createLevel(questionPool.length);
-    playerRef.current = { x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0, supportIndex: -1, landTimer: 0 };
+    playerRef.current = { x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0, supportIndex: -1, landTimer: 0, checkpointX: 105, hazardCooldown: 0 };
     cameraRef.current = 0;
     particlesRef.current = [];
     answeredRef.current.clear(); weakRef.current = [];
@@ -199,7 +199,6 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     } else {
       statsRef.current.wrong += 1;
       if (!weakRef.current.includes(activeQuestion.q.id)) weakRef.current.push(activeQuestion.q.id);
-      statsRef.current.lives = Math.max(0, statsRef.current.lives - 1);
       if (activeBoxRef.current) spawnBurst(activeBoxRef.current.x + 29, activeBoxRef.current.y, '#EF4444', 10);
     }
     syncStats();
@@ -388,7 +387,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       let image: HTMLImageElement | undefined;
       if (environmentReadyRef.current) {
         if (p.kind === 'wood') image = a.woodBridge;
-        else if (p.kind === 'moving') image = a.grassPlatform || a.grassMediumB;
+        else if (p.kind === 'moving') image = a.grassMediumB || a.grassSmall;
         else if (p.kind === 'ground') image = p.w > 800 ? a.groundA : (p.w > 650 ? a.groundB : a.groundC);
         else if (p.w >= 165) image = a.stoneLong || a.grassMediumA;
         else if (p.w >= 145) image = a.grassMediumA || a.grassMediumB;
@@ -411,7 +410,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       if (c.collected) return;
       const x = c.x - cam, bob = Math.sin(time * 7 + c.x) * 3;
       const image = environmentAssetsRef.current.coin;
-      if (environmentReadyRef.current && image) ctx.drawImage(image, x - 18, c.y - 22 + bob, 36, 44);
+      if (environmentReadyRef.current && image) ctx.drawImage(image, x - 17, c.y - 17 + bob, 34, 34);
       else { ctx.fillStyle='#FACC15'; ctx.beginPath(); ctx.arc(x,c.y+bob,15,0,Math.PI*2);ctx.fill(); }
     };
     const drawQuestionBox = (b: Box, cam: number, time: number) => {
@@ -420,7 +419,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       const bob = b.opened ? 0 : Math.sin(time * 3 + b.x) * 1;
       const image = b.opened ? environmentAssetsRef.current.woodCrate : environmentAssetsRef.current.questionBox;
       ctx.save(); ctx.translate(0, bob);
-      if (environmentReadyRef.current && image) ctx.drawImage(image, x - 8, b.y - 10, b.w + 16, b.h + 18);
+      if (environmentReadyRef.current && image) ctx.drawImage(image, x - 4, b.y - 4, b.w + 8, b.h + 8);
       else {
         roundRect(x, b.y, b.w, b.h, 10); ctx.fillStyle = b.opened ? '#64748B' : '#F59E0B'; ctx.fill();
         ctx.strokeStyle = b.opened ? '#94A3B8' : '#FEF3C7'; ctx.lineWidth = 4; ctx.stroke();
@@ -435,7 +434,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       ctx.save();
       if (e.vx < 0) { ctx.translate(x + e.w, e.y + bob); ctx.scale(-1,1); }
       else ctx.translate(x, e.y + bob);
-      if(e.hitFlash>0){ctx.shadowColor='#FFF';ctx.shadowBlur=18;}
+      if(e.hitFlash>0){ctx.globalAlpha=.72;}
       if(environmentReadyRef.current&&image)ctx.drawImage(image,-6,0,e.w+12,e.h);
       else{ctx.fillStyle=e.kind==='worksheet'?'#F7F0DF':'#5B21B6';roundRect(0,0,e.w,e.h,9);ctx.fill();}
       ctx.restore();
@@ -491,7 +490,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       const movingLeft = inp.left && !inp.right;
       const movingRight = (inp.right && !inp.left) || (inp.run && !inp.left);
       p.vx = movingLeft ? -speed : movingRight ? speed : p.vx * .78; if(Math.abs(p.vx)<4)p.vx=0; if(p.vx)p.facing=Math.sign(p.vx);
-      if(inp.jump&&p.grounded){p.vy=-JUMP_SPEED;p.grounded=false;p.supportIndex=-1;inp.jump=false;spawnBurst(p.x+p.w/2,p.y+p.h,'#F8FAFC',6);} p.vy+=GRAVITY*dt; p.invincible=Math.max(0,p.invincible-dt);
+      if(inp.jump&&p.grounded){p.vy=-JUMP_SPEED;p.grounded=false;p.supportIndex=-1;inp.jump=false;spawnBurst(p.x+p.w/2,p.y+p.h,'#F8FAFC',6);} p.vy+=GRAVITY*dt; p.invincible=Math.max(0,p.invincible-dt); p.hazardCooldown=Math.max(0,p.hazardCooldown-dt);
       const prevY=p.y, wasGrounded=p.grounded, previousSupport=p.supportIndex;
       p.landTimer=Math.max(0,p.landTimer-dt);
       p.x=clamp(p.x+p.vx*dt,0,WORLD_W-p.w); p.y+=p.vy*dt; p.grounded=false; p.supportIndex=-1;
@@ -514,11 +513,53 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
           break;
         }
       }
-      if(p.y>850){statsRef.current.lives--;syncStats();if(statsRef.current.lives<=0){finish(false);return;}p.x=Math.max(80,cameraRef.current+100);p.y=GROUND_Y-PLAYER_H;p.vx=0;p.vy=0;p.supportIndex=-1;p.landTimer=0;p.invincible=1.5;}
+      // Save a safe checkpoint only while firmly standing on a broad ground section,
+      // away from gaps and enemies. This prevents respawning inside the same hazard.
+      if(p.grounded && p.supportIndex >= 0){
+        const support=levelRef.current.platforms[p.supportIndex];
+        if(support && support.kind==='ground'){
+          const candidate=clamp(p.x, support.x+70, support.x+support.w-p.w-70);
+          const farFromEnemy=levelRef.current.enemies.every(e=>!e.alive || Math.abs((e.x+e.w/2)-(candidate+p.w/2))>150);
+          const roomAhead=candidate>support.x+55 && candidate+p.w<support.x+support.w-55;
+          if(farFromEnemy && roomAhead) p.checkpointX=candidate;
+        }
+      }
+      if(p.y>850 && p.hazardCooldown<=0){
+        statsRef.current.lives--; syncStats();
+        if(statsRef.current.lives<=0){finish(false);return;}
+        p.x=clamp(p.checkpointX,70,WORLD_W-p.w-70); p.y=GROUND_Y-PLAYER_H;
+        p.vx=0; p.vy=0; p.grounded=false; p.supportIndex=-1; p.landTimer=0;
+        p.invincible=2.6; p.hazardCooldown=2.6;
+        inputRef.current.left=false; inputRef.current.right=false; inputRef.current.jump=false; inputRef.current.run=false;
+        setRunEnabled(false);
+        cameraRef.current=clamp(p.x-Math.max(0,w/(dimensionsForCameraRef.current||1))*.28,0,WORLD_W);
+      }
       for(const c of levelRef.current.coins){if(!c.collected&&overlap(p,{x:c.x-16,y:c.y-18,w:32,h:36})){c.collected=true;statsRef.current.coins++;spawnBurst(c.x,c.y,'#FACC15',8);syncStats();}}
       for(const b of levelRef.current.boxes){if(!b.opened&&overlap(p,b)){openQuestion(b);break;}}
       for(const e of levelRef.current.enemies){if(!e.alive)continue;e.x+=e.vx*dt;if(e.x<e.minX||e.x+e.w>e.maxX){e.vx*=-1;e.x=clamp(e.x,e.minX,e.maxX-e.w);}e.hitFlash=Math.max(0,e.hitFlash-dt);
-        if(overlap(p,e)&&p.invincible<=0){const stomp=p.vy>120&&prevY+p.h<=e.y+18;if(stomp){e.hp--;e.hitFlash=.2;p.vy=-520;spawnBurst(e.x+e.w/2,e.y+10,'#F59E0B',12);if(e.hp<=0){e.alive=false;syncStats();}}else{statsRef.current.lives--;syncStats();p.invincible=1.4;p.vx=-p.facing*300;p.vy=-420;if(statsRef.current.lives<=0){finish(false);return;}}}
+        // Use compact body hitboxes rather than the full transparent sprite rectangles.
+        // Contact is registered only when the visible bodies genuinely overlap.
+        const playerHit:Rect={x:p.x+p.w*.25,y:p.y+p.h*.18,w:p.w*.50,h:p.h*.76};
+        const enemyHit:Rect={x:e.x+e.w*.20,y:e.y+e.h*.20,w:e.w*.60,h:e.h*.72};
+        if(overlap(playerHit,enemyHit)&&p.invincible<=0&&p.hazardCooldown<=0){
+          const stomp=p.vy>140 && prevY+p.h<=e.y+e.h*.30;
+          if(stomp){
+            e.hp--; e.hitFlash=.2; p.vy=-520; p.grounded=false; p.supportIndex=-1;
+            spawnBurst(e.x+e.w/2,e.y+10,'#F59E0B',12);
+            if(e.hp<=0){e.alive=false;syncStats();}
+          }else{
+            statsRef.current.lives--; syncStats();
+            if(statsRef.current.lives<=0){finish(false);return;}
+            // Move the student to the opposite side with a guaranteed clearance gap.
+            const fromLeft=(p.x+p.w/2)<(e.x+e.w/2);
+            const separatedX=fromLeft ? e.x-p.w-46 : e.x+e.w+46;
+            p.x=clamp(separatedX,20,WORLD_W-p.w-20);
+            p.vx=fromLeft?-230:230; p.vy=-330; p.grounded=false; p.supportIndex=-1;
+            p.invincible=2.4; p.hazardCooldown=2.4;
+            inputRef.current.left=false; inputRef.current.right=false; inputRef.current.jump=false; inputRef.current.run=false;
+            setRunEnabled(false);
+          }
+        }
       }
       if(p.x>5000){finish(true);return;}
       const logicalW = w / (dimensionsForCameraRef.current || 1); const target=clamp(p.x-logicalW*.32,0,WORLD_W-logicalW);cameraRef.current+= (target-cameraRef.current)*Math.min(1,dt*6);
@@ -607,7 +648,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
           if(selectedAnswer!==null&&correct){bg='#16A34A';border='#15803D';color='#fff';}else if(chosen){bg='#EF4444';border='#B91C1C';color='#fff';}
           return <button key={i} disabled={selectedAnswer!==null} onClick={()=>answer(i)} style={{display:'flex',gap:12,alignItems:'center',padding:orientation==='landscape'?'8px 12px':'15px 17px',borderRadius:16,border:`2px solid ${border}`,background:bg,color,fontSize:orientation==='landscape'?15:18,fontWeight:800,textAlign:'right'}}><span style={{width:34,height:34,borderRadius:10,display:'grid',placeItems:'center',background:chosen||correct?'rgba(255,255,255,.22)':'#E0F2FE'}}>{i+1}</span>{o}</button>
         })}</div>
-        {feedback&&<div style={{marginTop:14,fontWeight:900,color:feedback==='correct'?'#15803D':'#B91C1C',fontSize:20}}>{feedback==='correct'?'أحسنت! حصلت على نجمة معرفة ⭐':'حاول في الصندوق التالي، تستطيع النجاح'}</div>}
+        {feedback&&<div style={{marginTop:14,fontWeight:900,color:feedback==='correct'?'#15803D':'#B91C1C',fontSize:20}}>{feedback==='correct'?'أحسنت! حصلت على نجمة معرفة ⭐':'إجابة غير صحيحة — لم تُضف نقاطًا، وتستمر المغامرة' }</div>}
       </div>
     </Overlay>}
 
