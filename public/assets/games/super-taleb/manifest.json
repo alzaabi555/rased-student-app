@@ -1,0 +1,90 @@
+{
+  "version": 10,
+  "player": {
+    "idle": {
+      "file": "player/idle.webp",
+      "frames": 7,
+      "fps": 5,
+      "loop": true,
+      "cellWidth": 256,
+      "cellHeight": 256,
+      "anchorX": 128,
+      "anchorY": 228
+    },
+    "walk": {
+      "file": "player/walk.webp",
+      "frames": 7,
+      "fps": 9,
+      "loop": true,
+      "cellWidth": 256,
+      "cellHeight": 256,
+      "anchorX": 128,
+      "anchorY": 228
+    },
+    "run": {
+      "file": "player/run.webp",
+      "frames": 7,
+      "fps": 12,
+      "loop": true,
+      "cellWidth": 256,
+      "cellHeight": 256,
+      "anchorX": 128,
+      "anchorY": 228
+    },
+    "jump": {
+      "file": "player/jump.webp",
+      "frames": 7,
+      "fps": 10,
+      "loop": false,
+      "cellWidth": 256,
+      "cellHeight": 256,
+      "anchorX": 128,
+      "anchorY": 228
+    },
+    "fall": {
+      "file": "player/fall.webp",
+      "frames": 5,
+      "fps": 7,
+      "loop": true,
+      "cellWidth": 256,
+      "cellHeight": 256,
+      "anchorX": 128,
+      "anchorY": 228
+    },
+    "land": {
+      "file": "player/land.webp",
+      "frames": 5,
+      "fps": 10,
+      "loop": false,
+      "cellWidth": 256,
+      "cellHeight": 256,
+      "anchorX": 128,
+      "anchorY": 228
+    },
+    "hit": {
+      "file": "player/hit.webp",
+      "frames": 6,
+      "fps": 10,
+      "loop": false,
+      "cellWidth": 256,
+      "cellHeight": 256,
+      "anchorX": 128,
+      "anchorY": 228
+    },
+    "victory": {
+      "file": "player/victory.webp",
+      "frames": 6,
+      "fps": 8,
+      "loop": false,
+      "cellWidth": 256,
+      "cellHeight": 256,
+      "anchorX": 128,
+      "anchorY": 228
+    }
+  },
+  "runtimeNotes": {
+    "scoreRule": "10 points per correct answer only",
+    "wrongAnswer": "no heart loss",
+    "terrainCollision": "visual top equals physics surface"
+  }
+}
