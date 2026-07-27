@@ -60,15 +60,7 @@ const overlap = (a: Rect, b: Rect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y 
 
 const createLevel = (questionCount: number) => {
   const platforms: Platform[] = [
-    // --- تم تعديل هذه المنطقة لحل مشكلة الجسر والمشي على التربة ---
-    // 1. قطعة العشب اليسرى
-    { x: 0, y: GROUND_Y, w: 300, h: 180, kind: 'ground' },
-    // 2. الجسر الخشبي في المنتصف (تم خفض مستوى y بمقدار 70 بكسل لكي ينزل الطالب إليه)
-    { x: 300, y: GROUND_Y + 70, w: 250, h: 30, kind: 'wood' },
-    // 3. قطعة العشب اليمنى
-    { x: 550, y: GROUND_Y, w: 300, h: 180, kind: 'ground' },
-    
-    // --- باقي المنصات كما هي ---
+    { x: 0, y: GROUND_Y, w: 850, h: 180, kind: 'ground' },
     { x: 940, y: GROUND_Y, w: 640, h: 180, kind: 'ground' },
     { x: 1720, y: GROUND_Y, w: 720, h: 180, kind: 'ground' },
     { x: 2560, y: GROUND_Y, w: 560, h: 180, kind: 'ground' },
@@ -120,8 +112,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const stateRef = useRef<GameState>('menu');
   const questionPool = useMemo(() => (questions?.length ? questions : fallbackQuestions), [questions]);
   const levelRef = useRef(createLevel(questionPool.length));
-  
-  const playerRef = useRef({ x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0, animTimer: 0 });
+  const playerRef = useRef({ x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0, supportIndex: -1, landTimer: 0 });
   const inputRef = useRef({ left: false, right: false, jump: false, run: false });
   const cameraRef = useRef(0);
   const dimensionsForCameraRef = useRef(1);
@@ -158,7 +149,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     if (answerTimerRef.current) { window.clearTimeout(answerTimerRef.current); answerTimerRef.current = null; }
     answerLockedRef.current = false;
     levelRef.current = createLevel(questionPool.length);
-    playerRef.current = { x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0, animTimer: 0 };
+    playerRef.current = { x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0, supportIndex: -1, landTimer: 0 };
     cameraRef.current = 0;
     particlesRef.current = [];
     answeredRef.current.clear(); weakRef.current = [];
@@ -241,14 +232,36 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       image.src = src;
     });
     const assetPaths: Record<string, string> = {
-      student: '/assets/games/super-taleb/level-1/runtime/student-sprite.png',
-      terrainAtlas: '/assets/games/super-taleb/level-1/runtime/terrain-atlas.png', // تم إضافة الأطلس
-      gate: '/assets/games/super-taleb/level-1/source/background-school-gate.png',
-      yard: '/assets/games/super-taleb/level-1/source/background-school-yard.png',
-      // تم الإبقاء على الأصول الأخرى كاحتياطي لتجنب أي أخطاء، ولكن سيتم استخدام الأطلس للمنصات
-      classroomDoor: '/assets/games/super-taleb/level-1/runtime/classroom-door.webp',
-      questionBlock: '/assets/games/super-taleb/level-1/runtime/question-block.webp',
-      rewardCrate: '/assets/games/super-taleb/level-1/runtime/reward-crate.webp'
+      bgGate: '/assets/games/super-taleb/backgrounds/school-gate.webp',
+      bgYard: '/assets/games/super-taleb/backgrounds/school-yard.webp',
+      bgCorridor: '/assets/games/super-taleb/backgrounds/school-corridor.webp',
+      bgClassroom: '/assets/games/super-taleb/backgrounds/classroom.webp',
+      playerIdle: '/assets/games/super-taleb/player/idle.webp',
+      playerWalk: '/assets/games/super-taleb/player/walk.webp',
+      playerRun: '/assets/games/super-taleb/player/run.webp',
+      playerJump: '/assets/games/super-taleb/player/jump.webp',
+      playerFall: '/assets/games/super-taleb/player/fall.webp',
+      playerLand: '/assets/games/super-taleb/player/land.webp',
+      playerHit: '/assets/games/super-taleb/player/hit.webp',
+      playerVictory: '/assets/games/super-taleb/player/victory.webp',
+      groundA: '/assets/games/super-taleb/terrain/grass-long-a.webp',
+      groundB: '/assets/games/super-taleb/terrain/grass-long-b.webp',
+      groundC: '/assets/games/super-taleb/terrain/grass-long-c.webp',
+      stoneGround: '/assets/games/super-taleb/terrain/stone-ground.webp',
+      stoneLong: '/assets/games/super-taleb/terrain/stone-long.webp',
+      grassMediumA: '/assets/games/super-taleb/terrain/grass-medium-a.webp',
+      grassMediumB: '/assets/games/super-taleb/terrain/grass-medium-b.webp',
+      grassSmall: '/assets/games/super-taleb/terrain/grass-small.webp',
+      grassPlatform: '/assets/games/super-taleb/terrain/grass-platform.webp',
+      woodBridge: '/assets/games/super-taleb/terrain/wood-bridge.webp',
+      worksheet: '/assets/games/super-taleb/enemies/worksheet.webp',
+      lateReport: '/assets/games/super-taleb/enemies/late-report.webp',
+      coin: '/assets/games/super-taleb/items/knowledge-coin.webp',
+      woodCrate: '/assets/games/super-taleb/items/wood-crate.webp',
+      questionBox: '/assets/games/super-taleb/items/question-box.webp',
+      knowledgeBook: '/assets/games/super-taleb/items/knowledge-book.webp',
+      classroomDoor: '/assets/games/super-taleb/items/classroom-door.webp',
+      finishFlag: '/assets/games/super-taleb/items/finish-flag.webp'
     };
     Promise.all(Object.entries(assetPaths).map(async ([key, path]) => [key, await loadImage(path)] as const)).then(entries => {
       if (cancelled) return;
@@ -309,17 +322,25 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
 
       const assets = environmentAssetsRef.current;
-      if (environmentReadyRef.current && assets.gate && assets.yard) {
+      if (environmentReadyRef.current && assets.bgGate && assets.bgYard) {
+        const drawCover = (image: HTMLImageElement, dx: number, dy: number, dw: number, dh: number) => {
+          const scale = Math.max(dw / image.naturalWidth, dh / image.naturalHeight);
+          const sw = dw / scale, sh = dh / scale;
+          const sx = Math.max(0, (image.naturalWidth - sw) / 2);
+          const sy = Math.max(0, image.naturalHeight - sh);
+          ctx.drawImage(image, sx, sy, Math.min(sw, image.naturalWidth), Math.min(sh, image.naturalHeight), dx, dy, dw, dh);
+        };
         const parallaxCam = cam * .30;
         const gateW = 1320;
         const drawFull = (image: HTMLImageElement, dx: number, dy: number, dw: number, dh: number) => {
           ctx.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, dx, dy, dw, dh);
         };
-        drawFull(assets.gate, -parallaxCam, 0, gateW, h);
+        // The opening always uses the complete school-gate artwork rather than a cropped center section.
+        drawFull(assets.bgGate, -parallaxCam, 0, gateW, h);
         const yardW = 1320;
         let yardX = gateW - parallaxCam - 20;
         while (yardX < w + yardW) {
-          drawFull(assets.yard, yardX, 0, yardW, h);
+          drawFull(cam > 3500 && assets.bgCorridor ? assets.bgCorridor : assets.bgYard, yardX, 0, yardW, h);
           yardX += yardW;
         }
         const shade = ctx.createLinearGradient(0, 0, 0, h);
@@ -328,6 +349,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         shade.addColorStop(1, 'rgba(7,21,47,.20)');
         ctx.fillStyle = shade; ctx.fillRect(0, 0, w, h);
       } else {
+        // Visual fallback until the source images finish decoding.
         ctx.save(); ctx.translate(-(cam * .08) % 1000, 0); ctx.fillStyle = '#94A3B8';
         for (let i = -1; i < 4; i++) { const x = i * 700; ctx.beginPath(); ctx.moveTo(x, 330); ctx.lineTo(x + 170, 180); ctx.lineTo(x + 330, 330); ctx.lineTo(x + 510, 145); ctx.lineTo(x + 700, 330); ctx.closePath(); ctx.fill(); }
         ctx.restore();
@@ -339,59 +361,64 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         ctx.restore();
       }
 
+      // Exact runtime text: no ministry-restricted word is embedded in the image.
       if (cam < 520) {
         const sx = 120 - cam * .85; roundRect(sx, 115, 390, 92, 16); ctx.fillStyle = 'rgba(248,231,200,.96)'; ctx.fill(); ctx.strokeStyle = '#8B5E34'; ctx.lineWidth = 5; ctx.stroke();
         ctx.fillStyle = '#0F172A'; ctx.textAlign = 'center'; ctx.font = '700 28px sans-serif'; ctx.fillText('مدرسة راصد للتعليم', sx + 195, 165);
         ctx.fillStyle = '#0B6FB8'; ctx.font = '700 18px sans-serif'; ctx.fillText('راصد', sx + 195, 192);
       }
     };
-    
+    const platformSurfaceY = (p: Platform, worldCenterX: number) => {
+      if (p.kind !== 'wood') return p.y;
+      const t = clamp((worldCenterX - p.x) / Math.max(1, p.w), 0, 1);
+      // Suspension bridge deck: high at both ends and naturally lower in the center.
+      return p.y + Math.sin(Math.PI * t) * 18;
+    };
+
+    const platformSlope = (p: Platform, worldCenterX: number) => {
+      if (p.kind !== 'wood') return 0;
+      const t = clamp((worldCenterX - p.x) / Math.max(1, p.w), 0, 1);
+      return Math.atan((18 * Math.PI / Math.max(1, p.w)) * Math.cos(Math.PI * t));
+    };
+
     const drawPlatform = (p: Platform, cam: number) => {
       const x = p.x - cam;
-      // لا ترسم المنصات الخارجة عن الشاشة لتخفيف الضغط
       if (x + p.w < -50 || x > canvas.clientWidth / Math.max(.45, dimensionsForCameraRef.current) + 50) return;
-      
-      const atlas = environmentAssetsRef.current.terrainAtlas;
-
-      if (environmentReadyRef.current && atlas) {
-        // إحداثيات القص من الصورة الشاملة terrain-atlas.png
-        let sx = 0, sy = 0, sw = 100, sh = 100;
-        
-        if (p.kind === 'ground') {
-          // قطعة التربة الرئيسية (السطر الثاني تقريباً من الصورة)
-          sx = 0; sy = 160; sw = 600; sh = 140;
-        } else if (p.kind === 'wood') {
-          // صورة الجسر الخشبي (السطر الخامس)
-          sx = 150; sy = 620; sw = 330; sh = 50;
-        } else if (p.kind === 'stone' || p.kind === 'moving') {
-          // المنصات الصغيرة العلوية
-          sx = 580; sy = 300; sw = 200; sh = 80;
+      const a = environmentAssetsRef.current;
+      let image: HTMLImageElement | undefined;
+      if (environmentReadyRef.current) {
+        if (p.kind === 'wood') image = a.woodBridge;
+        else if (p.kind === 'moving') image = a.grassPlatform || a.grassMediumB;
+        else if (p.kind === 'ground') image = p.w > 800 ? a.groundA : (p.w > 650 ? a.groundB : a.groundC);
+        else if (p.w >= 165) image = a.stoneLong || a.grassMediumA;
+        else if (p.w >= 145) image = a.grassMediumA || a.grassMediumB;
+        else image = a.grassSmall || a.grassPlatform;
+      }
+      if (image) {
+        if (p.kind === 'wood') {
+          // The artwork deck is aligned to the same curved mathematical surface used by physics.
+          ctx.drawImage(image, x, p.y - 30, p.w, 70);
+        } else {
+          const drawH = p.kind === 'ground' ? Math.max(150, p.h) : Math.max(58, p.h + 30);
+          ctx.drawImage(image, x, p.y, p.w, drawH);
         }
-
-        const drawH = p.kind === 'ground' ? Math.max(p.h, 165) : Math.max(p.h, 72);
-        
-        // رسم الجزء المقصوص من الأطلس في مكان المنصة الفيزيائي
-        ctx.drawImage(atlas, sx, sy, sw, sh, x, p.y, p.w, drawH);
       } else {
-        // الأشكال الاحتياطية
         ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#8B5A2B' : '#6B4423';
         roundRect(x, p.y, p.w, p.h, p.kind === 'ground' ? 3 : 8); ctx.fill();
-        ctx.fillStyle = p.kind === 'wood' || p.kind === 'moving' ? '#D89B54' : '#4DAA4B';
-        ctx.fillRect(x, p.y, p.w, Math.min(13, p.h));
       }
     };
-
     const drawCoin = (c: Coin, cam: number, time: number) => {
-      if (c.collected) return; const x = c.x - cam; const s = 14 + Math.sin(time * 7 + c.x) * 2;
-      const g = ctx.createRadialGradient(x - 4, c.y - 4, 2, x, c.y, s); g.addColorStop(0, '#FFF7AE'); g.addColorStop(.35, '#FACC15'); g.addColorStop(1, '#D97706'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, c.y, s * .72, s, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#FFF3A3'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.fillStyle = '#9A6700'; ctx.font = '700 15px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('★', x, c.y + 5);
+      if (c.collected) return;
+      const x = c.x - cam, bob = Math.sin(time * 7 + c.x) * 3;
+      const image = environmentAssetsRef.current.coin;
+      if (environmentReadyRef.current && image) ctx.drawImage(image, x - 18, c.y - 22 + bob, 36, 44);
+      else { ctx.fillStyle='#FACC15'; ctx.beginPath(); ctx.arc(x,c.y+bob,15,0,Math.PI*2);ctx.fill(); }
     };
-
     const drawQuestionBox = (b: Box, cam: number, time: number) => {
       const x = b.x - cam;
       if (x + b.w < 0 || x > canvas.clientWidth / Math.max(.45, dimensionsForCameraRef.current)) return;
       const bob = b.opened ? 0 : Math.sin(time * 4 + b.x) * 3;
-      const image = b.opened ? environmentAssetsRef.current.rewardCrate : environmentAssetsRef.current.questionBlock;
+      const image = b.opened ? environmentAssetsRef.current.woodCrate : environmentAssetsRef.current.questionBox;
       ctx.save(); ctx.translate(0, bob);
       if (environmentReadyRef.current && image) ctx.drawImage(image, x - 8, b.y - 10, b.w + 16, b.h + 18);
       else {
@@ -401,222 +428,101 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       }
       ctx.restore();
     };
-
     const drawEnemy = (e: Enemy, cam: number, time: number) => {
-      if (!e.alive) return; const x = e.x - cam; const bob = Math.sin(time * 8 + e.x) * 2; ctx.save(); ctx.translate(x, e.y + bob);
-      ctx.shadowColor = e.hitFlash > 0 ? '#FFF' : 'transparent'; ctx.shadowBlur = 18;
-      if (e.kind === 'worksheet') {
-        roundRect(0, 0, e.w, e.h, 9); ctx.fillStyle = '#F7F0DF'; ctx.fill(); ctx.strokeStyle = '#B91C1C'; ctx.lineWidth = 3; ctx.stroke();
-        ctx.fillStyle = '#B91C1C'; ctx.font = '900 22px sans-serif'; ctx.textAlign='center'; ctx.fillText('×', e.w/2, 24);
-        ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.arc(17, 35, 4, 0, Math.PI*2); ctx.arc(e.w-17,35,4,0,Math.PI*2); ctx.fill();
-        ctx.strokeStyle='#111827'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(16,53); ctx.lineTo(e.w/2,45); ctx.lineTo(e.w-16,53); ctx.stroke();
-      } else {
-        roundRect(0, 0, e.w, e.h, 10); const g=ctx.createLinearGradient(0,0,e.w,e.h); g.addColorStop(0,'#5B21B6'); g.addColorStop(1,'#312E81'); ctx.fillStyle=g; ctx.fill(); ctx.strokeStyle='#C4B5FD'; ctx.lineWidth=3; ctx.stroke();
-        ctx.fillStyle='#FFF'; ctx.font='700 16px sans-serif'; ctx.textAlign='center'; ctx.fillText('تقرير',e.w/2,22);
-        ctx.fillStyle='#FDE047'; ctx.beginPath(); ctx.arc(18,42,4,0,Math.PI*2); ctx.arc(e.w-18,42,4,0,Math.PI*2); ctx.fill();
-      }
-      ctx.fillStyle='#3F2A1F'; ctx.fillRect(7,e.h-2,14,8); ctx.fillRect(e.w-21,e.h-2,14,8); ctx.restore();
+      if (!e.alive) return;
+      const x=e.x-cam, bob=Math.sin(time*8+e.x)*2;
+      const image=e.kind==='worksheet'?environmentAssetsRef.current.worksheet:environmentAssetsRef.current.lateReport;
+      ctx.save();
+      if (e.vx < 0) { ctx.translate(x + e.w, e.y + bob); ctx.scale(-1,1); }
+      else ctx.translate(x, e.y + bob);
+      if(e.hitFlash>0){ctx.shadowColor='#FFF';ctx.shadowBlur=18;}
+      if(environmentReadyRef.current&&image)ctx.drawImage(image,-8,-14,e.w+16,e.h+20);
+      else{ctx.fillStyle=e.kind==='worksheet'?'#F7F0DF':'#5B21B6';roundRect(0,0,e.w,e.h,9);ctx.fill();}
+      ctx.restore();
+    };
+    const playerAnimations: Record<string, { key: string; frames: number; fps: number; loop: boolean }> = {
+      idle:{key:'playerIdle',frames:6,fps:5,loop:true}, walk:{key:'playerWalk',frames:7,fps:9,loop:true},
+      run:{key:'playerRun',frames:7,fps:12,loop:true}, jump:{key:'playerJump',frames:7,fps:10,loop:false},
+      fall:{key:'playerFall',frames:5,fps:7,loop:true}, land:{key:'playerLand',frames:5,fps:10,loop:false},
+      hit:{key:'playerHit',frames:6,fps:10,loop:false}, victory:{key:'playerVictory',frames:6,fps:8,loop:false}
     };
 
     const drawPlayer = (p: typeof playerRef.current, cam: number, time: number) => {
-      const x = p.x - cam;
-      const y = p.y;
-      
+      const x=p.x-cam;
+      let state='idle';
+      if(stateRef.current==='won') state='victory';
+      else if(p.invincible>0 && !p.grounded) state='hit';
+      else if(!p.grounded) state=p.vy<40?'jump':'fall';
+      else if(p.landTimer>0) state='land';
+      else if(Math.abs(p.vx)>RUN_SPEED*.72) state='run';
+      else if(Math.abs(p.vx)>18) state='walk';
+      const anim=playerAnimations[state], image=environmentAssetsRef.current[anim.key];
       ctx.save();
-      ctx.translate(x + p.w / 2, y + p.h / 2);
-      if (p.facing < 0) ctx.scale(-1, 1);
-
-      if (p.invincible > 0 && Math.floor(p.invincible * 14) % 2 === 0) ctx.globalAlpha = 0.35;
-
-      const assets = environmentAssetsRef.current;
-      
-      if (environmentReadyRef.current && assets.student) {
-        const img = assets.student;
-        const cols = 6;
-        const rows = 2;
-        const frameW = img.naturalWidth / cols;
-        const frameH = img.naturalHeight / rows;
-
-        let col = 0;
-        const row = 0; 
-
-        if (!p.grounded) {
-          col = 3; 
-        } else if (Math.abs(p.vx) > 4) {
-          col = p.runFrame % cols;
-        } else {
-          col = 0; 
-        }
-
-        ctx.drawImage(
-          img,
-          col * frameW, row * frameH, frameW, frameH,
-          -p.w / 2 - 25, -p.h / 2 - 15, p.w + 50, p.h + 30
-        );
-        
-      } else {
-        const moving = Math.abs(p.vx) > 20; 
-        const step = moving ? Math.sin(time * 14) * 7 : 0; 
-        const bounce = moving ? Math.abs(Math.sin(time * 14)) * 2 : Math.sin(time * 3) * 1.5; 
-        ctx.translate(0, -bounce);
-        ctx.fillStyle = 'rgba(15,23,42,.2)'; ctx.beginPath(); ctx.ellipse(0, p.h / 2 + 4, 24, 7, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = '#D6B06C'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-10, 22); ctx.lineTo(-12 + step, 37); ctx.moveTo(10, 22); ctx.lineTo(12 - step, 37); ctx.stroke();
-        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(-14, -8); ctx.lineTo(-21 - step * .35, 10); ctx.moveTo(14, -8); ctx.lineTo(21 + step * .35, 10); ctx.stroke();
-        const body = ctx.createLinearGradient(0, -18, 0, 25); body.addColorStop(0, '#FFFFFF'); body.addColorStop(1, '#E5E7EB'); ctx.fillStyle = body; roundRect(-17, -18, 34, 47, 12); ctx.fill(); ctx.strokeStyle = '#CBD5E1'; ctx.lineWidth = 2; ctx.stroke();
-        ctx.fillStyle = '#DDAE73'; ctx.beginPath(); ctx.arc(0, -31, 15, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#2A1D19'; ctx.beginPath(); ctx.arc(0, -36, 14, Math.PI, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#E8B4A7'; ctx.beginPath(); ctx.ellipse(0, -42, 17, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#0F766E'; ctx.lineWidth = 2; ctx.stroke();
-        ctx.fillStyle = '#0F172A'; ctx.beginPath(); ctx.arc(5, -31, 2, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#7C2D12'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(3, -25, 5, 0.1, 1.4); ctx.stroke();
+      // Feet are anchored exactly at the physics bottom edge, including the bridge curve.
+      ctx.translate(x+p.w/2,p.y+p.h);
+      if(p.facing<0)ctx.scale(-1,1);
+      if(p.grounded && state!=='land')ctx.rotate(platformSlope(levelRef.current.platforms[p.supportIndex] || ({kind:'ground',x:0,y:0,w:1,h:1} as Platform),p.x+p.w/2)*.35);
+      if(p.invincible>0&&Math.floor(p.invincible*14)%2===0)ctx.globalAlpha=.38;
+      if(environmentReadyRef.current&&image){
+        const raw=Math.floor(time*anim.fps);
+        const frame=anim.loop?raw%anim.frames:Math.min(anim.frames-1,raw%anim.frames);
+        const visualH=112, visualW=112;
+        ctx.drawImage(image,frame*256,0,256,256,-visualW/2,-visualH*(228/256),visualW,visualH);
+      }else{
+        ctx.fillStyle='#fff';roundRect(-p.w/2,-p.h,p.w,p.h,12);ctx.fill();
       }
       ctx.restore();
     };
-
     const drawDoor = (cam: number) => {
       const x = 5060 - cam;
       if (x > canvas.clientWidth / Math.max(.45, dimensionsForCameraRef.current) + 180) return;
       const door = environmentAssetsRef.current.classroomDoor;
       if (environmentReadyRef.current && door) {
-        ctx.drawImage(door, x - 35, GROUND_Y - 260, 195, 260);
+        ctx.drawImage(door, x - 30, GROUND_Y - 245, 190, 245);
       } else {
         roundRect(x, GROUND_Y - 205, 125, 205, 10); ctx.fillStyle = '#E8D2A5'; ctx.fill(); ctx.strokeStyle = '#8B5E34'; ctx.lineWidth = 5; ctx.stroke();
         roundRect(x + 25, GROUND_Y - 165, 76, 165, 12); ctx.fillStyle = '#183B56'; ctx.fill(); ctx.strokeStyle = '#8EC5E8'; ctx.stroke();
       }
       ctx.fillStyle = '#0F172A'; ctx.font = '700 19px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('الفصل الدراسي', x + 62, GROUND_Y - 272);
     };
-
     const update = (dt: number, w: number) => {
       if (stateRef.current !== 'playing' || showIntro) return;
-      
-      const p = playerRef.current;
-      const inp = inputRef.current; 
-      const speed = inp.run ? RUN_SPEED : MOVE_SPEED;
+      const p=playerRef.current, inp=inputRef.current; const speed=inp.run?RUN_SPEED:MOVE_SPEED;
       const movingLeft = inp.left && !inp.right;
       const movingRight = (inp.right && !inp.left) || (inp.run && !inp.left);
-
-      const prevX = p.x;
-      const prevY = p.y;
-
-      // 1. الحركة الأفقية والـ Animation
-      p.vx = movingLeft ? -speed : movingRight ? speed : p.vx * .78;
-      if (Math.abs(p.vx) < 4) p.vx = 0;
-      if (p.vx) p.facing = Math.sign(p.vx);
-
-      p.animTimer += dt;
-      if (p.animTimer > 0.08) {
-        p.animTimer = 0;
-        if (Math.abs(p.vx) > 4 && p.grounded) {
-          p.runFrame = (p.runFrame + 1) % 6; 
-        } else {
-          p.runFrame = 0;
+      p.vx = movingLeft ? -speed : movingRight ? speed : p.vx * .78; if(Math.abs(p.vx)<4)p.vx=0; if(p.vx)p.facing=Math.sign(p.vx);
+      if(inp.jump&&p.grounded){p.vy=-JUMP_SPEED;p.grounded=false;p.supportIndex=-1;inp.jump=false;spawnBurst(p.x+p.w/2,p.y+p.h,'#F8FAFC',6);} p.vy+=GRAVITY*dt; p.invincible=Math.max(0,p.invincible-dt);
+      const prevY=p.y, wasGrounded=p.grounded, previousSupport=p.supportIndex;
+      p.landTimer=Math.max(0,p.landTimer-dt);
+      p.x=clamp(p.x+p.vx*dt,0,WORLD_W-p.w); p.y+=p.vy*dt; p.grounded=false; p.supportIndex=-1;
+      for(let i=0;i<levelRef.current.platforms.length;i++){
+        const plat=levelRef.current.platforms[i];
+        if(plat.kind==='moving'){
+          plat.x+=(plat.vx||0)*dt;
+          if(plat.x<(plat.minX||0)||plat.x+plat.w>(plat.maxX||WORLD_W)){plat.vx=-(plat.vx||0);plat.x=clamp(plat.x,plat.minX||0,(plat.maxX||WORLD_W)-plat.w);}
+        }
+        const centerX=p.x+p.w/2;
+        const inside=centerX>plat.x+4&&centerX<plat.x+plat.w-4;
+        if(!inside)continue;
+        const surfaceY=platformSurfaceY(plat,centerX);
+        const followedSupport=wasGrounded&&previousSupport===i&&p.vy>=0;
+        const landed=p.vy>=0&&prevY+p.h<=surfaceY+14&&p.y+p.h>=surfaceY;
+        if(followedSupport||landed){
+          p.y=surfaceY-p.h; p.vy=0; p.grounded=true; p.supportIndex=i;
+          if(landed&&!wasGrounded)p.landTimer=.20;
+          if(plat.kind==='moving')p.x+=(plat.vx||0)*dt;
+          break;
         }
       }
-
-      if (inp.jump && p.grounded) {
-        p.vy = -JUMP_SPEED;
-        p.grounded = false;
-        inp.jump = false;
-        spawnBurst(p.x + p.w / 2, p.y + p.h, '#F8FAFC', 6);
+      if(p.y>850){statsRef.current.lives--;syncStats();if(statsRef.current.lives<=0){finish(false);return;}p.x=Math.max(80,cameraRef.current+100);p.y=GROUND_Y-PLAYER_H;p.vx=0;p.vy=0;p.supportIndex=-1;p.landTimer=0;p.invincible=1.5;}
+      for(const c of levelRef.current.coins){if(!c.collected&&overlap(p,{x:c.x-16,y:c.y-18,w:32,h:36})){c.collected=true;statsRef.current.coins++;spawnBurst(c.x,c.y,'#FACC15',8);syncStats();}}
+      for(const b of levelRef.current.boxes){if(!b.opened&&overlap(p,b)){openQuestion(b);break;}}
+      for(const e of levelRef.current.enemies){if(!e.alive)continue;e.x+=e.vx*dt;if(e.x<e.minX||e.x+e.w>e.maxX){e.vx*=-1;e.x=clamp(e.x,e.minX,e.maxX-e.w);}e.hitFlash=Math.max(0,e.hitFlash-dt);
+        if(overlap(p,e)&&p.invincible<=0){const stomp=p.vy>120&&prevY+p.h<=e.y+18;if(stomp){e.hp--;e.hitFlash=.2;p.vy=-520;spawnBurst(e.x+e.w/2,e.y+10,'#F59E0B',12);if(e.hp<=0){e.alive=false;syncStats();}}else{statsRef.current.lives--;syncStats();p.invincible=1.4;p.vx=-p.facing*300;p.vy=-420;if(statsRef.current.lives<=0){finish(false);return;}}}
       }
-      
-      p.invincible = Math.max(0, p.invincible - dt);
-
-      // 2. حركة المنصات المتحركة
-      for (const plat of levelRef.current.platforms) {
-        if (plat.kind === 'moving') {
-          plat.x += (plat.vx || 0) * dt;
-          if (plat.x < (plat.minX || 0) || plat.x + plat.w > (plat.maxX || WORLD_W)) {
-            plat.vx = -(plat.vx || 0);
-            plat.x = clamp(plat.x, plat.minX || 0, (plat.maxX || WORLD_W) - plat.w);
-          }
-        }
-      }
-
-      // 3. التصادم الأفقي (فقط المنصات الأرضية الأساسية تمنع المرور من الجانب)
-      p.x = clamp(p.x + p.vx * dt, 0, WORLD_W - p.w);
-      for (const block of levelRef.current.platforms) {
-        if (block.kind === 'ground' && overlap(p, block)) {
-          if (prevX + p.w <= block.x + 15) { 
-            p.x = block.x - p.w;
-            p.vx = 0;
-          } else if (prevX >= block.x + block.w - 15) { 
-            p.x = block.x + block.w;
-            p.vx = 0;
-          }
-        }
-      }
-
-      // 4. التصادم العمودي (One-way platforms)
-      p.vy += GRAVITY * dt;
-      p.y += p.vy * dt;
-      p.grounded = false;
-
-      for (const block of levelRef.current.platforms) {
-        if (overlap(p, block)) {
-          // الهبوط على المنصة من الأعلى
-          if (p.vy > 0 && prevY + p.h <= block.y + 25) { 
-            p.y = block.y - p.h;
-            p.vy = 0;
-            p.grounded = true;
-            if (block.kind === 'moving') p.x += (block.vx || 0) * dt;
-          } 
-          // الاصطدام من الأسفل للأرضية الأساسية فقط
-          else if (p.vy < 0 && block.kind === 'ground' && prevY >= block.y + block.h - 15) {
-            p.y = block.y + block.h;
-            p.vy = 0;
-          }
-        }
-      }
-
-      // 5. صناديق الأسئلة تُفتح بمجرد اللمس (Any-touch collision)
-      for (const b of levelRef.current.boxes) {
-        if (!b.opened && overlap(p, b)) {
-          openQuestion(b);
-          break; 
-        }
-      }
-
-      // 6. التعامل مع السقوط والعملات والأعداء
-      if (p.y > 850) {
-        statsRef.current.lives--; syncStats();
-        if (statsRef.current.lives <= 0) { finish(false); return; }
-        p.x = Math.max(80, cameraRef.current + 100);
-        p.y = GROUND_Y - PLAYER_H;
-        p.vx = 0; p.vy = 0; p.invincible = 1.5;
-      }
-
-      for (const c of levelRef.current.coins) {
-        if (!c.collected && overlap(p, { x: c.x - 16, y: c.y - 18, w: 32, h: 36 })) {
-          c.collected = true; statsRef.current.coins++; spawnBurst(c.x, c.y, '#FACC15', 8); syncStats();
-        }
-      }
-
-      for (const e of levelRef.current.enemies) {
-        if (!e.alive) continue;
-        e.x += e.vx * dt;
-        if (e.x < e.minX || e.x + e.w > e.maxX) { e.vx *= -1; e.x = clamp(e.x, e.minX, e.maxX - e.w); }
-        e.hitFlash = Math.max(0, e.hitFlash - dt);
-
-        if (overlap(p, e) && p.invincible <= 0) {
-          const stomp = p.vy > 120 && prevY + p.h <= e.y + 18;
-          if (stomp) {
-            e.hp--; e.hitFlash = .2; p.vy = -520; spawnBurst(e.x + e.w / 2, e.y + 10, '#F59E0B', 12);
-            if (e.hp <= 0) { e.alive = false; syncStats(); }
-          } else {
-            statsRef.current.lives--; syncStats(); p.invincible = 1.4; p.vx = -p.facing * 300; p.vy = -420;
-            if (statsRef.current.lives <= 0) { finish(false); return; }
-          }
-        }
-      }
-
-      if (p.x > 5000) { finish(true); return; }
-
-      // 7. تحريك الكاميرا
-      const logicalW = w / (dimensionsForCameraRef.current || 1);
-      const target = clamp(p.x - logicalW * .32, 0, WORLD_W - logicalW);
-      cameraRef.current += (target - cameraRef.current) * Math.min(1, dt * 6);
-
-      for (const q of particlesRef.current) { q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 550 * dt; q.life -= dt; }
-      particlesRef.current = particlesRef.current.filter(q => q.life > 0);
+      if(p.x>5000){finish(true);return;}
+      const logicalW = w / (dimensionsForCameraRef.current || 1); const target=clamp(p.x-logicalW*.32,0,WORLD_W-logicalW);cameraRef.current+= (target-cameraRef.current)*Math.min(1,dt*6);
+      for(const q of particlesRef.current){q.x+=q.vx*dt;q.y+=q.vy*dt;q.vy+=550*dt;q.life-=dt;}particlesRef.current=particlesRef.current.filter(q=>q.life>0);
     };
 
     const render = (timeMs: number) => {
@@ -624,13 +530,13 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       ctx.save(); const portraitView = h > w;
       const sceneScale = portraitView ? clamp(h / 700, .86, 1.12) : clamp(h / 560, .80, 1.04);
       dimensionsForCameraRef.current = sceneScale;
+      // Reserve a visible gameplay band below the collision surface; controls no longer hide the ground.
       const bottomClearance = portraitView ? 150 : 118;
       const sy = h - (GROUND_Y + bottomClearance) * sceneScale;
       ctx.translate(0, sy);
       ctx.scale(sceneScale, sceneScale);
-      
       drawBackground(w / sceneScale, 760, cam);
-      
+      // Subtle depth beneath real gaps; no artificial walkable line is drawn.
       const groundPieces = levelRef.current.platforms.filter(p => p.kind === 'ground').sort((a,b) => a.x - b.x);
       for (let i = 0; i < groundPieces.length - 1; i++) {
         const left = groundPieces[i].x + groundPieces[i].w - cam;
@@ -641,14 +547,12 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
           ctx.fillStyle = pit; ctx.fillRect(left, GROUND_Y, right - left, 110);
         }
       }
-      
       for(const p of levelRef.current.platforms)drawPlatform(p,cam);
       drawDoor(cam);
       for(const c of levelRef.current.coins)drawCoin(c,cam,t);
       for(const b of levelRef.current.boxes)drawQuestionBox(b,cam,t);
       for(const e of levelRef.current.enemies)drawEnemy(e,cam,t);
       drawPlayer(playerRef.current,cam,t);
-      
       for(const q of particlesRef.current){ctx.globalAlpha=clamp(q.life*1.7,0,1);ctx.fillStyle=q.color;ctx.beginPath();ctx.arc(q.x-cam,q.y,q.size,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;ctx.restore();
     };
 
