@@ -152,7 +152,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const firePencil = useCallback(() => {
     if (stateRef.current !== 'playing' || pencilAmmoRef.current <= 0) return;
     const p = playerRef.current;
-    pencilAmmoRef.current -= 1; setPencilAmmo(pencilAmmoRef.current);
+    pencilAmmoRef.current -= 3; setPencilAmmo(pencilAmmoRef.current);
     pencilShotsRef.current.push({ x:p.x+p.w/2+p.facing*28, y:p.y+p.h*.46, vx:p.facing*720, life:1.6, facing:p.facing });
     spawnBurst(p.x+p.w/2,p.y+p.h*.45,'#FDE047',5);
   }, []);
@@ -206,7 +206,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     answeredRef.current.add(activeQuestion.index);
     if (activeBoxRef.current) activeBoxRef.current.opened = true;
     if (correct) {
-      statsRef.current.score += 10; statsRef.current.stars += 1; statsRef.current.correct += 1; pencilAmmoRef.current += 1; setPencilAmmo(pencilAmmoRef.current);
+      statsRef.current.score += 10; statsRef.current.stars += 1; statsRef.current.correct += 1; pencilAmmoRef.current += 3; setPencilAmmo(pencilAmmoRef.current);
       if (activeBoxRef.current) spawnBurst(activeBoxRef.current.x + 29, activeBoxRef.current.y, '#FACC15', 18);
     } else {
       statsRef.current.wrong += 1;
