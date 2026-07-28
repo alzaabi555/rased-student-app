@@ -654,16 +654,19 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
           <Hud text={`النقاط ${stats.score}`} color="#38BDF8" />
         </div>
       </div>
-      <div style={{position:'absolute',bottom:orientation==='landscape'?10:14,left:orientation==='landscape'?30:18,right:orientation==='landscape'?30:18,display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
-        <div style={{display:'flex',gap:orientation==='landscape'?18:12,alignItems:'flex-end'}}>
-          <button onClick={() => { const next = !runEnabled; setRunEnabled(next); inputRef.current.run = next; }} style={{width:orientation==='landscape'?74:64,height:orientation==='landscape'?74:64,borderRadius:24,border:runEnabled?'3px solid #FDE68A':'2px solid rgba(255,255,255,.55)',background:runEnabled?'linear-gradient(145deg,rgba(14,165,233,.92),rgba(3,105,161,.92))':'rgba(7,21,47,.68)',color:'#fff',fontSize:17,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)'}}>{runEnabled?'إيقاف':'جري'}</button>
-          {pencilAmmo>0 && <button onClick={firePencil} style={{width:orientation==='landscape'?74:64,height:orientation==='landscape'?74:64,borderRadius:24,border:'3px solid #FDE68A',background:'linear-gradient(145deg,#FACC15,#EA580C)',color:'#fff',fontSize:15,fontWeight:900}}>✏️ {pencilAmmo}</button>}
-        </div>
-        <div style={{display:'flex',gap:orientation==='landscape'?20:14,direction:'ltr'}}>
+      <div style={{position:'absolute',bottom:orientation==='landscape'?10:14,left:orientation==='landscape'?30:18,right:orientation==='landscape'?30:18,display:'flex',justifyContent:'space-between',alignItems:'flex-end',pointerEvents:'none'}}>
+        {/* الاتجاهات ثابتة في الجهة اليسرى لتناسب تحكم الإبهام */}
+        <div style={{display:'flex',gap:orientation==='landscape'?24:18,direction:'ltr',pointerEvents:'auto'}}>
           <Control label="◀" large={orientation==='landscape'} onDown={touchButton('left')(true)} onUp={touchButton('left')(false)} />
           <Control label="▶" large={orientation==='landscape'} onDown={touchButton('right')(true)} onUp={touchButton('right')(false)} />
         </div>
-        <Control label="قفز" large={orientation==='landscape'} accent onDown={touchButton('jump')(true)} onUp={touchButton('jump')(false)} />
+
+        {/* القلم والجري والقفز في الجهة اليمنى */}
+        <div style={{display:'flex',gap:orientation==='landscape'?18:12,alignItems:'flex-end',direction:'ltr',pointerEvents:'auto'}}>
+          {pencilAmmo>0 && <button type="button" onClick={firePencil} style={{width:orientation==='landscape'?74:64,height:orientation==='landscape'?74:64,borderRadius:24,border:'3px solid #FDE68A',background:'linear-gradient(145deg,#FACC15,#EA580C)',color:'#fff',fontSize:15,fontWeight:900,touchAction:'none',boxShadow:'0 10px 28px rgba(0,0,0,.28)'}}>✏️ {pencilAmmo}</button>}
+          <button type="button" onClick={() => { const next = !runEnabled; setRunEnabled(next); inputRef.current.run = next; }} style={{width:orientation==='landscape'?74:64,height:orientation==='landscape'?74:64,borderRadius:24,border:runEnabled?'3px solid #FDE68A':'2px solid rgba(255,255,255,.55)',background:runEnabled?'linear-gradient(145deg,rgba(14,165,233,.92),rgba(3,105,161,.92))':'rgba(7,21,47,.68)',color:'#fff',fontSize:17,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{runEnabled?'إيقاف':'جري'}</button>
+          <Control label="قفز" large={orientation==='landscape'} accent onDown={touchButton('jump')(true)} onUp={touchButton('jump')(false)} />
+        </div>
       </div>
     </>}
 
@@ -701,7 +704,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
 }
 
 function Hud({text,color}:{text:string;color:string}){return <div style={{padding:'9px 13px',borderRadius:14,background:'rgba(7,21,47,.84)',border:`1px solid ${color}88`,color:'#fff',fontWeight:900,fontSize:15,boxShadow:'0 8px 25px rgba(0,0,0,.18)'}}>{text}</div>}
-function Control({label,accent,large,onDown,onUp}:{label:string;accent?:boolean;large?:boolean;onDown:()=>void;onUp:()=>void}){return <button onPointerDown={e=>{e.preventDefault();onDown()}} onPointerUp={e=>{e.preventDefault();onUp()}} onPointerCancel={onUp} onPointerLeave={onUp} style={{width:large?74:64,height:large?74:64,borderRadius:24,border:'2px solid rgba(255,255,255,.55)',background:accent?'linear-gradient(145deg,rgba(245,158,11,.92),rgba(234,88,12,.92))':'rgba(7,21,47,.68)',color:'#fff',fontSize:label.length>1?16:27,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{label}</button>}
+function Control({label,accent,large,onDown,onUp}:{label:string;accent?:boolean;large?:boolean;onDown:()=>void;onUp:()=>void}){return <button type="button" onContextMenu={e=>e.preventDefault()} onPointerDown={e=>{e.preventDefault();e.currentTarget.setPointerCapture?.(e.pointerId);onDown()}} onPointerUp={e=>{e.preventDefault();if(e.currentTarget.hasPointerCapture?.(e.pointerId))e.currentTarget.releasePointerCapture?.(e.pointerId);onUp()}} onPointerCancel={onUp} onLostPointerCapture={onUp} style={{width:large?74:64,height:large?74:64,borderRadius:24,border:'2px solid rgba(255,255,255,.55)',background:accent?'linear-gradient(145deg,rgba(245,158,11,.92),rgba(234,88,12,.92))':'rgba(7,21,47,.68)',color:'#fff',fontSize:label.length>1?16:27,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)',touchAction:'none',WebkitUserSelect:'none',userSelect:'none'}}>{label}</button>}
 function Overlay({children,blur}:{children:React.ReactNode;blur?:boolean}){return <div style={{position:'absolute',inset:0,display:'grid',placeItems:'center',padding:18,background:'rgba(2,12,32,.64)',backdropFilter:blur?'blur(5px)':'blur(2px)',overflow:'auto'}}>{children}</div>}
 function Card({children,compact=false}:{children:React.ReactNode;compact?:boolean}){return <div style={{width:compact?'min(480px,54vw)':'min(560px,92vw)',maxHeight:compact?'68vh':'90vh',overflowY:'auto',textAlign:'center',padding:compact?'12px 18px':'30px 26px',borderRadius:30,background:'linear-gradient(145deg,rgba(7,28,60,.98),rgba(10,54,91,.97))',border:'2px solid rgba(56,189,248,.65)',boxShadow:'0 30px 90px rgba(0,0,0,.53)',color:'#fff'}}>{children}</div>}
 function Stat({label,value}:{label:string;value:number}){return <div style={{padding:14,borderRadius:16,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.16)'}}><div style={{fontSize:24,fontWeight:950,color:'#FACC15'}}>{value}</div><div style={{fontSize:14,color:'#D7E7F6'}}>{label}</div></div>}
