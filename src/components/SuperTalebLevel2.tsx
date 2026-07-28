@@ -348,9 +348,52 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       )}
       {started && !activeQuestion && !finished && (
         <>
-          <button onPointerDown={()=>press('run',true)} onPointerUp={()=>press('run',false)} onPointerCancel={()=>press('run',false)} style={{...baseBtn,position:'absolute',left:18,bottom:20,fontSize:15}}>جري</button>
-          {pencilAmmo>0 && <button onClick={shootPencil} style={{...baseBtn,position:'absolute',left:18+controlSize+14,bottom:20,fontSize:18}}>✏️ {pencilAmmo}</button>}
-          <div style={{position:'absolute',right:18,bottom:20,display:'flex',gap:18}}><button onPointerDown={()=>press('right',true)} onPointerUp={()=>press('right',false)} onPointerCancel={()=>press('right',false)} style={baseBtn}>▶</button><button onPointerDown={()=>press('left',true)} onPointerUp={()=>press('left',false)} onPointerCancel={()=>press('left',false)} style={baseBtn}>◀</button><button onPointerDown={()=>press('jump',true)} onPointerUp={()=>press('jump',false)} style={{...baseBtn,background:'#f97316',fontSize:16}}>قفز</button></div>
+          {/* أزرار الاتجاهات في الجهة اليسرى لسهولة التحكم بالإبهام */}
+          <div style={{ position: 'absolute', left: 18, bottom: 20, display: 'flex', gap: orientation === 'landscape' ? 24 : 18, direction: 'ltr' }}>
+            <button
+              aria-label="تحرك إلى اليسار"
+              onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); press('left', true); }}
+              onPointerUp={(event) => { event.currentTarget.releasePointerCapture?.(event.pointerId); press('left', false); }}
+              onPointerCancel={() => press('left', false)}
+              onPointerLeave={(event) => { if (event.buttons === 0) press('left', false); }}
+              style={baseBtn}
+            >◀</button>
+            <button
+              aria-label="تحرك إلى اليمين"
+              onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); press('right', true); }}
+              onPointerUp={(event) => { event.currentTarget.releasePointerCapture?.(event.pointerId); press('right', false); }}
+              onPointerCancel={() => press('right', false)}
+              onPointerLeave={(event) => { if (event.buttons === 0) press('right', false); }}
+              style={baseBtn}
+            >▶</button>
+          </div>
+
+          {/* القفز والجري في الجهة اليمنى */}
+          <div style={{ position: 'absolute', right: 18, bottom: 20, display: 'flex', gap: orientation === 'landscape' ? 18 : 14, alignItems: 'flex-end', direction: 'ltr' }}>
+            {pencilAmmo > 0 && (
+              <button
+                type="button"
+                aria-label="إطلاق قلم المعرفة"
+                onClick={shootPencil}
+                style={{ ...baseBtn, fontSize: 18, background: 'rgba(14,116,144,.92)' }}
+              >✏️ {pencilAmmo}</button>
+            )}
+            <button
+              aria-label="الجري"
+              onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); press('run', true); }}
+              onPointerUp={(event) => { event.currentTarget.releasePointerCapture?.(event.pointerId); press('run', false); }}
+              onPointerCancel={() => press('run', false)}
+              onPointerLeave={(event) => { if (event.buttons === 0) press('run', false); }}
+              style={{ ...baseBtn, fontSize: 15, background: 'rgba(37,99,235,.93)' }}
+            >جري</button>
+            <button
+              aria-label="قفز"
+              onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); press('jump', true); }}
+              onPointerUp={(event) => { event.currentTarget.releasePointerCapture?.(event.pointerId); press('jump', false); }}
+              onPointerCancel={() => press('jump', false)}
+              style={{ ...baseBtn, background: '#f97316', fontSize: 16 }}
+            >قفز</button>
+          </div>
           <button onClick={onClose} className="absolute left-4 top-4 rounded-2xl bg-slate-900/90 px-4 py-3 font-black text-white">×</button>
         </>
       )}
