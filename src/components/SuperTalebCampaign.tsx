@@ -124,6 +124,7 @@ export interface SuperTalebCampaignProgress {
 }
 
 const STORAGE_PREFIX = 'rased_super_taleb_campaign_v1';
+const UNLOCK_PREFIX = 'rased_super_taleb_unlocked_level_v1';
 const POINTS_PER_CORRECT_ANSWER = 10;
 const DEFAULT_MAX_DAILY_QUESTIONS = 15;
 
@@ -308,6 +309,23 @@ function saveProgress(storageKey: string, progress: SuperTalebCampaignProgress):
   }
 }
 
+function loadPermanentUnlockedLevel(studentId: string): SuperTalebLevelNumber {
+  try {
+    return clampUnlockedLevel(Number(localStorage.getItem(`${UNLOCK_PREFIX}:${studentId}`) || 1));
+  } catch {
+    return 1;
+  }
+}
+
+function savePermanentUnlockedLevel(studentId: string, level: SuperTalebLevelNumber): void {
+  try {
+    const current = loadPermanentUnlockedLevel(studentId);
+    localStorage.setItem(`${UNLOCK_PREFIX}:${studentId}`, String(Math.max(current, level)));
+  } catch (error) {
+    console.warn('[SuperTalebCampaign] تعذر حفظ المرحلة المفتوحة', error);
+  }
+}
+
 function calculateStars(correct: number, total: number): 0 | 1 | 2 | 3 {
   if (total <= 0) return 0;
   const ratio = correct / total;
@@ -390,10 +408,11 @@ const SuperTalebCampaign: React.FC<SuperTalebCampaignProps> = ({
   const [progress, setProgress] = useState<SuperTalebCampaignProgress>(() => {
     const stored = loadProgress(storageKey);
     if (stored && stored.campaignKey === campaignKey) return stored;
+    const permanentUnlocked = loadPermanentUnlockedLevel(studentId);
     return defaultProgress(
       campaignKey,
       campaignMode,
-      clampUnlockedLevel(initialUnlockedLevel),
+      clampUnlockedLevel(Math.max(initialUnlockedLevel, permanentUnlocked)),
       prepared.coreQuestionIds,
       prepared.bonusQuestionIds,
     );
@@ -515,6 +534,8 @@ const SuperTalebCampaign: React.FC<SuperTalebCampaignProps> = ({
       );
       const currentLevelIndex = snapshot.activeLevels.indexOf(level);
       const nextLevel = snapshot.activeLevels[currentLevelIndex + 1];
+      savePermanentUnlockedLevel(studentId, unlockedLevel);
+
       const nextProgress: SuperTalebCampaignProgress = {
         ...snapshot,
         currentLevel: nextLevel || level,
@@ -545,7 +566,7 @@ const SuperTalebCampaign: React.FC<SuperTalebCampaignProps> = ({
         setProgress(nextProgress);
       }
     },
-    [finishCampaign],
+    [finishCampaign, studentId],
   );
 
   if (progress.completed) {
@@ -618,7 +639,10 @@ const SuperTalebCampaign: React.FC<SuperTalebCampaignProps> = ({
   if (progress.currentLevel === 1) {
     return (
       <SuperTalebLevel1
-        questions={currentQuestions as any}
+        questions={currentQuestions.map((question) => ({
+          ...question,
+          correctAnswer: question.correctAnswerIndex ?? 0,
+        })) as any}
         onComplete={handleLevelComplete as any}
         onClose={onClose}
       />

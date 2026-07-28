@@ -26,8 +26,9 @@ import StudentKnowledgeRaceGame from './StudentKnowledgeRaceGame';
 import type { KnowledgeRaceQuestion, KnowledgeRaceResult } from './StudentKnowledgeRaceGame';
 import StudentFootballKnowledgeGame from './StudentFootballKnowledgeGame';
 import type { FootballKnowledgeQuestion, FootballKnowledgeResult } from './StudentFootballKnowledgeGame';
-import SuperTalebLevel1 from './SuperTalebLevel1';
-import type { SuperTalebQuestion, SuperTalebResult } from './SuperTalebLevel1';
+import SuperTalebCampaign from './SuperTalebCampaign';
+import type { SuperTalebQuestion, SuperTalebCampaignResult, SuperTalebLevelNumber } from './SuperTalebCampaign';
+import SuperTalebLevel2 from './SuperTalebLevel2';
 import StudentTrueFalseGame from './StudentTrueFalseGame';
 import type { TrueFalseQuestion, TrueFalseResult } from './StudentTrueFalseGame';
 import StudentMatchCardsGame from './StudentMatchCardsGame';
@@ -88,7 +89,7 @@ type ActiveGame = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'super_t
 type GamesMode = 'daily' | 'review';
 type MasteryLevel = 'excellent' | 'good' | 'needs_review' | 'needs_followup';
 
-type UnifiedGameResult = SnakeLadderResult | KnowledgeRaceResult | FootballKnowledgeResult | SuperTalebResult | TrueFalseResult | MatchCardsResult | SequenceOrderResult;
+type UnifiedGameResult = SnakeLadderResult | KnowledgeRaceResult | FootballKnowledgeResult | SuperTalebCampaignResult | TrueFalseResult | MatchCardsResult | SequenceOrderResult;
 type UnifiedGameType = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'super_taleb' | 'true_false' | 'match_cards' | 'sequence_order';
 
 type ResultCloudMeta = {
@@ -288,12 +289,20 @@ const toSharedQuizShape = (questions: GameQuestion[]) => filterPlayableQuestions
 const toSnakeLadderQuestions = (questions: GameQuestion[]): SnakeLadderQuestion[] => toSharedQuizShape(questions) as SnakeLadderQuestion[];
 const toKnowledgeRaceQuestions = (questions: GameQuestion[]): KnowledgeRaceQuestion[] => toSharedQuizShape(questions) as KnowledgeRaceQuestion[];
 const toFootballKnowledgeQuestions = (questions: GameQuestion[]): FootballKnowledgeQuestion[] => toSharedQuizShape(questions) as FootballKnowledgeQuestion[];
-const toSuperTalebQuestions = (questions: GameQuestion[]): SuperTalebQuestion[] => toSharedQuizShape(questions).map(question => ({
+const toSuperTalebQuestions = (questions: GameQuestion[]): SuperTalebQuestion[] => filterPlayableQuestions(questions).map(question => ({
   id: question.id,
-  question: question.question,
-  options: question.options,
-  correctAnswer: question.correctAnswerIndex,
-  explanation: question.explanation
+  question: question.question || '',
+  options: question.questionType === 'true_false' ? ['صح', 'خطأ'] : question.options || [],
+  correctAnswerIndex: question.correctAnswerIndex ?? 0,
+  correctAnswerText: question.correctAnswerText,
+  explanation: question.explanation,
+  type: question.questionType,
+  visibleFrom: question.visibleFrom,
+  publishBatchId: question.publishBatchId,
+  subject: question.subject,
+  unit: question.unit,
+  lesson: question.lesson,
+  difficulty: question.difficulty
 }));
 
 const toTrueFalseQuestions = (questions: GameQuestion[]): TrueFalseQuestion[] => questions
@@ -610,6 +619,21 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
     return toSuperTalebQuestions(compatible.length ? compatible : currentGameQuestions.filter(q => q.questionType === 'multiple_choice' || q.questionType === 'true_false'));
   }, [currentGameQuestions]);
 
+  const superTalebChallengeId = useMemo(() => {
+    const batchIds = Array.from(new Set(superTalebQuestions.map(question => String(question.publishBatchId || '')).filter(Boolean))).sort();
+    const modePrefix = isReviewMode ? 'review' : 'daily';
+    return batchIds.length > 0 ? `${modePrefix}:${batchIds.join('|')}` : `${modePrefix}:${getTodayKey()}`;
+  }, [superTalebQuestions, isReviewMode]);
+  const superTalebInitialUnlockedLevel = useMemo<SuperTalebLevelNumber>(() => {
+    try {
+      const permanent = Number(localStorage.getItem(`rased_super_taleb_unlocked_level_v1:${studentKey}`) || 1);
+      const oldResults = readJsonArray<StudentGameResultLogEntry>(`rased_student_game_results_log_${studentKey}`);
+      const completedOldLevelOne = oldResults.some(entry => entry.gameType === 'super_taleb' && entry.completed);
+      if (permanent >= 3) return 3;
+      if (permanent >= 2 || completedOldLevelOne) return 2;
+    } catch {}
+    return 1;
+  }, [studentKey, statsVersion]);
   const trueFalseQuestions = useMemo(() => {
     const game = findBaseGame('true_false');
     return game ? toTrueFalseQuestions(currentGameQuestions.filter(q => isQuestionCompatibleWithGame(q, game))) : [];
@@ -806,7 +830,18 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
     if (activeGame === 'snake_ladder') return <StudentSnakeLadderGame questions={snakeLadderQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
     if (activeGame === 'knowledge_race') return <StudentKnowledgeRaceGame questions={knowledgeRaceQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
     if (activeGame === 'football_quiz') return <StudentFootballKnowledgeGame questions={footballQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
-    if (activeGame === 'super_taleb') return <SuperTalebLevel1 questions={superTalebQuestions} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
+    if (activeGame === 'super_taleb') return (
+      <SuperTalebCampaign
+        questions={superTalebQuestions}
+        studentId={studentKey}
+        challengeId={superTalebChallengeId}
+        campaignMode="daily"
+        initialUnlockedLevel={superTalebInitialUnlockedLevel}
+        Level2Component={SuperTalebLevel2}
+        onClose={() => { setActiveGame(null); refreshStats(); }}
+        onComplete={handleGameComplete}
+      />
+    );
     if (activeGame === 'true_false') return <StudentTrueFalseGame questions={trueFalseQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
     if (activeGame === 'match_cards') return <StudentMatchCardsGame questions={matchCardsQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
     if (activeGame === 'sequence_order') return <StudentSequenceOrderGame questions={sequenceOrderQuestions} studentId={studentKey} onClose={() => { setActiveGame(null); refreshStats(); }} onComplete={handleGameComplete} />;
