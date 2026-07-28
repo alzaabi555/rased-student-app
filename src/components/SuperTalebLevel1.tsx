@@ -37,6 +37,7 @@ type Box = Rect & { questionIndex: number; opened: boolean; active: boolean };
 type EnemyKind = 'worksheet' | 'report';
 type Enemy = Rect & { kind: EnemyKind; vx: number; minX: number; maxX: number; alive: boolean; hp: number; hitFlash: number };
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number };
+type PencilShot = { x:number; y:number; vx:number; life:number; facing:number }; 
 
 const WORLD_W = 5200;
 const GROUND_Y = 650;
@@ -60,25 +61,25 @@ const overlap = (a: Rect, b: Rect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y 
 
 const createLevel = (questionCount: number) => {
   const platforms: Platform[] = [
-    { x: 0, y: GROUND_Y, w: 850, h: 180, kind: 'ground' },
-    { x: 940, y: GROUND_Y, w: 640, h: 180, kind: 'ground' },
-    { x: 1720, y: GROUND_Y, w: 720, h: 180, kind: 'ground' },
-    { x: 2560, y: GROUND_Y, w: 560, h: 180, kind: 'ground' },
-    { x: 3260, y: GROUND_Y, w: 760, h: 180, kind: 'ground' },
+    { x: 0, y: GROUND_Y, w: 875, h: 180, kind: 'ground' },
+    { x: 940, y: GROUND_Y, w: 695, h: 180, kind: 'ground' },
+    { x: 1720, y: GROUND_Y, w: 750, h: 180, kind: 'ground' },
+    { x: 2560, y: GROUND_Y, w: 610, h: 180, kind: 'ground' },
+    { x: 3260, y: GROUND_Y, w: 805, h: 180, kind: 'ground' },
     { x: 4140, y: GROUND_Y, w: 1060, h: 180, kind: 'ground' },
     { x: 330, y: 515, w: 150, h: 28, kind: 'stone' },
-    { x: 535, y: 435, w: 145, h: 28, kind: 'stone' },
+    { x: 535, y: 470, w: 145, h: 28, kind: 'stone' },
     { x: 775, y: 500, w: 120, h: 25, kind: 'moving', vx: 70, minX: 730, maxX: 870 },
     { x: 1120, y: 500, w: 170, h: 28, kind: 'stone' },
-    { x: 1370, y: 420, w: 135, h: 28, kind: 'stone' },
+    { x: 1370, y: 465, w: 135, h: 28, kind: 'stone' },
     { x: 1840, y: 500, w: 180, h: 28, kind: 'wood' },
-    { x: 2085, y: 410, w: 135, h: 28, kind: 'stone' },
+    { x: 2085, y: 455, w: 135, h: 28, kind: 'stone' },
     { x: 2670, y: 485, w: 155, h: 28, kind: 'stone' },
-    { x: 2885, y: 395, w: 150, h: 28, kind: 'moving', vx: 85, minX: 2800, maxX: 3000 },
+    { x: 2885, y: 455, w: 150, h: 28, kind: 'moving', vx: 85, minX: 2800, maxX: 3000 },
     { x: 3370, y: 500, w: 175, h: 28, kind: 'stone' },
-    { x: 3630, y: 405, w: 150, h: 28, kind: 'stone' },
+    { x: 3630, y: 455, w: 150, h: 28, kind: 'stone' },
     { x: 4210, y: 500, w: 165, h: 28, kind: 'wood' },
-    { x: 4470, y: 415, w: 150, h: 28, kind: 'stone' },
+    { x: 4470, y: 465, w: 150, h: 28, kind: 'stone' },
   ];
 
   const coinPoints = [
@@ -119,6 +120,9 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const environmentAssetsRef = useRef<Record<string, HTMLImageElement>>({});
   const environmentReadyRef = useRef(false);
   const particlesRef = useRef<Particle[]>([]);
+  const pencilShotsRef = useRef<PencilShot[]>([]);
+  const pencilAmmoRef = useRef(0);
+  const [pencilAmmo, setPencilAmmo] = useState(0);
   const answeredRef = useRef(new Set<number>());
   const weakRef = useRef<string[]>([]);
   const activeBoxRef = useRef<Box | null>(null);
@@ -145,13 +149,21 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     });
   };
 
+  const firePencil = useCallback(() => {
+    if (stateRef.current !== 'playing' || pencilAmmoRef.current <= 0) return;
+    const p = playerRef.current;
+    pencilAmmoRef.current -= 1; setPencilAmmo(pencilAmmoRef.current);
+    pencilShotsRef.current.push({ x:p.x+p.w/2+p.facing*28, y:p.y+p.h*.46, vx:p.facing*720, life:1.6, facing:p.facing });
+    spawnBurst(p.x+p.w/2,p.y+p.h*.45,'#FDE047',5);
+  }, []);
+
   const resetGame = useCallback(() => {
     if (answerTimerRef.current) { window.clearTimeout(answerTimerRef.current); answerTimerRef.current = null; }
     answerLockedRef.current = false;
     levelRef.current = createLevel(questionPool.length);
     playerRef.current = { x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0, supportIndex: -1, landTimer: 0, checkpointX: 105, hazardCooldown: 0 };
     cameraRef.current = 0;
-    particlesRef.current = [];
+    particlesRef.current = []; pencilShotsRef.current = []; pencilAmmoRef.current = 0; setPencilAmmo(0);
     answeredRef.current.clear(); weakRef.current = [];
     statsRef.current = { lives: 3, coins: 0, stars: 0, score: 0, correct: 0, wrong: 0 };
     inputRef.current = { left: false, right: false, jump: false, run: false };
@@ -194,7 +206,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     answeredRef.current.add(activeQuestion.index);
     if (activeBoxRef.current) activeBoxRef.current.opened = true;
     if (correct) {
-      statsRef.current.score += 10; statsRef.current.stars += 1; statsRef.current.correct += 1;
+      statsRef.current.score += 10; statsRef.current.stars += 1; statsRef.current.correct += 1; pencilAmmoRef.current += 1; setPencilAmmo(pencilAmmoRef.current);
       if (activeBoxRef.current) spawnBurst(activeBoxRef.current.x + 29, activeBoxRef.current.y, '#FACC15', 18);
     } else {
       statsRef.current.wrong += 1;
@@ -260,7 +272,8 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       questionBox: '/assets/games/super-taleb/items/question-box.webp',
       knowledgeBook: '/assets/games/super-taleb/items/knowledge-book.webp',
       classroomDoor: '/assets/games/super-taleb/items/classroom-door.webp',
-      finishFlag: '/assets/games/super-taleb/items/finish-flag.webp'
+      finishFlag: '/assets/games/super-taleb/items/finish-flag.webp',
+      guideSigns: '/assets/games/super-taleb/items/guide-signs.webp'
     };
     Promise.all(Object.entries(assetPaths).map(async ([key, path]) => [key, await loadImage(path)] as const)).then(entries => {
       if (cancelled) return;
@@ -472,6 +485,19 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       }
       ctx.restore();
     };
+    const drawGuideSigns = (cam:number) => {
+      const img=environmentAssetsRef.current.guideSigns; if(!img)return;
+      const spots=[980,2460,4060];
+      for(const worldX of spots){const x=worldX-cam;if(x>-190&&x<canvas.clientWidth/Math.max(.45,dimensionsForCameraRef.current)+190)ctx.drawImage(img,x,GROUND_Y-152,178,112);}
+    };
+
+    const drawPencilShots = (cam:number) => {
+      for(const shot of pencilShotsRef.current){
+        const x=shot.x-cam,y=shot.y; ctx.save();ctx.translate(x,y);if(shot.facing<0)ctx.scale(-1,1);ctx.rotate(-.12);
+        ctx.fillStyle='#F5D06F';roundRect(-18,-4,30,8,4);ctx.fill();ctx.fillStyle='#DC2626';ctx.fillRect(10,-4,8,8);ctx.fillStyle='#334155';ctx.beginPath();ctx.moveTo(-18,-4);ctx.lineTo(-27,0);ctx.lineTo(-18,4);ctx.closePath();ctx.fill();ctx.restore();
+      }
+    };
+
     const drawDoor = (cam: number) => {
       const x = 5060 - cam;
       if (x > canvas.clientWidth / Math.max(.45, dimensionsForCameraRef.current) + 180) return;
@@ -561,6 +587,16 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
           }
         }
       }
+      for(const shot of pencilShotsRef.current){
+        shot.x+=shot.vx*dt; shot.life-=dt;
+        const shotBox:Rect={x:shot.x-18,y:shot.y-7,w:36,h:14};
+        for(const e of levelRef.current.enemies){
+          if(!e.alive)continue;
+          const enemyHit:Rect={x:e.x+e.w*.16,y:e.y+e.h*.14,w:e.w*.68,h:e.h*.78};
+          if(overlap(shotBox,enemyHit)){e.alive=false;shot.life=0;spawnBurst(e.x+e.w/2,e.y+e.h/2,'#FDE047',16);break;}
+        }
+      }
+      pencilShotsRef.current=pencilShotsRef.current.filter(shot=>shot.life>0&&shot.x>0&&shot.x<WORLD_W);
       if(p.x>5000){finish(true);return;}
       const logicalW = w / (dimensionsForCameraRef.current || 1); const target=clamp(p.x-logicalW*.32,0,WORLD_W-logicalW);cameraRef.current+= (target-cameraRef.current)*Math.min(1,dt*6);
       for(const q of particlesRef.current){q.x+=q.vx*dt;q.y+=q.vy*dt;q.vy+=550*dt;q.life-=dt;}particlesRef.current=particlesRef.current.filter(q=>q.life>0);
@@ -589,11 +625,13 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         }
       }
       for(const p of levelRef.current.platforms)drawPlatform(p,cam);
+      drawGuideSigns(cam);
       drawDoor(cam);
       for(const c of levelRef.current.coins)drawCoin(c,cam,t);
       for(const b of levelRef.current.boxes)drawQuestionBox(b,cam,t);
       for(const e of levelRef.current.enemies)drawEnemy(e,cam,t);
       drawPlayer(playerRef.current,cam,t);
+      drawPencilShots(cam);
       for(const q of particlesRef.current){ctx.globalAlpha=clamp(q.life*1.7,0,1);ctx.fillStyle=q.color;ctx.beginPath();ctx.arc(q.x-cam,q.y,q.size,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;ctx.restore();
     };
 
@@ -616,15 +654,16 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
           <Hud text={`النقاط ${stats.score}`} color="#38BDF8" />
         </div>
       </div>
-      <div style={{position:'absolute',bottom:orientation==='landscape'?8:14,left:orientation==='landscape'?28:18,right:orientation==='landscape'?28:18,display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
-        <div style={{display:'flex',gap:12,direction:'ltr'}}>
-          <Control label="◀" onDown={touchButton('left')(true)} onUp={touchButton('left')(false)} />
-          <Control label="▶" onDown={touchButton('right')(true)} onUp={touchButton('right')(false)} />
+      <div style={{position:'absolute',bottom:orientation==='landscape'?10:14,left:orientation==='landscape'?30:18,right:orientation==='landscape'?30:18,display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
+        <div style={{display:'flex',gap:orientation==='landscape'?18:12,alignItems:'flex-end'}}>
+          <button onClick={() => { const next = !runEnabled; setRunEnabled(next); inputRef.current.run = next; }} style={{width:orientation==='landscape'?74:64,height:orientation==='landscape'?74:64,borderRadius:24,border:runEnabled?'3px solid #FDE68A':'2px solid rgba(255,255,255,.55)',background:runEnabled?'linear-gradient(145deg,rgba(14,165,233,.92),rgba(3,105,161,.92))':'rgba(7,21,47,.68)',color:'#fff',fontSize:17,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)'}}>{runEnabled?'إيقاف':'جري'}</button>
+          {pencilAmmo>0 && <button onClick={firePencil} style={{width:orientation==='landscape'?74:64,height:orientation==='landscape'?74:64,borderRadius:24,border:'3px solid #FDE68A',background:'linear-gradient(145deg,#FACC15,#EA580C)',color:'#fff',fontSize:15,fontWeight:900}}>✏️ {pencilAmmo}</button>}
         </div>
-        <div style={{display:'flex',gap:12}}>
-          <Control label="قفز" accent onDown={touchButton('jump')(true)} onUp={touchButton('jump')(false)} />
-          <button onClick={() => { const next = !runEnabled; setRunEnabled(next); inputRef.current.run = next; }} style={{width:64,height:64,borderRadius:22,border:runEnabled?'3px solid #FDE68A':'2px solid rgba(255,255,255,.55)',background:runEnabled?'linear-gradient(145deg,rgba(14,165,233,.92),rgba(3,105,161,.92))':'rgba(7,21,47,.68)',color:'#fff',fontSize:16,fontWeight:900,boxShadow:runEnabled?'0 0 24px rgba(56,189,248,.65)':'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{runEnabled?'إيقاف':'جري'}</button>
+        <div style={{display:'flex',gap:orientation==='landscape'?20:14,direction:'ltr'}}>
+          <Control label="◀" large={orientation==='landscape'} onDown={touchButton('left')(true)} onUp={touchButton('left')(false)} />
+          <Control label="▶" large={orientation==='landscape'} onDown={touchButton('right')(true)} onUp={touchButton('right')(false)} />
         </div>
+        <Control label="قفز" large={orientation==='landscape'} accent onDown={touchButton('jump')(true)} onUp={touchButton('jump')(false)} />
       </div>
     </>}
 
@@ -662,7 +701,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
 }
 
 function Hud({text,color}:{text:string;color:string}){return <div style={{padding:'9px 13px',borderRadius:14,background:'rgba(7,21,47,.84)',border:`1px solid ${color}88`,color:'#fff',fontWeight:900,fontSize:15,boxShadow:'0 8px 25px rgba(0,0,0,.18)'}}>{text}</div>}
-function Control({label,accent,onDown,onUp}:{label:string;accent?:boolean;onDown:()=>void;onUp:()=>void}){return <button onPointerDown={e=>{e.preventDefault();onDown()}} onPointerUp={e=>{e.preventDefault();onUp()}} onPointerCancel={onUp} onPointerLeave={onUp} style={{width:64,height:64,borderRadius:22,border:'2px solid rgba(255,255,255,.55)',background:accent?'linear-gradient(145deg,rgba(245,158,11,.92),rgba(234,88,12,.92))':'rgba(7,21,47,.68)',color:'#fff',fontSize:label.length>1?16:27,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{label}</button>}
+function Control({label,accent,large,onDown,onUp}:{label:string;accent?:boolean;large?:boolean;onDown:()=>void;onUp:()=>void}){return <button onPointerDown={e=>{e.preventDefault();onDown()}} onPointerUp={e=>{e.preventDefault();onUp()}} onPointerCancel={onUp} onPointerLeave={onUp} style={{width:large?74:64,height:large?74:64,borderRadius:24,border:'2px solid rgba(255,255,255,.55)',background:accent?'linear-gradient(145deg,rgba(245,158,11,.92),rgba(234,88,12,.92))':'rgba(7,21,47,.68)',color:'#fff',fontSize:label.length>1?16:27,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{label}</button>}
 function Overlay({children,blur}:{children:React.ReactNode;blur?:boolean}){return <div style={{position:'absolute',inset:0,display:'grid',placeItems:'center',padding:18,background:'rgba(2,12,32,.64)',backdropFilter:blur?'blur(5px)':'blur(2px)',overflow:'auto'}}>{children}</div>}
 function Card({children,compact=false}:{children:React.ReactNode;compact?:boolean}){return <div style={{width:compact?'min(480px,54vw)':'min(560px,92vw)',maxHeight:compact?'68vh':'90vh',overflowY:'auto',textAlign:'center',padding:compact?'12px 18px':'30px 26px',borderRadius:30,background:'linear-gradient(145deg,rgba(7,28,60,.98),rgba(10,54,91,.97))',border:'2px solid rgba(56,189,248,.65)',boxShadow:'0 30px 90px rgba(0,0,0,.53)',color:'#fff'}}>{children}</div>}
 function Stat({label,value}:{label:string;value:number}){return <div style={{padding:14,borderRadius:16,background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.16)'}}><div style={{fontSize:24,fontWeight:950,color:'#FACC15'}}>{value}</div><div style={{fontSize:14,color:'#D7E7F6'}}>{label}</div></div>}
