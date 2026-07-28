@@ -49,6 +49,8 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   const motionRef = useRef<Motion>({ left: false, right: false, jump: false, run: false });
   const playerRef = useRef<Player>({ x: 120, y: GROUND_Y - 82, vx: 0, vy: 0, w: 48, h: 82, grounded: true, facing: 1, lives: 3, invulnerableUntil: 0 });
   const cameraRef = useRef(0);
+  const assetsRef = useRef<Record<string, HTMLImageElement>>({});
+  const assetsReadyRef = useRef(false);
   const projectilesRef = useRef<Projectile[]>([]);
   const answerLockedRef = useRef(false);
   const completionSentRef = useRef(false);
@@ -116,6 +118,42 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   }, [activatedStations, answeredIds, correctIds, weakIds, score, pencilAmmo, lives, onProgress]);
 
   useEffect(() => { persist(); }, [persist]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const paths: Record<string,string> = {
+      background:'/assets/games/super-taleb/level-2/backgrounds/smart-classroom.webp',
+      socialStation:'/assets/games/super-taleb/level-2/stations/social-station.webp',
+      scienceStation:'/assets/games/super-taleb/level-2/stations/science-station.webp',
+      mathStation:'/assets/games/super-taleb/level-2/stations/math-station.webp',
+      socialKey:'/assets/games/super-taleb/level-2/items/social-key.webp',
+      scienceKey:'/assets/games/super-taleb/level-2/items/science-key.webp',
+      mathKey:'/assets/games/super-taleb/level-2/items/math-key.webp',
+      boardLocked:'/assets/games/super-taleb/level-2/items/smart-board-locked.webp',
+      boardActive:'/assets/games/super-taleb/level-2/items/smart-board-active.webp',
+      exitDoor:'/assets/games/super-taleb/level-2/items/classroom-exit.webp',
+      floorLong:'/assets/games/super-taleb/level-2/terrain/floor-long.webp',
+      floorShort:'/assets/games/super-taleb/level-2/terrain/floor-short.webp',
+      desk:'/assets/games/super-taleb/level-2/terrain/desk-platform.webp',
+      books:'/assets/games/super-taleb/level-2/terrain/book-stack-platform.webp',
+      ruler:'/assets/games/super-taleb/level-2/terrain/ruler-platform.webp',
+      movingBook:'/assets/games/super-taleb/level-2/terrain/moving-book-platform.webp',
+      bookshelf:'/assets/games/super-taleb/level-2/terrain/bookshelf-platform.webp',
+      eraser:'/assets/games/super-taleb/level-2/enemies/eraser.webp',
+      paper:'/assets/games/super-taleb/level-2/enemies/flying-paper.webp',
+      bag:'/assets/games/super-taleb/level-2/enemies/school-bag.webp',
+      playerIdle:'/assets/games/super-taleb/player/idle.webp',
+      playerWalk:'/assets/games/super-taleb/player/walk.webp',
+      playerRun:'/assets/games/super-taleb/player/run.webp',
+      playerJump:'/assets/games/super-taleb/player/jump.webp',
+      playerFall:'/assets/games/super-taleb/player/fall.webp'
+    };
+    Promise.all(Object.entries(paths).map(([key,src])=>new Promise<[string,HTMLImageElement]>((resolve,reject)=>{
+      const image=new Image(); image.onload=()=>resolve([key,image]); image.onerror=reject; image.src=src;
+    }))).then(entries=>{if(!cancelled){assetsRef.current=Object.fromEntries(entries);assetsReadyRef.current=true;}})
+      .catch(error=>{console.warn('SuperTaleb Level 2 assets fallback',error);assetsReadyRef.current=false;});
+    return()=>{cancelled=true;};
+  },[]);
 
   useEffect(() => {
     const handleResize = () => setOrientation(window.innerWidth > window.innerHeight ? 'landscape' : 'portrait');
@@ -281,33 +319,57 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       const camera = cameraRef.current;
 
       const bg = ctx.createLinearGradient(0, 0, 0, viewH); bg.addColorStop(0, '#dff4ff'); bg.addColorStop(1, '#f8e7bd'); ctx.fillStyle = bg; ctx.fillRect(0,0,viewW,viewH);
+      const assets=assetsRef.current;
+      if(assetsReadyRef.current&&assets.background){
+        const bgImage=assets.background;
+        const segmentW=1360;
+        for(let bx=-(camera*.16)%segmentW-segmentW;bx<viewW+segmentW;bx+=segmentW){ctx.drawImage(bgImage,bx,0,segmentW,Math.max(viewH,690));}
+      }
       ctx.save(); ctx.translate(-camera, 0);
-      // جدار الفصل والنوافذ واللوحات
-      ctx.fillStyle = '#f4dfb3'; ctx.fillRect(0, 90, WORLD_W, 500);
-      for (let x = 250; x < WORLD_W; x += 640) { ctx.fillStyle = '#bfe8ff'; ctx.fillRect(x, 155, 250, 145); ctx.strokeStyle = '#8b5e3c'; ctx.lineWidth = 12; ctx.strokeRect(x,155,250,145); ctx.beginPath(); ctx.moveTo(x+125,155); ctx.lineTo(x+125,300); ctx.moveTo(x,227); ctx.lineTo(x+250,227); ctx.stroke(); }
-      ctx.fillStyle = '#78350f'; ctx.fillRect(0, 365, WORLD_W, 18);
-      ctx.fillStyle = '#0f766e'; ctx.fillRect(90, 110, 430, 120); ctx.fillStyle = 'white'; ctx.font = 'bold 34px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('فصل راصد الذكي', 305, 180);
+      if(!assetsReadyRef.current){
+        ctx.fillStyle = '#f4dfb3'; ctx.fillRect(0, 90, WORLD_W, 500);
+        for (let x = 250; x < WORLD_W; x += 640) { ctx.fillStyle = '#bfe8ff'; ctx.fillRect(x, 155, 250, 145); ctx.strokeStyle = '#8b5e3c'; ctx.lineWidth = 12; ctx.strokeRect(x,155,250,145); }
+      }
 
       platformsRef.current.forEach((platform) => {
-        if (platform.kind === 'floor') { ctx.fillStyle = '#c28b50'; ctx.fillRect(platform.x,platform.y,platform.w,platform.h); ctx.fillStyle='#e8c086'; for(let x=platform.x;x<platform.x+platform.w;x+=92) ctx.fillRect(x,platform.y+4,86,8); }
-        if (platform.kind === 'desk') { ctx.fillStyle='#8b5a2b'; ctx.fillRect(platform.x,platform.y,platform.w,platform.h); ctx.fillStyle='#c98a47'; ctx.fillRect(platform.x,platform.y,platform.w,10); }
-        if (platform.kind === 'books') { const colors=['#2563eb','#dc2626','#16a34a','#eab308']; for(let i=0;i<4;i++){ctx.fillStyle=colors[i];ctx.fillRect(platform.x+i*platform.w/4,platform.y,platform.w/4-3,platform.h);} }
-        if (platform.kind === 'ruler') { ctx.fillStyle='#facc15'; ctx.fillRect(platform.x,platform.y,platform.w,platform.h); ctx.strokeStyle='#92400e'; ctx.lineWidth=3; for(let x=platform.x+15;x<platform.x+platform.w;x+=25){ctx.beginPath();ctx.moveTo(x,platform.y);ctx.lineTo(x,platform.y+12);ctx.stroke();} }
+        let image:HTMLImageElement|undefined;
+        if(assetsReadyRef.current){
+          image=platform.kind==='floor'?(platform.w>900?assets.floorLong:assets.floorShort):platform.kind==='desk'?assets.desk:platform.kind==='books'?assets.books:assets.ruler;
+        }
+        if(image){const drawH=platform.kind==='floor'?Math.max(130,platform.h):Math.max(58,platform.h+26);ctx.drawImage(image,platform.x,platform.y,platform.w,drawH);return;}
+        if (platform.kind === 'floor') { ctx.fillStyle = '#c28b50'; ctx.fillRect(platform.x,platform.y,platform.w,platform.h); }
+        else { ctx.fillStyle=platform.kind==='ruler'?'#facc15':'#8b5a2b';ctx.fillRect(platform.x,platform.y,platform.w,platform.h); }
       });
 
       stationsRef.current.forEach((station) => {
-        ctx.save(); ctx.translate(station.x, station.y); ctx.fillStyle=station.active?'#22c55e':station.color; ctx.shadowColor=ctx.fillStyle; ctx.shadowBlur=station.active?24:10; ctx.fillRect(-44,-72,88,72); ctx.shadowBlur=0; ctx.fillStyle='#0f172a'; ctx.fillRect(-30,-55,60,40); ctx.fillStyle='white'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center'; const label=station.id==='social'?'اجتماعيات':station.id==='science'?'علوم':'رياضيات'; ctx.fillText(label,0,-30); ctx.fillStyle=station.active?'#facc15':'#94a3b8'; ctx.beginPath(); ctx.arc(0,18,16,0,Math.PI*2); ctx.fill(); ctx.restore();
+        const image=station.id==='social'?assets.socialStation:station.id==='science'?assets.scienceStation:assets.mathStation;
+        const keyImage=station.id==='social'?assets.socialKey:station.id==='science'?assets.scienceKey:assets.mathKey;
+        if(assetsReadyRef.current&&image){
+          ctx.save();ctx.globalAlpha=station.active?1:.88;ctx.drawImage(image,station.x-76,station.y-120,152,120);ctx.restore();
+          if(station.active&&keyImage)ctx.drawImage(keyImage,station.x-23,station.y-166,46,74);
+        }else{
+          ctx.save();ctx.translate(station.x, station.y);ctx.fillStyle=station.active?'#22c55e':station.color;ctx.fillRect(-44,-72,88,72);ctx.restore();
+        }
       });
 
-      hazardsRef.current.forEach((hazard) => { if(!hazard.alive)return; ctx.save(); ctx.translate(hazard.x,hazard.y); ctx.fillStyle=hazard.kind==='eraser'?'#f472b6':hazard.kind==='paper'?'#f8fafc':'#7c2d12'; ctx.strokeStyle='#0f172a'; ctx.lineWidth=3; ctx.fillRect(0,0,hazard.w,hazard.h); ctx.strokeRect(0,0,hazard.w,hazard.h); ctx.fillStyle='#111827'; ctx.fillRect(13,12,7,7); ctx.fillRect(hazard.w-20,12,7,7); ctx.restore(); });
+      hazardsRef.current.forEach((hazard) => { if(!hazard.alive)return;const image=hazard.kind==='eraser'?assets.eraser:hazard.kind==='paper'?assets.paper:assets.bag;ctx.save();ctx.translate(hazard.x,hazard.y);if(hazard.vx<0){ctx.translate(hazard.w,0);ctx.scale(-1,1);}if(assetsReadyRef.current&&image)ctx.drawImage(image,-8,-12,hazard.w+16,hazard.h+16);else{ctx.fillStyle=hazard.kind==='eraser'?'#f472b6':hazard.kind==='paper'?'#f8fafc':'#7c2d12';ctx.fillRect(0,0,hazard.w,hazard.h);}ctx.restore(); });
       projectilesRef.current.forEach((shot)=>{ctx.fillStyle='#facc15';ctx.fillRect(shot.x,shot.y,28,7);ctx.fillStyle='#ec4899';ctx.beginPath();ctx.moveTo(shot.x+28,shot.y);ctx.lineTo(shot.x+36,shot.y+3.5);ctx.lineTo(shot.x+28,shot.y+7);ctx.fill();});
 
       // السبورة الذكية النهائية
-      ctx.fillStyle=activatedStations.length===3?'#0ea5e9':'#334155'; ctx.fillRect(4830,260,270,230); ctx.strokeStyle='#e2e8f0';ctx.lineWidth=12;ctx.strokeRect(4830,260,270,230); ctx.fillStyle='white';ctx.font='bold 28px sans-serif';ctx.textAlign='center';ctx.fillText(activatedStations.length===3?'السبورة جاهزة':'السبورة مغلقة',4965,370);
+      const boardImage=activatedStations.length===3?assets.boardActive:assets.boardLocked;
+      if(assetsReadyRef.current&&boardImage)ctx.drawImage(boardImage,4820,255,285,235);else{ctx.fillStyle=activatedStations.length===3?'#0ea5e9':'#334155';ctx.fillRect(4830,260,270,230);}
+      if(activatedStations.length===3&&assets.exitDoor)ctx.drawImage(assets.exitDoor,5080,350,105,240);
 
-      // الطالب (رسم مؤقت متماسك إلى أن تُربط أصول الشخصية المشتركة)
       const blink = performance.now() < p.invulnerableUntil && Math.floor(performance.now()/100)%2===0;
-      if(!blink){ctx.save();ctx.translate(p.x+p.w/2,p.y+p.h);ctx.scale(p.facing,1);ctx.fillStyle='#fff';ctx.strokeStyle='#1f2937';ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(-18,-61,36,55,8);ctx.fill();ctx.stroke();ctx.fillStyle='#d6a56c';ctx.beginPath();ctx.arc(0,-71,14,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#8b5e3c';ctx.fillRect(-23,-54,9,35);ctx.fillStyle='#0f172a';ctx.fillRect(-14,-8,11,8);ctx.fillRect(3,-8,11,8);ctx.fillStyle='#f97316';ctx.fillRect(-16,-88,32,8);ctx.restore();}
+      if(!blink){
+        let image=assets.playerIdle,frames=6,fps=5;
+        if(!p.grounded){image=p.vy<0?assets.playerJump:assets.playerFall;frames=p.vy<0?7:5;fps=8;}
+        else if(Math.abs(p.vx)>220){image=assets.playerRun;frames=7;fps=12;}
+        else if(Math.abs(p.vx)>20){image=assets.playerWalk;frames=7;fps=9;}
+        ctx.save();ctx.translate(p.x+p.w/2,p.y+p.h);ctx.scale(p.facing,1);
+        if(assetsReadyRef.current&&image){const frame=Math.floor(time/1000*fps)%frames;ctx.drawImage(image,frame*256,0,256,256,-58,-104,116,116);}
+        else{ctx.fillStyle='#fff';ctx.fillRect(-18,-78,36,78);}ctx.restore();
+      }
       ctx.restore();
 
       // HUD
