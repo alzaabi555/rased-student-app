@@ -4,7 +4,6 @@ import type {
   SuperTalebLevelResult,
   SuperTalebQuestion,
 } from './SuperTalebCampaign';
-import { superTalebAudio } from './super-taleb/SuperTalebAudio';
 
 type Motion = { left: boolean; right: boolean; jump: boolean; run: boolean };
 type Player = {
@@ -153,8 +152,6 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
 
   useEffect(() => { persist(); },[persist]);
 
-
-  useEffect(() => { const unlock=()=>void superTalebAudio.unlock(); window.addEventListener('pointerdown',unlock,{once:true}); return()=>window.removeEventListener('pointerdown',unlock); }, []);
   useEffect(() => {
     let cancelled=false;
     const paths:Record<string,string> = {
@@ -216,7 +213,6 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
       setActivatedGateIds(next); setMessage(`عبرت ${gate.title} — تابع طريق الإنجاز`); persist({activatedGateIds:next});
       return;
     }
-    superTalebAudio.play('questionOpen');
     setActiveGate(gate); setActiveQuestion(selected); answerLockedRef.current=false;
   },[activeQuestion,activatedGateIds,answeredIds,clearMotion,persist,usableQuestions]);
 
@@ -233,8 +229,6 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
     const nextGates=Array.from(new Set([...activatedGateIds,activeGate.id]));
     activeGate.activated=true;
     setAnsweredIds(nextAnswered);setCorrectIds(nextCorrect);setWeakIds(nextWeak);setScore(nextScore);setPencilAmmo(nextAmmo);setActivatedGateIds(nextGates);
-    superTalebAudio.play(isCorrect?'correct':'incorrect'); if(isCorrect){superTalebAudio.play('star');superTalebAudio.play('pencilEarned');}
-    superTalebAudio.play('gateOpen');
     setFeedback({correct:isCorrect,text:isCorrect?'إجابة صحيحة: +10 نقاط وطلقة قلم':'إجابة غير صحيحة: لا نقاط ولا خسارة قلب، وتستمر المغامرة'});
     persist({answeredQuestionIds:nextAnswered,correctQuestionIds:nextCorrect,weakQuestionIds:nextWeak,score:nextScore,pencilAmmo:nextAmmo,activatedGateIds:nextGates});
     window.setTimeout(()=>{setActiveQuestion(null);setActiveGate(null);setFeedback(null);answerLockedRef.current=false;},850);
@@ -243,7 +237,6 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
   const shootPencil=useCallback(()=>{
     if(pencilAmmo<=0 || activeQuestion || gameOver) return;
     const player=playerRef.current;
-    superTalebAudio.play('pencilFire');
     projectilesRef.current.push({x:player.x+(player.facing>0?player.w:-24),y:player.y+34,vx:player.facing*650,alive:true});
     setPencilAmmo(value=>Math.max(0,value-1));
   },[activeQuestion,gameOver,pencilAmmo]);
@@ -252,7 +245,7 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
     if(completionSentRef.current) return;
     const remaining=usableQuestions.filter(item=>!answeredIds.includes(String(item.id)));
     if(remaining.length>0){setMessage(`تبقى ${remaining.length} سؤالًا — عد إلى بوابة المعرفة التالية`);return;}
-    completionSentRef.current=true;clearMotion();setFinished(true);superTalebAudio.play('levelComplete');
+    completionSentRef.current=true;clearMotion();setFinished(true);
     const result:SuperTalebLevelResult={
       completed:true,score:correctIds.length*10,pointsEarned:correctIds.length*10,
       correct:correctIds.length,correctAnswers:correctIds.length,
@@ -266,10 +259,10 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
   const damagePlayer=useCallback((sourceX:number)=>{
     const now=performance.now();const player=playerRef.current;
     if(now<player.invulnerableUntil || gameOver) return;
-    player.invulnerableUntil=now+2300;superTalebAudio.play('obstacleHit');
+    player.invulnerableUntil=now+2300;
     player.x=Math.max(100,safeXRef.current);player.y=GROUND_Y-player.h;player.vx=sourceX>player.x?-90:90;player.vy=-190;
     const next=Math.max(0,player.lives-1);player.lives=next;setLives(next);clearMotion();
-    if(next<=0){player.vx=0;player.vy=0;setGameOver(true);superTalebAudio.play('gameOver');setMessage('انتهت المحاولة — أعد المرحلة من البداية');}
+    if(next<=0){player.vx=0;player.vy=0;setGameOver(true);setMessage('انتهت المحاولة — أعد المرحلة من البداية');}
   },[clearMotion,gameOver]);
 
   const restartAttempt=useCallback(()=>{
@@ -308,9 +301,9 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
       const player=playerRef.current;const motion=motionRef.current;
       const speed=motion.run?410:205;const axis=(motion.right?1:0)-(motion.left?1:0);
       player.vx+=(axis*speed-player.vx)*Math.min(1,dt*12);if(axis)player.facing=axis>0?1:-1;
-      if(motion.jump&&player.grounded){superTalebAudio.play('jump');player.vy=-515;player.grounded=false;motion.jump=false;}
+      if(motion.jump&&player.grounded){player.vy=-515;player.grounded=false;motion.jump=false;}
       player.vy+=1270*dt;player.x+=player.vx*dt;player.y+=player.vy*dt;player.x=Math.max(0,Math.min(WORLD_W-player.w,player.x));
-      const previousBottom=player.y+player.h-player.vy*dt;const wasGrounded=player.grounded;player.grounded=false;
+      const previousBottom=player.y+player.h-player.vy*dt;player.grounded=false;
       platformsRef.current.forEach(platform=>{
         const image=platform.kind==='floor'?(platform.w>850?assets.floorLong:assets.floorShort):platform.kind==='book'?assets.books:platform.kind==='ruler'?assets.ruler:platform.kind==='paper'?assets.paperPlatform:assets.desk;
         if(image){const drawH=platform.kind==='floor'?Math.max(125,platform.h):Math.max(48,platform.h+25);context.drawImage(image,platform.x,platform.y,platform.w,drawH);return;}
