@@ -4,6 +4,7 @@ import type {
   SuperTalebLevelResult,
   SuperTalebQuestion,
 } from './SuperTalebCampaign';
+import { superTalebAudio } from './super-taleb/SuperTalebAudio';
 
 type StationId = 'social' | 'arabic' | 'english' | 'science' | 'math';
 type Motion = { left: boolean; right: boolean; jump: boolean; run: boolean };
@@ -141,6 +142,8 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
 
   useEffect(() => { persist(); }, [persist]);
 
+
+  useEffect(() => { const unlock=()=>void superTalebAudio.unlock(); window.addEventListener('pointerdown',unlock,{once:true}); return()=>window.removeEventListener('pointerdown',unlock); }, []);
   useEffect(() => {
     let cancelled = false;
     const paths: Record<string,string> = {
@@ -201,10 +204,12 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       const nextActivated = Array.from(new Set([...activatedStations, station.id])) as StationId[];
       setActivatedStations(nextActivated);
       stationsRef.current.forEach((item) => { if (item.id === station.id) item.active = true; });
+      superTalebAudio.play('stationActivate');
       setMessage(`تم تشغيل محطة ${station.title} — تابع إلى المحطة التالية`);
       persist({ activatedStations: nextActivated });
       return;
     }
+    superTalebAudio.play('questionOpen');
     setActiveStation(station.id);
     setActiveQuestion(selected);
     answerLockedRef.current = false;
@@ -223,6 +228,8 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
 
     setAnsweredIds(nextAnswered); setCorrectIds(nextCorrect); setWeakIds(nextWeak);
     setScore(nextScore); setPencilAmmo(nextAmmo);
+    superTalebAudio.play(correct ? 'correct' : 'incorrect');
+    if (correct) { superTalebAudio.play('star'); superTalebAudio.play('pencilEarned'); }
     setFeedback({ correct, text: correct ? 'إجابة صحيحة! +10 نقاط وطلقة قلم' : 'إجابة غير صحيحة — تستمر المغامرة دون خصم قلب' });
 
     window.setTimeout(() => {
@@ -238,6 +245,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   const shootPencil = useCallback(() => {
     if (pencilAmmo <= 0 || activeQuestion || !started || finished) return;
     const p = playerRef.current;
+    superTalebAudio.play('pencilFire');
     projectilesRef.current.push({ x: p.x + (p.facing === 1 ? p.w : -10), y: p.y + 35, vx: p.facing * 620, alive: true });
     setPencilAmmo((value) => Math.max(0, value - 1));
   }, [pencilAmmo, activeQuestion, started, finished]);
@@ -245,7 +253,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   const finishLevel = useCallback(() => {
     if (completionSentRef.current) return;
     completionSentRef.current = true;
-    setFinished(true); clearMotion();
+    setFinished(true); clearMotion(); superTalebAudio.play('levelComplete');
     const result: SuperTalebLevelResult = {
       score: correctIds.length * POINTS_PER_CORRECT,
       pointsEarned: correctIds.length * POINTS_PER_CORRECT,
@@ -267,12 +275,12 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   const damagePlayer = useCallback((sourceX: number) => {
     const now = performance.now(); const p = playerRef.current;
     if (now < p.invulnerableUntil) return;
-    p.invulnerableUntil = now + 2200;
+    p.invulnerableUntil = now + 2200; superTalebAudio.play('obstacleHit');
     p.x = Math.max(80, safeXRef.current); p.y = GROUND_Y - p.h; p.vx = sourceX > p.x ? -80 : 80; p.vy = -180;
     const nextLives = Math.max(0, p.lives - 1); p.lives = nextLives; setLives(nextLives); clearMotion();
     if (nextLives <= 0) {
       p.vx = 0; p.vy = 0;
-      setGameOver(true);
+      setGameOver(true); superTalebAudio.play('gameOver');
       setMessage('انتهت المحاولة — أعد المرحلة من البداية');
     }
   }, [clearMotion]);
@@ -328,13 +336,13 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       const axis = (motion.right ? 1 : 0) - (motion.left ? 1 : 0);
       p.vx += (axis * speed - p.vx) * Math.min(1, dt * 12);
       if (axis) p.facing = axis > 0 ? 1 : -1;
-      if (motion.jump && p.grounded) { p.vy = -505; p.grounded = false; motion.jump = false; }
+      if (motion.jump && p.grounded) { superTalebAudio.play('jump'); p.vy = -505; p.grounded = false; motion.jump = false; }
       p.vy += 1250 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.x = Math.max(0, Math.min(WORLD_W - p.w, p.x));
 
-      const previousBottom = p.y + p.h - p.vy * dt; p.grounded = false;
+      const previousBottom = p.y + p.h - p.vy * dt; const wasGrounded=p.grounded; p.grounded = false;
       platformsRef.current.forEach((platform) => {
         if (p.x + p.w * 0.8 > platform.x && p.x + p.w * 0.2 < platform.x + platform.w && previousBottom <= platform.y + 12 && p.y + p.h >= platform.y && p.vy >= 0) {
-          p.y = platform.y - p.h; p.vy = 0; p.grounded = true;
+          p.y = platform.y - p.h; p.vy = 0; p.grounded = true; if(!wasGrounded)superTalebAudio.play('land');
           if (platform.kind === 'floor' && p.x > safeXRef.current + 180) safeXRef.current = p.x;
         }
       });

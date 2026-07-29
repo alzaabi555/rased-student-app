@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { superTalebAudio } from './super-taleb/SuperTalebAudio';
 
 export interface SuperTalebQuestion {
   id: string;
@@ -151,6 +152,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
 
   const firePencil = useCallback(() => {
     if (stateRef.current !== 'playing' || pencilAmmoRef.current <= 0) return;
+    superTalebAudio.play('pencilFire');
     const p = playerRef.current;
     pencilAmmoRef.current -= 3; setPencilAmmo(pencilAmmoRef.current);
     pencilShotsRef.current.push({ x:p.x+p.w/2+p.facing*28, y:p.y+p.h*.46, vx:p.facing*720, life:1.6, facing:p.facing });
@@ -173,6 +175,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const finish = useCallback((completed: boolean) => {
     if (stateRef.current === 'won' || stateRef.current === 'gameover') return;
     setStateSafe(completed ? 'won' : 'gameover');
+    superTalebAudio.play(completed ? 'levelComplete' : 'gameOver');
     const s = statsRef.current;
     onComplete({
       gameType: 'super_taleb', score: s.correct * 10, pointsEarned: s.correct * 10, coins: s.coins, knowledgeStars: s.stars,
@@ -189,6 +192,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     setRunEnabled(false);
     activeBoxRef.current = box;
     answerLockedRef.current = false;
+    superTalebAudio.play('questionOpen');
     setActiveQuestion({ q: questionPool[idx], index: idx });
     setSelectedAnswer(null); setFeedback(null); setStateSafe('question');
   }, [questionPool, setStateSafe]);
@@ -206,9 +210,11 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     answeredRef.current.add(activeQuestion.index);
     if (activeBoxRef.current) activeBoxRef.current.opened = true;
     if (correct) {
+      superTalebAudio.play('correct'); superTalebAudio.play('star'); superTalebAudio.play('pencilEarned');
       statsRef.current.score += 10; statsRef.current.stars += 1; statsRef.current.correct += 1; pencilAmmoRef.current += 3; setPencilAmmo(pencilAmmoRef.current);
       if (activeBoxRef.current) spawnBurst(activeBoxRef.current.x + 29, activeBoxRef.current.y, '#FACC15', 18);
     } else {
+      superTalebAudio.play('incorrect');
       statsRef.current.wrong += 1;
       if (!weakRef.current.includes(activeQuestion.q.id)) weakRef.current.push(activeQuestion.q.id);
       if (activeBoxRef.current) spawnBurst(activeBoxRef.current.x + 29, activeBoxRef.current.y, '#EF4444', 10);
@@ -231,6 +237,8 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     }, correct ? 720 : 980);
   };
 
+
+  useEffect(() => { const unlock=()=>void superTalebAudio.unlock(); window.addEventListener('pointerdown',unlock,{once:true}); return()=>window.removeEventListener('pointerdown',unlock); }, []);
   useEffect(() => {
     let cancelled = false;
     const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
@@ -516,7 +524,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       const movingLeft = inp.left && !inp.right;
       const movingRight = (inp.right && !inp.left) || (inp.run && !inp.left);
       p.vx = movingLeft ? -speed : movingRight ? speed : p.vx * .78; if(Math.abs(p.vx)<4)p.vx=0; if(p.vx)p.facing=Math.sign(p.vx);
-      if(inp.jump&&p.grounded){p.vy=-JUMP_SPEED;p.grounded=false;p.supportIndex=-1;inp.jump=false;spawnBurst(p.x+p.w/2,p.y+p.h,'#F8FAFC',6);} p.vy+=GRAVITY*dt; p.invincible=Math.max(0,p.invincible-dt); p.hazardCooldown=Math.max(0,p.hazardCooldown-dt);
+      if(inp.jump&&p.grounded){superTalebAudio.play('jump');p.vy=-JUMP_SPEED;p.grounded=false;p.supportIndex=-1;inp.jump=false;spawnBurst(p.x+p.w/2,p.y+p.h,'#F8FAFC',6);} p.vy+=GRAVITY*dt; p.invincible=Math.max(0,p.invincible-dt); p.hazardCooldown=Math.max(0,p.hazardCooldown-dt);
       const prevY=p.y, wasGrounded=p.grounded, previousSupport=p.supportIndex;
       p.landTimer=Math.max(0,p.landTimer-dt);
       p.x=clamp(p.x+p.vx*dt,0,WORLD_W-p.w); p.y+=p.vy*dt; p.grounded=false; p.supportIndex=-1;
@@ -534,7 +542,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         const landed=p.vy>=0&&prevY+p.h<=surfaceY+14&&p.y+p.h>=surfaceY;
         if(followedSupport||landed){
           p.y=surfaceY-p.h; p.vy=0; p.grounded=true; p.supportIndex=i;
-          if(landed&&!wasGrounded)p.landTimer=.20;
+          if(landed&&!wasGrounded){p.landTimer=.20;superTalebAudio.play('land');}
           if(plat.kind==='moving')p.x+=(plat.vx||0)*dt;
           break;
         }
@@ -551,7 +559,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         }
       }
       if(p.y>850 && p.hazardCooldown<=0){
-        statsRef.current.lives--; syncStats();
+        superTalebAudio.play('obstacleHit');statsRef.current.lives--; syncStats();
         if(statsRef.current.lives<=0){finish(false);return;}
         p.x=clamp(p.checkpointX,70,WORLD_W-p.w-70); p.y=GROUND_Y-PLAYER_H;
         p.vx=0; p.vy=0; p.grounded=false; p.supportIndex=-1; p.landTimer=0;
@@ -560,7 +568,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         setRunEnabled(false);
         cameraRef.current=clamp(p.x-Math.max(0,w/(dimensionsForCameraRef.current||1))*.28,0,WORLD_W);
       }
-      for(const c of levelRef.current.coins){if(!c.collected&&overlap(p,{x:c.x-16,y:c.y-18,w:32,h:36})){c.collected=true;statsRef.current.coins++;spawnBurst(c.x,c.y,'#FACC15',8);syncStats();}}
+      for(const c of levelRef.current.coins){if(!c.collected&&overlap(p,{x:c.x-16,y:c.y-18,w:32,h:36})){c.collected=true;superTalebAudio.play('coin');statsRef.current.coins++;spawnBurst(c.x,c.y,'#FACC15',8);syncStats();}}
       for(const b of levelRef.current.boxes){if(!b.opened&&overlap(p,b)){openQuestion(b);break;}}
       for(const e of levelRef.current.enemies){if(!e.alive)continue;e.x+=e.vx*dt;if(e.x<e.minX||e.x+e.w>e.maxX){e.vx*=-1;e.x=clamp(e.x,e.minX,e.maxX-e.w);}e.hitFlash=Math.max(0,e.hitFlash-dt);
         // Use compact body hitboxes rather than the full transparent sprite rectangles.
