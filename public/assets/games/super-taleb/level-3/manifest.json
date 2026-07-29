@@ -1,0 +1,283 @@
+{
+  "version": 2,
+  "level": 3,
+  "name": "تحدي نهاية العام",
+  "background": "backgrounds/end-year-panorama.webp",
+  "assets": {
+    "end-year-panorama": {
+      "file": "backgrounds/end-year-panorama.webp",
+      "width": 1536,
+      "height": 650
+    },
+    "oman-flag": {
+      "file": "items/oman-flag.webp",
+      "width": 225,
+      "height": 274
+    },
+    "completion-chest-open": {
+      "file": "items/completion-chest-open.webp",
+      "width": 241,
+      "height": 261
+    },
+    "completion-chest-closed": {
+      "file": "items/completion-chest-closed.webp",
+      "width": 248,
+      "height": 207
+    },
+    "celebration-podium": {
+      "file": "items/celebration-podium.webp",
+      "width": 395,
+      "height": 190
+    },
+    "exit-arch": {
+      "file": "items/exit-arch.webp",
+      "width": 523,
+      "height": 277
+    },
+    "achievement-star": {
+      "file": "items/achievement-star.webp",
+      "width": 196,
+      "height": 197
+    },
+    "celebration-banner": {
+      "file": "items/celebration-banner.webp",
+      "width": 878,
+      "height": 272
+    },
+    "application-gate": {
+      "file": "gates/application-gate.webp",
+      "width": 283,
+      "height": 357
+    },
+    "future-gate": {
+      "file": "gates/future-gate.webp",
+      "width": 267,
+      "height": 357
+    },
+    "memory-gate": {
+      "file": "gates/memory-gate.webp",
+      "width": 291,
+      "height": 358
+    },
+    "achievement-gate": {
+      "file": "gates/achievement-gate.webp",
+      "width": 308,
+      "height": 357
+    },
+    "understanding-gate": {
+      "file": "gates/understanding-gate.webp",
+      "width": 278,
+      "height": 357
+    },
+    "flying-paper": {
+      "file": "enemies/flying-paper.webp",
+      "width": 269,
+      "height": 269
+    },
+    "question-creature": {
+      "file": "enemies/question-creature.webp",
+      "width": 248,
+      "height": 288
+    },
+    "error-eraser": {
+      "file": "enemies/error-eraser.webp",
+      "width": 292,
+      "height": 502
+    },
+    "time-clock": {
+      "file": "enemies/time-clock.webp",
+      "width": 286,
+      "height": 294
+    },
+    "revision-book": {
+      "file": "enemies/revision-book.webp",
+      "width": 290,
+      "height": 502
+    },
+    "pencil-projectile": {
+      "file": "effects/pencil-projectile.webp",
+      "width": 286,
+      "height": 158
+    },
+    "impact-spark": {
+      "file": "effects/impact-spark.webp",
+      "width": 264,
+      "height": 502
+    },
+    "defeat-puff": {
+      "file": "effects/defeat-puff.webp",
+      "width": 271,
+      "height": 277
+    },
+    "knowledge-star": {
+      "file": "effects/knowledge-star.webp",
+      "width": 284,
+      "height": 502
+    },
+    "heart-pickup": {
+      "file": "effects/heart-pickup.webp",
+      "width": 258,
+      "height": 242
+    },
+    "corridor-small-a": {
+      "file": "terrain/corridor-small-a.webp",
+      "width": 239,
+      "height": 113
+    },
+    "pencil-short-a": {
+      "file": "terrain/pencil-short-a.webp",
+      "width": 231,
+      "height": 120
+    },
+    "corridor-short": {
+      "file": "terrain/corridor-short.webp",
+      "width": 250,
+      "height": 114
+    },
+    "paper-short-b": {
+      "file": "terrain/paper-short-b.webp",
+      "width": 238,
+      "height": 105
+    },
+    "ruler-medium": {
+      "file": "terrain/ruler-medium.webp",
+      "width": 436,
+      "height": 95
+    },
+    "books-short-c": {
+      "file": "terrain/books-short-c.webp",
+      "width": 249,
+      "height": 197
+    },
+    "desk-long": {
+      "file": "terrain/desk-long.webp",
+      "width": 520,
+      "height": 132
+    },
+    "corridor-long-b": {
+      "file": "terrain/corridor-long-b.webp",
+      "width": 445,
+      "height": 67
+    },
+    "corridor-small-b": {
+      "file": "terrain/corridor-small-b.webp",
+      "width": 227,
+      "height": 111
+    },
+    "pencil-short-b": {
+      "file": "terrain/pencil-short-b.webp",
+      "width": 28,
+      "height": 12
+    },
+    "books-medium": {
+      "file": "terrain/books-medium.webp",
+      "width": 435,
+      "height": 196
+    },
+    "stage-step": {
+      "file": "terrain/stage-step.webp",
+      "width": 205,
+      "height": 39
+    },
+    "pencil-medium": {
+      "file": "terrain/pencil-medium.webp",
+      "width": 500,
+      "height": 120
+    },
+    "books-long": {
+      "file": "terrain/books-long.webp",
+      "width": 427,
+      "height": 194
+    },
+    "garden-platform-c": {
+      "file": "terrain/garden-platform-c.webp",
+      "width": 260,
+      "height": 53
+    },
+    "books-short-b": {
+      "file": "terrain/books-short-b.webp",
+      "width": 210,
+      "height": 197
+    },
+    "pencil-long": {
+      "file": "terrain/pencil-long.webp",
+      "width": 543,
+      "height": 117
+    },
+    "paper-short-a": {
+      "file": "terrain/paper-short-a.webp",
+      "width": 256,
+      "height": 105
+    },
+    "ruler-short": {
+      "file": "terrain/ruler-short.webp",
+      "width": 262,
+      "height": 95
+    },
+    "paper-medium": {
+      "file": "terrain/paper-medium.webp",
+      "width": 285,
+      "height": 105
+    },
+    "paper-long": {
+      "file": "terrain/paper-long.webp",
+      "width": 502,
+      "height": 105
+    },
+    "desk-short": {
+      "file": "terrain/desk-short.webp",
+      "width": 281,
+      "height": 157
+    },
+    "checkpoint": {
+      "file": "terrain/checkpoint.webp",
+      "width": 153,
+      "height": 73
+    },
+    "corridor-end-a": {
+      "file": "terrain/corridor-end-a.webp",
+      "width": 561,
+      "height": 160
+    },
+    "garden-platform-b": {
+      "file": "terrain/garden-platform-b.webp",
+      "width": 245,
+      "height": 52
+    },
+    "desk-medium": {
+      "file": "terrain/desk-medium.webp",
+      "width": 490,
+      "height": 156
+    },
+    "garden-platform-a": {
+      "file": "terrain/garden-platform-a.webp",
+      "width": 255,
+      "height": 52
+    },
+    "books-short-a": {
+      "file": "terrain/books-short-a.webp",
+      "width": 235,
+      "height": 197
+    },
+    "ruler-long": {
+      "file": "terrain/ruler-long.webp",
+      "width": 536,
+      "height": 95
+    },
+    "desk-small": {
+      "file": "terrain/desk-small.webp",
+      "width": 208,
+      "height": 79
+    },
+    "graduation-stage": {
+      "file": "terrain/graduation-stage.webp",
+      "width": 412,
+      "height": 43
+    },
+    "corridor-long-a": {
+      "file": "terrain/corridor-long-a.webp",
+      "width": 816,
+      "height": 158
+    }
+  }
+}
