@@ -29,6 +29,7 @@ import type { FootballKnowledgeQuestion, FootballKnowledgeResult } from './Stude
 import SuperTalebCampaign from './SuperTalebCampaign';
 import type { SuperTalebQuestion, SuperTalebCampaignResult, SuperTalebLevelNumber } from './SuperTalebCampaign';
 import SuperTalebLevel2 from './SuperTalebLevel2';
+import SuperTalebLevel3 from './SuperTalebLevel3';
 import StudentTrueFalseGame from './StudentTrueFalseGame';
 import type { TrueFalseQuestion, TrueFalseResult } from './StudentTrueFalseGame';
 import StudentMatchCardsGame from './StudentMatchCardsGame';
@@ -838,6 +839,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
         campaignMode={isReviewMode ? 'review' : 'daily'}
         initialUnlockedLevel={isReviewMode ? 3 : superTalebInitialUnlockedLevel}
         Level2Component={SuperTalebLevel2}
+        Level3Component={SuperTalebLevel3}
         onClose={() => { setActiveGame(null); refreshStats(); }}
         onComplete={handleGameComplete}
       />
