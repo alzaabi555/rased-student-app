@@ -7,7 +7,7 @@ import SuperTalebLevel1 from './SuperTalebLevel1';
  * مدير الحملة اليومية للعبة سوبر طالب.
  *
  * المسؤوليات:
- * - إنشاء توزيع ثابت لأسئلة المعلم على المراحل المفتوحة.
+ * - تخصيص أسئلة كل يوم لمرحلة واحدة بالتناوب 1 ← 2 ← 3، مع فتح كل المراحل في وضع المراجعة.
  * - منع تكرار السؤال داخل الرحلة الواحدة.
  * - حفظ التقدم بعد كل مرحلة واستعادته بعد إغلاق التطبيق.
  * - توحيد النقاط: 10 نقاط لكل إجابة صحيحة فقط.
@@ -15,7 +15,7 @@ import SuperTalebLevel1 from './SuperTalebLevel1';
  * - الاستعداد لدمج المرحلة الثانية والثالثة دون تغيير StudentGames لاحقًا.
  */
 
-export type SuperTalebCampaignMode = 'daily' | 'final_exam';
+export type SuperTalebCampaignMode = 'daily' | 'review' | 'final_exam';
 export type SuperTalebLevelNumber = 1 | 2 | 3;
 
 export interface SuperTalebQuestion {
@@ -127,6 +127,7 @@ const STORAGE_PREFIX = 'rased_super_taleb_campaign_v1';
 const UNLOCK_PREFIX = 'rased_super_taleb_unlocked_level_v1';
 const POINTS_PER_CORRECT_ANSWER = 10;
 const DEFAULT_MAX_DAILY_QUESTIONS = 15;
+const ROTATION_PREFIX = 'rased_super_taleb_daily_rotation_v1';
 
 function dateKey(date = new Date()): string {
   const year = date.getFullYear();
@@ -264,9 +265,12 @@ function defaultProgress(
   unlockedLevel: SuperTalebLevelNumber,
   questionIds: string[],
   bonusQuestionIds: string[],
+  forcedActiveLevels?: SuperTalebLevelNumber[],
 ): SuperTalebCampaignProgress {
-  const activeLevels = chooseActiveLevels(questionIds.length, unlockedLevel, mode);
-  const assignments = createAssignments(questionIds, activeLevels);
+  const activeLevels = forcedActiveLevels?.length ? forcedActiveLevels : chooseActiveLevels(questionIds.length, unlockedLevel, mode);
+  const assignments = mode === 'review'
+    ? activeLevels.map((level) => ({ level, questionIds: [...questionIds] }))
+    : createAssignments(questionIds, activeLevels);
   return {
     version: 1,
     campaignKey,
@@ -323,6 +327,35 @@ function savePermanentUnlockedLevel(studentId: string, level: SuperTalebLevelNum
     localStorage.setItem(`${UNLOCK_PREFIX}:${studentId}`, String(Math.max(current, level)));
   } catch (error) {
     console.warn('[SuperTalebCampaign] تعذر حفظ المرحلة المفتوحة', error);
+  }
+}
+
+interface DailyRotationState {
+  challengeId: string;
+  assignedLevel: SuperTalebLevelNumber;
+  updatedAt: string;
+}
+
+/**
+ * يربط كل دفعة يومية بمرحلة واحدة فقط:
+ * اليوم/الدفعة الأولى = 1، التالية = 2، التالية = 3 ثم تعاد الدورة.
+ * لا ينتقل الدور إلى مرحلة لم يفتحها الطالب بعد، ولا يتغير أثناء اليوم نفسه.
+ */
+function getDailyRotatingLevel(
+  studentId: string,
+  challengeId: string,
+  unlockedLevel: SuperTalebLevelNumber,
+): SuperTalebLevelNumber {
+  const key = `${ROTATION_PREFIX}:${studentId}`;
+  try {
+    const previous = JSON.parse(localStorage.getItem(key) || 'null') as DailyRotationState | null;
+    if (previous?.challengeId === challengeId) return clampUnlockedLevel(Math.min(previous.assignedLevel, unlockedLevel));
+    const desired = previous ? (((previous.assignedLevel % 3) + 1) as SuperTalebLevelNumber) : 1;
+    const assigned = clampUnlockedLevel(Math.min(desired, unlockedLevel));
+    localStorage.setItem(key, JSON.stringify({ challengeId, assignedLevel: assigned, updatedAt: new Date().toISOString() }));
+    return assigned;
+  } catch {
+    return 1;
   }
 }
 
@@ -409,12 +442,21 @@ const SuperTalebCampaign: React.FC<SuperTalebCampaignProps> = ({
     const stored = loadProgress(storageKey);
     if (stored && stored.campaignKey === campaignKey) return stored;
     const permanentUnlocked = loadPermanentUnlockedLevel(studentId);
+    const unlocked = campaignMode === 'review'
+      ? 3
+      : clampUnlockedLevel(Math.max(initialUnlockedLevel, permanentUnlocked));
+    const forcedLevels: SuperTalebLevelNumber[] = campaignMode === 'review'
+      ? [1, 2, 3]
+      : campaignMode === 'daily'
+        ? [getDailyRotatingLevel(studentId, dailyChallengeId, unlocked)]
+        : chooseActiveLevels(prepared.coreQuestionIds.length, unlocked, campaignMode);
     return defaultProgress(
       campaignKey,
       campaignMode,
-      clampUnlockedLevel(Math.max(initialUnlockedLevel, permanentUnlocked)),
+      unlocked,
       prepared.coreQuestionIds,
       prepared.bonusQuestionIds,
+      forcedLevels,
     );
   });
 
@@ -534,7 +576,7 @@ const SuperTalebCampaign: React.FC<SuperTalebCampaignProps> = ({
       );
       const currentLevelIndex = snapshot.activeLevels.indexOf(level);
       const nextLevel = snapshot.activeLevels[currentLevelIndex + 1];
-      savePermanentUnlockedLevel(studentId, unlockedLevel);
+      if (snapshot.mode !== 'review') savePermanentUnlockedLevel(studentId, unlockedLevel);
 
       const nextProgress: SuperTalebCampaignProgress = {
         ...snapshot,
@@ -579,7 +621,7 @@ const SuperTalebCampaign: React.FC<SuperTalebCampaignProps> = ({
         <div className="w-full max-w-md rounded-3xl border border-amber-300/50 bg-slate-900 p-6 text-center shadow-2xl">
           <div className="mb-3 text-6xl">{result.certificateGranted ? '🎓' : '🏆'}</div>
           <h2 className="mb-2 text-2xl font-black">
-            {result.certificateGranted ? 'اكتمل تحدي نهاية العام' : 'اكتملت مهمة اليوم'}
+            {result.certificateGranted ? 'اكتمل تحدي نهاية العام' : campaignMode === 'review' ? 'اكتملت جولة المراجعة' : 'اكتملت مهمة اليوم'}
           </h2>
           <div className="my-5 grid grid-cols-3 gap-2 text-sm">
             <div className="rounded-2xl bg-slate-800 p-3">

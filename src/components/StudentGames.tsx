@@ -835,8 +835,8 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
         questions={superTalebQuestions}
         studentId={studentKey}
         challengeId={superTalebChallengeId}
-        campaignMode="daily"
-        initialUnlockedLevel={superTalebInitialUnlockedLevel}
+        campaignMode={isReviewMode ? 'review' : 'daily'}
+        initialUnlockedLevel={isReviewMode ? 3 : superTalebInitialUnlockedLevel}
         Level2Component={SuperTalebLevel2}
         onClose={() => { setActiveGame(null); refreshStats(); }}
         onComplete={handleGameComplete}

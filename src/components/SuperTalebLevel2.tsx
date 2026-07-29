@@ -5,7 +5,7 @@ import type {
   SuperTalebQuestion,
 } from './SuperTalebCampaign';
 
-type StationId = 'social' | 'science' | 'math';
+type StationId = 'social' | 'arabic' | 'english' | 'science' | 'math';
 type Motion = { left: boolean; right: boolean; jump: boolean; run: boolean };
 type Player = {
   x: number; y: number; vx: number; vy: number; w: number; h: number;
@@ -16,7 +16,7 @@ type Station = { id: StationId; x: number; y: number; title: string; color: stri
 type Hazard = { id: string; x: number; y: number; w: number; h: number; minX: number; maxX: number; vx: number; alive: boolean; kind: 'eraser'|'paper'|'bag' };
 type Projectile = { x: number; y: number; vx: number; alive: boolean };
 
-const WORLD_W = 5200;
+const WORLD_W = 6800;
 const WORLD_H = 720;
 const GROUND_Y = 590;
 const POINTS_PER_CORRECT = 10;
@@ -34,7 +34,7 @@ function answerIndex(q: SuperTalebQuestion): number {
   const byText = opts.findIndex((option) => String(option) === String(q.correctAnswerText || ''));
   return Math.max(0, byText);
 }
-function stationIndex(id: StationId): number { return id === 'social' ? 0 : id === 'science' ? 1 : 2; }
+function stationIndex(id: StationId): number { return ({ social: 0, arabic: 1, english: 2, science: 3, math: 4 } as Record<StationId, number>)[id]; }
 
 const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   questions,
@@ -56,7 +56,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   const completionSentRef = useRef(false);
   const safeXRef = useRef(120);
 
-  const usableQuestions = useMemo(() => (questions.length ? questions : FALLBACK_QUESTIONS).slice(0, Math.max(3, questions.length)), [questions]);
+  const usableQuestions = useMemo(() => (questions.length ? questions : FALLBACK_QUESTIONS), [questions]);
   const initialActivated = (savedLevelState?.activatedStations as StationId[] | undefined) || [];
   const initialAnswered = (savedLevelState?.answeredQuestionIds as string[] | undefined) || [];
   const initialCorrect = (savedLevelState?.correctQuestionIds as string[] | undefined) || [];
@@ -73,34 +73,54 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   const [activeStation, setActiveStation] = useState<StationId | null>(null);
   const [activeQuestion, setActiveQuestion] = useState<SuperTalebQuestion | null>(null);
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null);
-  const [message, setMessage] = useState('شغّل محطات الدراسات الاجتماعية والعلوم والرياضيات');
+  const [message, setMessage] = useState('شغّل محطات الدراسات الاجتماعية واللغة العربية واللغة الإنجليزية والعلوم والرياضيات');
   const [orientation, setOrientation] = useState<'portrait'|'landscape'>(() => window.innerWidth > window.innerHeight ? 'landscape' : 'portrait');
   const [lives, setLives] = useState(3);
 
   const stationsRef = useRef<Station[]>([
-    { id: 'social', x: 1050, y: 466, title: 'الدراسات الاجتماعية', color: '#d97706', active: initialActivated.includes('social') },
-    { id: 'science', x: 2620, y: 466, title: 'العلوم', color: '#0891b2', active: initialActivated.includes('science') },
-    { id: 'math', x: 4050, y: 466, title: 'الرياضيات', color: '#7c3aed', active: initialActivated.includes('math') },
+    { id: 'social', x: 980, y: 466, title: 'الدراسات الاجتماعية', color: '#d97706', active: initialActivated.includes('social') },
+    { id: 'arabic', x: 2180, y: 466, title: 'اللغة العربية', color: '#059669', active: initialActivated.includes('arabic') },
+    { id: 'english', x: 3400, y: 466, title: 'اللغة الإنجليزية', color: '#2563eb', active: initialActivated.includes('english') },
+    { id: 'science', x: 4660, y: 466, title: 'العلوم', color: '#0891b2', active: initialActivated.includes('science') },
+    { id: 'math', x: 5860, y: 466, title: 'الرياضيات', color: '#7c3aed', active: initialActivated.includes('math') },
   ]);
 
   const platformsRef = useRef<Platform[]>([
-    { x: 0, y: GROUND_Y, w: 5200, h: 130, kind: 'floor' },
-    { x: 560, y: 500, w: 250, h: 36, kind: 'desk' },
-    { x: 870, y: 445, w: 175, h: 32, kind: 'books' },
-    { x: 1420, y: 500, w: 270, h: 36, kind: 'desk' },
-    { x: 1780, y: 455, w: 200, h: 30, kind: 'ruler' },
-    { x: 2170, y: 510, w: 260, h: 34, kind: 'books' },
-    { x: 2850, y: 485, w: 245, h: 36, kind: 'desk' },
-    { x: 3200, y: 430, w: 190, h: 32, kind: 'books' },
-    { x: 3550, y: 500, w: 260, h: 32, kind: 'ruler' },
-    { x: 4310, y: 475, w: 260, h: 38, kind: 'desk' },
+    // مقاطع أرضية منفصلة: فجوات متوسطة 70–90 وحدة، قابلة للقفز دون جري إلزامي.
+    { x: 0, y: GROUND_Y, w: 820, h: 130, kind: 'floor' },
+    { x: 900, y: GROUND_Y, w: 820, h: 130, kind: 'floor' },
+    { x: 1800, y: GROUND_Y, w: 760, h: 130, kind: 'floor' },
+    { x: 2645, y: GROUND_Y, w: 790, h: 130, kind: 'floor' },
+    { x: 3515, y: GROUND_Y, w: 800, h: 130, kind: 'floor' },
+    { x: 4400, y: GROUND_Y, w: 800, h: 130, kind: 'floor' },
+    { x: 5285, y: GROUND_Y, w: 760, h: 130, kind: 'floor' },
+    { x: 6130, y: GROUND_Y, w: 670, h: 130, kind: 'floor' },
+    { x: 420, y: 505, w: 220, h: 36, kind: 'desk' },
+    { x: 690, y: 458, w: 150, h: 30, kind: 'books' },
+    { x: 1160, y: 500, w: 245, h: 36, kind: 'desk' },
+    { x: 1475, y: 448, w: 170, h: 30, kind: 'ruler' },
+    { x: 1940, y: 505, w: 230, h: 34, kind: 'desk' },
+    { x: 2215, y: 452, w: 175, h: 30, kind: 'books' },
+    { x: 2780, y: 500, w: 230, h: 34, kind: 'ruler' },
+    { x: 3070, y: 440, w: 180, h: 32, kind: 'books' },
+    { x: 3650, y: 505, w: 225, h: 36, kind: 'desk' },
+    { x: 3935, y: 455, w: 180, h: 30, kind: 'ruler' },
+    { x: 4525, y: 500, w: 235, h: 36, kind: 'desk' },
+    { x: 4820, y: 440, w: 175, h: 32, kind: 'books' },
+    { x: 5415, y: 500, w: 220, h: 36, kind: 'ruler' },
+    { x: 5690, y: 450, w: 170, h: 30, kind: 'books' },
+    { x: 6250, y: 500, w: 230, h: 36, kind: 'desk' },
   ]);
 
   const hazardsRef = useRef<Hazard[]>([
-    { id: 'eraser-1', x: 740, y: GROUND_Y - 42, w: 58, h: 42, minX: 640, maxX: 900, vx: 55, alive: true, kind: 'eraser' },
-    { id: 'paper-1', x: 1900, y: GROUND_Y - 70, w: 58, h: 70, minX: 1700, maxX: 2100, vx: 70, alive: true, kind: 'paper' },
-    { id: 'bag-1', x: 3000, y: GROUND_Y - 58, w: 64, h: 58, minX: 2980, maxX: 3200, vx: 0, alive: true, kind: 'bag' },
-    { id: 'eraser-2', x: 3780, y: GROUND_Y - 42, w: 58, h: 42, minX: 3640, maxX: 3990, vx: 75, alive: true, kind: 'eraser' },
+    { id: 'eraser-1', x: 610, y: GROUND_Y - 42, w: 58, h: 42, minX: 520, maxX: 760, vx: 62, alive: true, kind: 'eraser' },
+    { id: 'paper-1', x: 1320, y: GROUND_Y - 70, w: 58, h: 70, minX: 1120, maxX: 1580, vx: 76, alive: true, kind: 'paper' },
+    { id: 'bag-1', x: 2010, y: GROUND_Y - 58, w: 64, h: 58, minX: 1980, maxX: 2160, vx: 0, alive: true, kind: 'bag' },
+    { id: 'eraser-2', x: 2920, y: GROUND_Y - 42, w: 58, h: 42, minX: 2760, maxX: 3300, vx: 84, alive: true, kind: 'eraser' },
+    { id: 'paper-2', x: 3760, y: GROUND_Y - 82, w: 62, h: 75, minX: 3560, maxX: 4120, vx: 88, alive: true, kind: 'paper' },
+    { id: 'bag-2', x: 4690, y: GROUND_Y - 58, w: 64, h: 58, minX: 4630, maxX: 4820, vx: 0, alive: true, kind: 'bag' },
+    { id: 'eraser-3', x: 5540, y: GROUND_Y - 42, w: 58, h: 42, minX: 5360, maxX: 5910, vx: 92, alive: true, kind: 'eraser' },
+    { id: 'paper-3', x: 6300, y: GROUND_Y - 76, w: 60, h: 72, minX: 6150, maxX: 6650, vx: 90, alive: true, kind: 'paper' },
   ]);
 
   const persist = useCallback((patch: Record<string, unknown> = {}) => {
@@ -125,9 +145,13 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       background:'/assets/games/super-taleb/level-2/backgrounds/smart-classroom.webp',
       socialStation:'/assets/games/super-taleb/level-2/stations/social-station.webp',
       scienceStation:'/assets/games/super-taleb/level-2/stations/science-station.webp',
+      arabicStation:'/assets/games/super-taleb/level-2/stations/social-station.webp',
+      englishStation:'/assets/games/super-taleb/level-2/stations/math-station.webp',
       mathStation:'/assets/games/super-taleb/level-2/stations/math-station.webp',
       socialKey:'/assets/games/super-taleb/level-2/items/social-key.webp',
       scienceKey:'/assets/games/super-taleb/level-2/items/science-key.webp',
+      arabicKey:'/assets/games/super-taleb/level-2/items/social-key.webp',
+      englishKey:'/assets/games/super-taleb/level-2/items/math-key.webp',
       mathKey:'/assets/games/super-taleb/level-2/items/math-key.webp',
       boardLocked:'/assets/games/super-taleb/level-2/items/smart-board-locked.webp',
       boardActive:'/assets/games/super-taleb/level-2/items/smart-board-active.webp',
@@ -169,11 +193,20 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
     clearMotion();
     const index = stationIndex(station.id);
     const unanswered = usableQuestions.filter((q) => !answeredIds.includes(String(q.id)));
-    const selected = unanswered[0] || usableQuestions[index % usableQuestions.length];
+    const selected = unanswered[0];
+    // إذا كان عدد أسئلة اليوم أقل من المحطات، تعمل المحطة المتبقية كمنصة تقدم دون تكرار سؤال.
+    if (!selected || index >= usableQuestions.length) {
+      const nextActivated = Array.from(new Set([...activatedStations, station.id])) as StationId[];
+      setActivatedStations(nextActivated);
+      stationsRef.current.forEach((item) => { if (item.id === station.id) item.active = true; });
+      setMessage(`تم تشغيل محطة ${station.title} — تابع إلى المحطة التالية`);
+      persist({ activatedStations: nextActivated });
+      return;
+    }
     setActiveStation(station.id);
     setActiveQuestion(selected);
     answerLockedRef.current = false;
-  }, [activeQuestion, answeredIds, clearMotion, usableQuestions]);
+  }, [activeQuestion, activatedStations, answeredIds, clearMotion, persist, usableQuestions]);
 
   const handleAnswer = useCallback((choice: number) => {
     if (!activeQuestion || !activeStation || answerLockedRef.current) return;
@@ -309,9 +342,9 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
         if (!station.active && Math.abs((p.x+p.w/2) - station.x) < 72 && p.y + p.h > station.y - 20) openStationQuestion(station);
       });
 
-      if (p.x > 4820) {
-        if (activatedStations.length === 3) finishLevel();
-        else { p.x = 4740; setMessage(`فعّل المحطات المتبقية: ${3 - activatedStations.length}`); }
+      if (p.x > 6380) {
+        if (activatedStations.length === 5) finishLevel();
+        else { p.x = 6320; setMessage(`فعّل المحطات المتبقية: ${5 - activatedStations.length}`); }
       }
 
       const viewW = canvas.clientWidth; const viewH = canvas.clientHeight;
@@ -342,10 +375,13 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       });
 
       stationsRef.current.forEach((station) => {
-        const image=station.id==='social'?assets.socialStation:station.id==='science'?assets.scienceStation:assets.mathStation;
-        const keyImage=station.id==='social'?assets.socialKey:station.id==='science'?assets.scienceKey:assets.mathKey;
+        const image=station.id==='social'?assets.socialStation:station.id==='arabic'?assets.arabicStation:station.id==='english'?assets.englishStation:station.id==='science'?assets.scienceStation:assets.mathStation;
+        const keyImage=station.id==='social'?assets.socialKey:station.id==='arabic'?assets.arabicKey:station.id==='english'?assets.englishKey:station.id==='science'?assets.scienceKey:assets.mathKey;
         if(assetsReadyRef.current&&image){
           ctx.save();ctx.globalAlpha=station.active?1:.88;ctx.drawImage(image,station.x-76,station.y-120,152,120);ctx.restore();
+          if(station.id==='arabic'||station.id==='english'){
+            ctx.save();ctx.fillStyle=station.color;ctx.beginPath();ctx.roundRect(station.x-57,station.y-61,114,32,12);ctx.fill();ctx.fillStyle='white';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.fillText(station.id==='arabic'?'اللغة العربية':'English',station.x,station.y-40);ctx.restore();
+          }
           if(station.active&&keyImage)ctx.drawImage(keyImage,station.x-23,station.y-166,46,74);
         }else{
           ctx.save();ctx.translate(station.x, station.y);ctx.fillStyle=station.active?'#22c55e':station.color;ctx.fillRect(-44,-72,88,72);ctx.restore();
@@ -356,9 +392,9 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       projectilesRef.current.forEach((shot)=>{ctx.fillStyle='#facc15';ctx.fillRect(shot.x,shot.y,28,7);ctx.fillStyle='#ec4899';ctx.beginPath();ctx.moveTo(shot.x+28,shot.y);ctx.lineTo(shot.x+36,shot.y+3.5);ctx.lineTo(shot.x+28,shot.y+7);ctx.fill();});
 
       // السبورة الذكية النهائية
-      const boardImage=activatedStations.length===3?assets.boardActive:assets.boardLocked;
-      if(assetsReadyRef.current&&boardImage)ctx.drawImage(boardImage,4820,255,285,235);else{ctx.fillStyle=activatedStations.length===3?'#0ea5e9':'#334155';ctx.fillRect(4830,260,270,230);}
-      if(activatedStations.length===3&&assets.exitDoor)ctx.drawImage(assets.exitDoor,5080,350,105,240);
+      const boardImage=activatedStations.length===5?assets.boardActive:assets.boardLocked;
+      if(assetsReadyRef.current&&boardImage)ctx.drawImage(boardImage,6480,255,285,235);else{ctx.fillStyle=activatedStations.length===5?'#0ea5e9':'#334155';ctx.fillRect(6490,260,270,230);}
+      if(activatedStations.length===5&&assets.exitDoor)ctx.drawImage(assets.exitDoor,6680,350,105,240);
 
       const blink = performance.now() < p.invulnerableUntil && Math.floor(performance.now()/100)%2===0;
       if(!blink){
@@ -460,7 +496,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
         </>
       )}
       {finished && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"><div className="w-full max-w-md rounded-3xl border border-amber-300 bg-slate-900 p-6 text-center text-white"><div className="text-6xl">🖥️</div><h2 className="mt-2 text-2xl font-black">تم تشغيل فصل راصد الذكي</h2><p className="mt-3 text-slate-300">جمعت مفاتيح المعرفة وفتحت السبورة الذكية.</p><div className="my-5 grid grid-cols-3 gap-2"><div className="rounded-xl bg-slate-800 p-3"><b className="text-amber-300">{score}</b><small className="block">النقاط</small></div><div className="rounded-xl bg-slate-800 p-3"><b className="text-emerald-300">{correctIds.length}</b><small className="block">صحيح</small></div><div className="rounded-xl bg-slate-800 p-3"><b className="text-sky-300">3</b><small className="block">المفاتيح</small></div></div><button onClick={onClose} className="w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">متابعة الرحلة</button></div></div>
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"><div className="w-full max-w-md rounded-3xl border border-amber-300 bg-slate-900 p-6 text-center text-white"><div className="text-6xl">🖥️</div><h2 className="mt-2 text-2xl font-black">تم تشغيل فصل راصد الذكي</h2><p className="mt-3 text-slate-300">شغّلت المحطات الخمس وجمعت مفاتيح المعرفة وفتحت السبورة الذكية.</p><div className="my-5 grid grid-cols-3 gap-2"><div className="rounded-xl bg-slate-800 p-3"><b className="text-amber-300">{score}</b><small className="block">النقاط</small></div><div className="rounded-xl bg-slate-800 p-3"><b className="text-emerald-300">{correctIds.length}</b><small className="block">صحيح</small></div><div className="rounded-xl bg-slate-800 p-3"><b className="text-sky-300">5</b><small className="block">المفاتيح</small></div></div><button onClick={onClose} className="w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">متابعة الرحلة</button></div></div>
       )}
     </div>
   );
