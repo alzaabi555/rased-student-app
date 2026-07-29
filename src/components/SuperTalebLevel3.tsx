@@ -164,7 +164,31 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
       paper:'/assets/games/super-taleb/level-2/enemies/flying-paper.webp',
       eraser:'/assets/games/super-taleb/level-2/enemies/eraser.webp',
       clock:'/assets/games/super-taleb/level-2/enemies/school-bell.webp',
-      question:'/assets/games/super-taleb/level-2/enemies/question-creature.webp',
+      question:'/assets/games/super-taleb/level-3/enemies/question-creature.webp',
+      background:'/assets/games/super-taleb/level-3/backgrounds/end-year-panorama.webp',
+      memoryGate:'/assets/games/super-taleb/level-3/gates/memory-gate.webp',
+      understandingGate:'/assets/games/super-taleb/level-3/gates/understanding-gate.webp',
+      applicationGate:'/assets/games/super-taleb/level-3/gates/application-gate.webp',
+      achievementGate:'/assets/games/super-taleb/level-3/gates/achievement-gate.webp',
+      futureGate:'/assets/games/super-taleb/level-3/gates/future-gate.webp',
+      podium:'/assets/games/super-taleb/level-3/items/celebration-podium.webp',
+      chestClosed:'/assets/games/super-taleb/level-3/items/completion-chest-closed.webp',
+      chestOpen:'/assets/games/super-taleb/level-3/items/completion-chest-open.webp',
+      omanFlag:'/assets/games/super-taleb/level-3/items/oman-flag.webp',
+      exitArch:'/assets/games/super-taleb/level-3/items/exit-arch.webp',
+      floorLong:'/assets/games/super-taleb/level-3/terrain/corridor-long-a.webp',
+      floorShort:'/assets/games/super-taleb/level-3/terrain/corridor-short.webp',
+      books:'/assets/games/super-taleb/level-3/terrain/books-medium.webp',
+      desk:'/assets/games/super-taleb/level-3/terrain/desk-medium.webp',
+      pencilBridge:'/assets/games/super-taleb/level-3/terrain/pencil-medium.webp',
+      ruler:'/assets/games/super-taleb/level-3/terrain/ruler-medium.webp',
+      paperPlatform:'/assets/games/super-taleb/level-3/terrain/paper-medium.webp',
+      paper:'/assets/games/super-taleb/level-3/enemies/flying-paper.webp',
+      eraser:'/assets/games/super-taleb/level-3/enemies/error-eraser.webp',
+      clock:'/assets/games/super-taleb/level-3/enemies/time-clock.webp',
+      revisionBook:'/assets/games/super-taleb/level-3/enemies/revision-book.webp',
+      pencilEffect:'/assets/games/super-taleb/level-3/effects/pencil-projectile.webp',
+      impactSpark:'/assets/games/super-taleb/level-3/effects/impact-spark.webp',
     };
     Promise.all(Object.entries(paths).map(([key,src]) => new Promise<[string,HTMLImageElement]>((resolve,reject) => {
       const image=new Image(); image.onload=()=>resolve([key,image]); image.onerror=reject; image.src=src;
@@ -281,69 +305,26 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
       player.vy+=1270*dt;player.x+=player.vx*dt;player.y+=player.vy*dt;player.x=Math.max(0,Math.min(WORLD_W-player.w,player.x));
       const previousBottom=player.y+player.h-player.vy*dt;player.grounded=false;
       platformsRef.current.forEach(platform=>{
-        if(player.x+player.w*.8>platform.x&&player.x+player.w*.2<platform.x+platform.w&&previousBottom<=platform.y+12&&player.y+player.h>=platform.y&&player.vy>=0){
-          player.y=platform.y-player.h;player.vy=0;player.grounded=true;
-          if(platform.kind==='floor'&&player.x>safeXRef.current+200)safeXRef.current=player.x;
-        }
-      });
-      if(player.y>WORLD_H+100) damagePlayer(player.x);
-      hazardsRef.current.forEach(hazard=>{
-        if(!hazard.alive)return;hazard.x+=hazard.vx*dt;if(hazard.x<=hazard.minX||hazard.x>=hazard.maxX)hazard.vx*=-1;
-        const body={x:player.x+11,y:player.y+15,w:player.w-22,h:player.h-20};
-        const target={x:hazard.x+10,y:hazard.y+8,w:hazard.w-20,h:hazard.h-12};
-        if(overlaps(body,target))damagePlayer(hazard.x);
-      });
-      projectilesRef.current.forEach(shot=>{
-        if(!shot.alive)return;shot.x+=shot.vx*dt;
-        hazardsRef.current.forEach(hazard=>{if(hazard.alive&&overlaps({x:shot.x,y:shot.y,w:30,h:9},hazard)){hazard.alive=false;shot.alive=false;}});
-        if(shot.x<cameraRef.current-100||shot.x>cameraRef.current+1800)shot.alive=false;
-      });
-      projectilesRef.current=projectilesRef.current.filter(item=>item.alive);
-      gatesRef.current.forEach(gate=>{if(!gate.activated&&Math.abs((player.x+player.w/2)-gate.x)<80&&player.y+player.h>GROUND_Y-150)openGate(gate);});
-      if(player.x>7160)finishLevel();
-
-      const viewW=canvas.clientWidth;const viewH=canvas.clientHeight;const landscape=viewW>viewH;
-      const sceneScale=landscape?1.24:1.16;const groundScreenY=landscape?viewH-108:viewH-170;const offsetY=groundScreenY-GROUND_Y*sceneScale;const visibleWorldW=viewW/sceneScale;
-      cameraRef.current+=(Math.max(0,Math.min(WORLD_W-visibleWorldW,player.x-visibleWorldW*.34))-cameraRef.current)*Math.min(1,dt*6);
-      const camera=cameraRef.current;
-
-      const sky=context.createLinearGradient(0,0,0,viewH);sky.addColorStop(0,'#5bb9f5');sky.addColorStop(.56,'#f8d9a5');sky.addColorStop(1,'#d29154');context.fillStyle=sky;context.fillRect(0,0,viewW,viewH);
-      // خلفية متدرجة: ممر المدرسة، مكتبة المعرفة، ثم ساحة الاحتفال.
-      const parallax=-(camera*.13)%900;
-      for(let x=parallax-900;x<viewW+900;x+=900){
-        context.fillStyle='#f6e2bd';context.fillRect(x,80,900,430);
-        context.fillStyle='#8ccde8';context.fillRect(x+90,145,255,190);context.fillRect(x+550,145,255,190);
-        context.strokeStyle='#7c4a2f';context.lineWidth=12;context.strokeRect(x+90,145,255,190);context.strokeRect(x+550,145,255,190);
-        context.fillStyle='#7c3f22';context.fillRect(x+390,125,120,345);
-        context.fillStyle='#0f766e';context.fillRect(x+408,166,84,80);
-      }
-      // جبال وأعلام نهاية العام في الجزء الأخير من المشهد.
-      context.fillStyle='rgba(36,99,140,.28)';context.beginPath();context.moveTo(0,390);for(let x=0;x<=viewW;x+=140)context.lineTo(x,270+(x%280?45:0));context.lineTo(viewW,520);context.lineTo(0,520);context.fill();
-
-      context.save();context.translate(0,offsetY);context.scale(sceneScale,sceneScale);context.translate(-camera,0);
-      platformsRef.current.forEach(platform=>{
-        if(platform.kind==='floor'){
-          context.fillStyle='#e2b56f';context.fillRect(platform.x,platform.y,platform.w,platform.h);context.fillStyle='#f7d796';context.fillRect(platform.x,platform.y,platform.w,15);context.strokeStyle='#8b5a2b';context.lineWidth=3;
-          for(let x=platform.x;x<platform.x+platform.w;x+=84)context.strokeRect(x,platform.y+15,80,35);
-        }else if(platform.kind==='book'){
-          ['#2563eb','#dc2626','#16a34a'].forEach((color,index)=>{context.fillStyle=color;context.fillRect(platform.x,platform.y+index*10,platform.w,10);});
-        }else if(platform.kind==='ruler'){
-          context.fillStyle='#facc15';context.fillRect(platform.x,platform.y,platform.w,platform.h);context.strokeStyle='#92400e';for(let x=platform.x+12;x<platform.x+platform.w;x+=24){context.beginPath();context.moveTo(x,platform.y);context.lineTo(x,platform.y+12);context.stroke();}
-        }else if(platform.kind==='paper'){
-          context.fillStyle='#fff';context.fillRect(platform.x,platform.y,platform.w,platform.h);context.strokeStyle='#60a5fa';context.lineWidth=3;for(let y=platform.y+8;y<platform.y+platform.h;y+=8){context.beginPath();context.moveTo(platform.x+10,y);context.lineTo(platform.x+platform.w-10,y);context.stroke();}
-        }else{context.fillStyle='#9a642f';context.fillRect(platform.x,platform.y,platform.w,platform.h);context.fillStyle='#d09a53';context.fillRect(platform.x,platform.y,platform.w,10);}
+        const image=platform.kind==='floor'?(platform.w>850?assets.floorLong:assets.floorShort):platform.kind==='book'?assets.books:platform.kind==='ruler'?assets.ruler:platform.kind==='paper'?assets.paperPlatform:assets.desk;
+        if(image){const drawH=platform.kind==='floor'?Math.max(125,platform.h):Math.max(48,platform.h+25);context.drawImage(image,platform.x,platform.y,platform.w,drawH);return;}
+        context.fillStyle=platform.kind==='floor'?'#e2b56f':'#9a642f';context.fillRect(platform.x,platform.y,platform.w,platform.h);
       });
       gatesRef.current.forEach(gate=>{
-        context.save();context.translate(gate.x,GROUND_Y);context.strokeStyle=gate.activated?'#22c55e':gate.color;context.lineWidth=12;context.shadowColor=context.strokeStyle;context.shadowBlur=gate.activated?25:12;context.beginPath();context.moveTo(-54,0);context.lineTo(-54,-145);context.quadraticCurveTo(0,-205,54,-145);context.lineTo(54,0);context.stroke();context.shadowBlur=0;context.fillStyle='rgba(15,23,42,.85)';context.fillRect(-66,-132,132,38);context.fillStyle='#fff';context.font='bold 15px sans-serif';context.textAlign='center';context.fillText(gate.title,0,-106);if(gate.activated){context.fillStyle='#facc15';context.font='bold 30px sans-serif';context.fillText('★',0,-155);}context.restore();
+        const gateImage=gate.id==='memory'?assets.memoryGate:gate.id==='understanding'?assets.understandingGate:gate.id==='application'?assets.applicationGate:gate.id==='achievement'?assets.achievementGate:assets.futureGate;
+        context.save();context.globalAlpha=gate.activated?1:.92;
+        if(gateImage)context.drawImage(gateImage,gate.x-82,GROUND_Y-205,164,205);
+        else{context.strokeStyle=gate.activated?'#22c55e':gate.color;context.lineWidth=12;context.strokeRect(gate.x-54,GROUND_Y-165,108,165);}
+        context.globalAlpha=1;context.fillStyle='rgba(15,23,42,.86)';context.beginPath();context.roundRect(gate.x-72,GROUND_Y-66,144,34,12);context.fill();context.fillStyle='white';context.font='bold 14px sans-serif';context.textAlign='center';context.fillText(gate.title,gate.x,GROUND_Y-43);context.restore();
       });
-      const assets=assetsRef.current;
       hazardsRef.current.forEach(hazard=>{
-        if(!hazard.alive)return;const image=hazard.kind==='paper'?assets.paper:hazard.kind==='eraser'?assets.eraser:hazard.kind==='clock'?assets.clock:assets.question;
+        if(!hazard.alive)return;const image=hazard.kind==='paper'?assets.paper:hazard.kind==='eraser'?assets.eraser:hazard.kind==='clock'?assets.clock:hazard.kind==='question'?assets.question:assets.revisionBook;
         context.save();context.translate(hazard.x,hazard.y);if(hazard.vx<0){context.translate(hazard.w,0);context.scale(-1,1);}if(image)context.drawImage(image,-7,-9,hazard.w+14,hazard.h+14);else{context.fillStyle='#ef4444';context.fillRect(0,0,hazard.w,hazard.h);}context.restore();
       });
-      projectilesRef.current.forEach(shot=>{context.fillStyle='#facc15';context.fillRect(shot.x,shot.y,30,8);context.fillStyle='#ec4899';context.beginPath();context.moveTo(shot.x+30,shot.y);context.lineTo(shot.x+39,shot.y+4);context.lineTo(shot.x+30,shot.y+8);context.fill();});
+      projectilesRef.current.forEach(shot=>{if(assets.pencilEffect)context.drawImage(assets.pencilEffect,shot.x,shot.y-12,48,30);else{context.fillStyle='#facc15';context.fillRect(shot.x,shot.y,30,8);}});
       // منصة الاحتفال النهائية.
-      context.fillStyle='#0f766e';context.fillRect(7100,410,190,180);context.fillStyle='#facc15';context.fillRect(7118,382,154,40);context.fillStyle='#fff';context.font='bold 22px sans-serif';context.textAlign='center';context.fillText('نهاية العام',7195,410);
+      if(assets.podium)context.drawImage(assets.podium,7045,395,260,195);
+      if(assets.chestClosed)context.drawImage(finished&&assets.chestOpen?assets.chestOpen:assets.chestClosed,7140,455,115,105);
+      if(assets.omanFlag)context.drawImage(assets.omanFlag,7270,360,70,160);
 
       const blink=time<player.invulnerableUntil&&Math.floor(time/100)%2===0;
       if(!blink){
