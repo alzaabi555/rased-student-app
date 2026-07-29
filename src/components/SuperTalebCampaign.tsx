@@ -440,7 +440,8 @@ const SuperTalebCampaign: React.FC<SuperTalebCampaignProps> = ({
 
   const [progress, setProgress] = useState<SuperTalebCampaignProgress>(() => {
     const stored = loadProgress(storageKey);
-    if (stored && stored.campaignKey === campaignKey) return stored;
+    if (stored && stored.campaignKey === campaignKey && campaignMode !== 'review') return stored;
+    // مراجعاتي تبدأ جولة جديدة دائمًا ولا تستعيد شاشة «اكتملت» القديمة.
     const permanentUnlocked = loadPermanentUnlockedLevel(studentId);
     const unlocked = campaignMode === 'review'
       ? 3
@@ -611,6 +612,20 @@ const SuperTalebCampaign: React.FC<SuperTalebCampaignProps> = ({
     [finishCampaign, studentId],
   );
 
+  const restartReview = useCallback(() => {
+    const fresh = defaultProgress(
+      campaignKey,
+      'review',
+      3,
+      prepared.coreQuestionIds,
+      prepared.bonusQuestionIds,
+      [1, 2, 3],
+    );
+    finalCallbackRef.current = false;
+    progressRef.current = fresh;
+    setProgress(fresh);
+  }, [campaignKey, prepared.coreQuestionIds, prepared.bonusQuestionIds]);
+
   if (progress.completed) {
     const result = buildFinalResult(progress);
     return (
@@ -642,13 +657,14 @@ const SuperTalebCampaign: React.FC<SuperTalebCampaignProps> = ({
               توجد مهمة إضافية اختيارية تحتوي على {result.bonusQuestionsCount} سؤالًا.
             </p>
           )}
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-2xl bg-amber-400 px-6 py-3 font-black text-slate-950"
-          >
-            العودة إلى مركز الألعاب
-          </button>
+          {campaignMode === 'review' ? (
+            <div className="grid gap-3">
+              <button type="button" onClick={restartReview} className="w-full rounded-2xl bg-emerald-400 px-6 py-3 font-black text-slate-950">ابدأ جولة مراجعة جديدة</button>
+              <button type="button" onClick={onClose} className="w-full rounded-2xl border border-slate-600 bg-slate-800 px-6 py-3 font-black text-white">العودة عند الانتهاء من المذاكرة</button>
+            </div>
+          ) : (
+            <button type="button" onClick={onClose} className="w-full rounded-2xl bg-amber-400 px-6 py-3 font-black text-slate-950">العودة إلى مركز الألعاب</button>
+          )}
         </div>
       </div>
     );
@@ -664,7 +680,7 @@ const SuperTalebCampaign: React.FC<SuperTalebCampaignProps> = ({
           <div className="mb-3 text-5xl">📭</div>
           <h2 className="mb-2 text-xl font-black">لا توجد أسئلة لهذه الرحلة</h2>
           <p className="mb-5 text-sm leading-7 text-slate-300">
-            ستظهر مهمة سوبر طالب عند وصول أسئلة جديدة من المعلم.
+            {campaignMode === 'review' ? 'لا توجد أسئلة محفوظة في أرشيف المراجعة حتى الآن.' : 'ستظهر مهمة سوبر طالب عند وصول أسئلة جديدة من المعلم.'}
           </p>
           <button
             type="button"

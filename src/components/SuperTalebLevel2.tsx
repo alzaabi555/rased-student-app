@@ -76,6 +76,8 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   const [message, setMessage] = useState('شغّل محطات الدراسات الاجتماعية واللغة العربية واللغة الإنجليزية والعلوم والرياضيات');
   const [orientation, setOrientation] = useState<'portrait'|'landscape'>(() => window.innerWidth > window.innerHeight ? 'landscape' : 'portrait');
   const [lives, setLives] = useState(3);
+  const [runEnabled, setRunEnabled] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
 
   const stationsRef = useRef<Station[]>([
     { id: 'social', x: 980, y: 466, title: 'الدراسات الاجتماعية', color: '#d97706', active: initialActivated.includes('social') },
@@ -88,13 +90,13 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   const platformsRef = useRef<Platform[]>([
     // مقاطع أرضية منفصلة: فجوات متوسطة 70–90 وحدة، قابلة للقفز دون جري إلزامي.
     { x: 0, y: GROUND_Y, w: 820, h: 130, kind: 'floor' },
-    { x: 900, y: GROUND_Y, w: 820, h: 130, kind: 'floor' },
-    { x: 1800, y: GROUND_Y, w: 760, h: 130, kind: 'floor' },
-    { x: 2645, y: GROUND_Y, w: 790, h: 130, kind: 'floor' },
-    { x: 3515, y: GROUND_Y, w: 800, h: 130, kind: 'floor' },
-    { x: 4400, y: GROUND_Y, w: 800, h: 130, kind: 'floor' },
-    { x: 5285, y: GROUND_Y, w: 760, h: 130, kind: 'floor' },
-    { x: 6130, y: GROUND_Y, w: 670, h: 130, kind: 'floor' },
+    { x: 868, y: GROUND_Y, w: 820, h: 130, kind: 'floor' },
+    { x: 1758, y: GROUND_Y, w: 760, h: 130, kind: 'floor' },
+    { x: 2608, y: GROUND_Y, w: 790, h: 130, kind: 'floor' },
+    { x: 3478, y: GROUND_Y, w: 800, h: 130, kind: 'floor' },
+    { x: 4368, y: GROUND_Y, w: 800, h: 130, kind: 'floor' },
+    { x: 5250, y: GROUND_Y, w: 760, h: 130, kind: 'floor' },
+    { x: 6098, y: GROUND_Y, w: 670, h: 130, kind: 'floor' },
     { x: 420, y: 505, w: 220, h: 36, kind: 'desk' },
     { x: 690, y: 458, w: 150, h: 30, kind: 'books' },
     { x: 1160, y: 500, w: 245, h: 36, kind: 'desk' },
@@ -186,7 +188,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
     return () => { window.removeEventListener('resize', handleResize); window.removeEventListener('orientationchange', handleResize); };
   }, []);
 
-  const clearMotion = useCallback(() => { motionRef.current = { left: false, right: false, jump: false, run: false }; playerRef.current.vx = 0; }, []);
+  const clearMotion = useCallback(() => { motionRef.current = { left: false, right: false, jump: false, run: false }; playerRef.current.vx = 0; setRunEnabled(false); }, []);
 
   const openStationQuestion = useCallback((station: Station) => {
     if (station.active || activeQuestion) return;
@@ -268,8 +270,24 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
     p.invulnerableUntil = now + 2200;
     p.x = Math.max(80, safeXRef.current); p.y = GROUND_Y - p.h; p.vx = sourceX > p.x ? -80 : 80; p.vy = -180;
     const nextLives = Math.max(0, p.lives - 1); p.lives = nextLives; setLives(nextLives); clearMotion();
-    if (nextLives <= 0) { p.lives = 3; setLives(3); p.x = safeXRef.current; setMessage('عدت إلى آخر نقطة آمنة'); }
+    if (nextLives <= 0) {
+      p.vx = 0; p.vy = 0;
+      setGameOver(true);
+      setMessage('انتهت المحاولة — أعد المرحلة من البداية');
+    }
   }, [clearMotion]);
+
+  const restartAttempt = useCallback(() => {
+    const p = playerRef.current;
+    p.x = 120; p.y = GROUND_Y - p.h; p.vx = 0; p.vy = 0; p.grounded = true;
+    p.lives = 3; p.invulnerableUntil = performance.now() + 1800;
+    safeXRef.current = 120; cameraRef.current = 0;
+    hazardsRef.current.forEach((hazard) => { hazard.alive = true; });
+    projectilesRef.current = [];
+    setLives(3); setGameOver(false); setRunEnabled(false);
+    motionRef.current = { left:false, right:false, jump:false, run:false };
+    setMessage('بدأت محاولة جديدة من أول فصل راصد الذكي');
+  }, []);
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
@@ -290,7 +308,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   }, [shootPencil]);
 
   useEffect(() => {
-    if (!started || activeQuestion || finished) return;
+    if (!started || activeQuestion || finished || gameOver) return;
     const canvas = canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext('2d'); if (!ctx) return;
 
@@ -306,11 +324,11 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
     const loop = (time: number) => {
       const dt = Math.min(0.033, (time - lastTimeRef.current) / 1000 || 0); lastTimeRef.current = time;
       const p = playerRef.current; const motion = motionRef.current;
-      const speed = motion.run ? 260 : 175;
+      const speed = motion.run ? 390 : 195;
       const axis = (motion.right ? 1 : 0) - (motion.left ? 1 : 0);
       p.vx += (axis * speed - p.vx) * Math.min(1, dt * 12);
       if (axis) p.facing = axis > 0 ? 1 : -1;
-      if (motion.jump && p.grounded) { p.vy = -465; p.grounded = false; motion.jump = false; }
+      if (motion.jump && p.grounded) { p.vy = -505; p.grounded = false; motion.jump = false; }
       p.vy += 1250 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.x = Math.max(0, Math.min(WORLD_W - p.w, p.x));
 
       const previousBottom = p.y + p.h - p.vy * dt; p.grounded = false;
@@ -334,7 +352,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       projectilesRef.current.forEach((shot) => {
         if (!shot.alive) return; shot.x += shot.vx * dt;
         hazardsRef.current.forEach((hazard) => { if (hazard.alive && overlap({x:shot.x,y:shot.y,w:24,h:8}, hazard)) { hazard.alive = false; shot.alive = false; } });
-        if (shot.x < cameraRef.current - 100 || shot.x > cameraRef.current + 1500) shot.alive = false;
+        if (shot.x < cameraRef.current - 100 || shot.x > cameraRef.current + 1700) shot.alive = false;
       });
       projectilesRef.current = projectilesRef.current.filter((shot) => shot.alive);
 
@@ -348,7 +366,13 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       }
 
       const viewW = canvas.clientWidth; const viewH = canvas.clientHeight;
-      cameraRef.current += (Math.max(0, Math.min(WORLD_W - viewW, p.x - viewW * 0.34)) - cameraRef.current) * Math.min(1, dt * 6);
+      // تقريب موحد مثل المرحلة الأولى مع تثبيت سطح الأرض فوق أزرار التحكم.
+      const landscape = viewW > viewH;
+      const sceneScale = landscape ? 1.28 : 1.18;
+      const groundScreenY = landscape ? viewH - 108 : viewH - 170;
+      const sceneOffsetY = groundScreenY - GROUND_Y * sceneScale;
+      const visibleWorldW = viewW / sceneScale;
+      cameraRef.current += (Math.max(0, Math.min(WORLD_W - visibleWorldW, p.x - visibleWorldW * 0.34)) - cameraRef.current) * Math.min(1, dt * 6);
       const camera = cameraRef.current;
 
       const bg = ctx.createLinearGradient(0, 0, 0, viewH); bg.addColorStop(0, '#dff4ff'); bg.addColorStop(1, '#f8e7bd'); ctx.fillStyle = bg; ctx.fillRect(0,0,viewW,viewH);
@@ -358,7 +382,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
         const segmentW=1360;
         for(let bx=-(camera*.16)%segmentW-segmentW;bx<viewW+segmentW;bx+=segmentW){ctx.drawImage(bgImage,bx,0,segmentW,Math.max(viewH,690));}
       }
-      ctx.save(); ctx.translate(-camera, 0);
+      ctx.save(); ctx.translate(0, sceneOffsetY); ctx.scale(sceneScale, sceneScale); ctx.translate(-camera, 0);
       if(!assetsReadyRef.current){
         ctx.fillStyle = '#f4dfb3'; ctx.fillRect(0, 90, WORLD_W, 500);
         for (let x = 250; x < WORLD_W; x += 640) { ctx.fillStyle = '#bfe8ff'; ctx.fillRect(x, 155, 250, 145); ctx.strokeStyle = '#8b5e3c'; ctx.lineWidth = 12; ctx.strokeRect(x,155,250,145); }
@@ -415,7 +439,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
     };
     frameRef.current = requestAnimationFrame(loop);
     return () => { observer.disconnect(); if(frameRef.current) cancelAnimationFrame(frameRef.current); };
-  }, [started, activeQuestion, finished, activatedStations.length, correctIds.length, pencilAmmo, score, lives, damagePlayer, finishLevel, openStationQuestion, message]);
+  }, [started, activeQuestion, finished, gameOver, activatedStations.length, correctIds.length, pencilAmmo, score, lives, damagePlayer, finishLevel, openStationQuestion, message]);
 
   const press = (key: keyof Motion, value: boolean) => { motionRef.current[key] = value; };
   const controlSize = orientation === 'landscape' ? 76 : 68;
@@ -428,8 +452,8 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
         <div className="absolute inset-0 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-3xl border border-sky-300/40 bg-slate-900 p-6 text-center text-white shadow-2xl">
             <div className="text-6xl">📚</div><h2 className="mt-2 text-3xl font-black">فصل راصد الذكي</h2>
-            <p className="mt-3 leading-7 text-slate-300">شغّل محطة الدراسات الاجتماعية ومحطة العلوم ومحطة الرياضيات، واجمع مفاتيح المعرفة لفتح السبورة الذكية.</p>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-sm"><div className="rounded-xl bg-amber-500/20 p-3">🗺️ الدراسات الاجتماعية</div><div className="rounded-xl bg-cyan-500/20 p-3">🔬 العلوم</div><div className="rounded-xl bg-violet-500/20 p-3">➗ الرياضيات</div></div>
+            <p className="mt-3 leading-7 text-slate-300">شغّل محطات الدراسات الاجتماعية واللغة العربية واللغة الإنجليزية والعلوم والرياضيات، ثم افتح السبورة الذكية.</p>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3"><div className="rounded-xl bg-amber-500/20 p-3">🗺️ الدراسات الاجتماعية</div><div className="rounded-xl bg-emerald-500/20 p-3">ض اللغة العربية</div><div className="rounded-xl bg-blue-500/20 p-3">A اللغة الإنجليزية</div><div className="rounded-xl bg-cyan-500/20 p-3">🔬 العلوم</div><div className="rounded-xl bg-violet-500/20 p-3">➗ الرياضيات</div></div>
             <button onClick={()=>setStarted(true)} className="mt-6 rounded-2xl bg-sky-400 px-8 py-3 font-black text-slate-950">ابدأ المرحلة الثانية</button>
           </div>
         </div>
@@ -477,13 +501,11 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
               >✏️ {pencilAmmo}</button>
             )}
             <button
-              aria-label="الجري"
-              onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); press('run', true); }}
-              onPointerUp={(event) => { event.currentTarget.releasePointerCapture?.(event.pointerId); press('run', false); }}
-              onPointerCancel={() => press('run', false)}
-              onPointerLeave={(event) => { if (event.buttons === 0) press('run', false); }}
-              style={{ ...baseBtn, fontSize: 15, background: 'rgba(37,99,235,.93)' }}
-            >جري</button>
+              type="button"
+              aria-label={runEnabled ? 'إيقاف الجري' : 'تشغيل الجري'}
+              onClick={() => { const next = !runEnabled; setRunEnabled(next); motionRef.current.run = next; }}
+              style={{ ...baseBtn, fontSize: 15, background: runEnabled ? 'linear-gradient(145deg,#0ea5e9,#1d4ed8)' : 'rgba(37,99,235,.93)', border: runEnabled ? '3px solid #fde68a' : baseBtn.border }}
+            >{runEnabled ? 'إيقاف' : 'جري'}</button>
             <button
               aria-label="قفز"
               onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); press('jump', true); }}
@@ -494,6 +516,16 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
           </div>
           <button onClick={onClose} className="absolute left-4 top-4 rounded-2xl bg-slate-900/90 px-4 py-3 font-black text-white">×</button>
         </>
+      )}
+      {gameOver && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl border border-rose-300 bg-slate-900 p-6 text-center text-white shadow-2xl">
+            <div className="text-6xl">❤️‍🩹</div>
+            <h2 className="mt-3 text-2xl font-black">انتهت المحاولة</h2>
+            <p className="mt-3 leading-7 text-slate-300">خسرت القلوب الثلاثة. ستعود الحركة من بداية المرحلة، مع بقاء نتائج الأسئلة التعليمية محفوظة.</p>
+            <button type="button" onClick={restartAttempt} className="mt-5 w-full rounded-2xl bg-rose-400 py-3 font-black text-slate-950">إعادة المرحلة من البداية</button>
+          </div>
+        </div>
       )}
       {finished && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"><div className="w-full max-w-md rounded-3xl border border-amber-300 bg-slate-900 p-6 text-center text-white"><div className="text-6xl">🖥️</div><h2 className="mt-2 text-2xl font-black">تم تشغيل فصل راصد الذكي</h2><p className="mt-3 text-slate-300">شغّلت المحطات الخمس وجمعت مفاتيح المعرفة وفتحت السبورة الذكية.</p><div className="my-5 grid grid-cols-3 gap-2"><div className="rounded-xl bg-slate-800 p-3"><b className="text-amber-300">{score}</b><small className="block">النقاط</small></div><div className="rounded-xl bg-slate-800 p-3"><b className="text-emerald-300">{correctIds.length}</b><small className="block">صحيح</small></div><div className="rounded-xl bg-slate-800 p-3"><b className="text-sky-300">5</b><small className="block">المفاتيح</small></div></div><button onClick={onClose} className="w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">متابعة الرحلة</button></div></div>
