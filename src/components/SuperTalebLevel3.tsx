@@ -86,50 +86,59 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
   const [activeQuestion,setActiveQuestion] = useState<SuperTalebQuestion|null>(null);
   const [feedback,setFeedback] = useState<{correct:boolean;text:string}|null>(null);
   const [message,setMessage] = useState('اعبر بوابات الإنجاز واجمع أسئلة اليوم حتى تصل إلى احتفال نهاية العام');
+  const zoneRef = useRef(-1);
 
   const gatesRef = useRef<Gate[]>([
-    {id:'memory',x:1280,title:'بوابة التذكّر',color:'#f59e0b',activated:initialActivated.includes('memory')},
-    {id:'understanding',x:2740,title:'بوابة الفهم',color:'#06b6d4',activated:initialActivated.includes('understanding')},
-    {id:'application',x:4210,title:'بوابة التطبيق',color:'#8b5cf6',activated:initialActivated.includes('application')},
-    {id:'achievement',x:5680,title:'بوابة الإنجاز',color:'#22c55e',activated:initialActivated.includes('achievement')},
-    {id:'future',x:6660,title:'بوابة المستقبل',color:'#ec4899',activated:initialActivated.includes('future')},
+    {id:'memory',x:1180,title:'بوابة التذكّر',color:'#f59e0b',activated:initialActivated.includes('memory')},
+    {id:'understanding',x:2860,title:'بوابة الفهم',color:'#06b6d4',activated:initialActivated.includes('understanding')},
+    {id:'application',x:4220,title:'بوابة التطبيق',color:'#8b5cf6',activated:initialActivated.includes('application')},
+    {id:'achievement',x:5600,title:'بوابة الإنجاز',color:'#22c55e',activated:initialActivated.includes('achievement')},
+    {id:'future',x:6680,title:'بوابة المستقبل',color:'#ec4899',activated:initialActivated.includes('future')},
   ]);
 
   const platformsRef = useRef<Platform[]>([
-    {x:0,y:GROUND_Y,w:900,h:130,kind:'floor'},
-    {x:950,y:GROUND_Y,w:860,h:130,kind:'floor'},
-    {x:1860,y:GROUND_Y,w:900,h:130,kind:'floor'},
-    {x:2810,y:GROUND_Y,w:880,h:130,kind:'floor'},
-    {x:3740,y:GROUND_Y,w:870,h:130,kind:'floor'},
-    {x:4665,y:GROUND_Y,w:900,h:130,kind:'floor'},
-    {x:5620,y:GROUND_Y,w:850,h:130,kind:'floor'},
-    {x:6525,y:GROUND_Y,w:825,h:130,kind:'floor'},
-    {x:430,y:500,w:225,h:34,kind:'desk'},
-    {x:700,y:450,w:170,h:30,kind:'book'},
-    {x:1110,y:500,w:215,h:32,kind:'ruler'},
-    {x:1510,y:445,w:175,h:30,kind:'paper'},
-    {x:2020,y:500,w:230,h:34,kind:'book'},
-    {x:2320,y:440,w:180,h:30,kind:'desk'},
-    {x:3000,y:500,w:220,h:34,kind:'ruler'},
-    {x:3290,y:440,w:175,h:30,kind:'book'},
-    {x:3900,y:505,w:230,h:34,kind:'desk'},
-    {x:4205,y:450,w:180,h:30,kind:'paper'},
-    {x:4830,y:500,w:230,h:34,kind:'book'},
-    {x:5140,y:438,w:180,h:30,kind:'ruler'},
-    {x:5810,y:500,w:220,h:34,kind:'desk'},
-    {x:6100,y:447,w:170,h:30,kind:'book'},
-    {x:6750,y:500,w:230,h:34,kind:'ruler'},
+    // القسم 1: مسار السرعة، أرض متصلة وعقبات أرضية متحركة.
+    {x:0,y:GROUND_Y,w:1320,h:150,kind:'floor'},
+    // القسم 2: جسر الأقلام، فجوتان قصيرتان وواضحتان فقط.
+    {x:1365,y:GROUND_Y,w:770,h:150,kind:'floor'},
+    {x:2180,y:GROUND_Y,w:910,h:150,kind:'floor'},
+    // القسم 3: طريقان منخفضان من الكتب والطاولات، لا ارتفاعات قرب سقف الهاتف.
+    {x:3135,y:GROUND_Y,w:1180,h:150,kind:'floor'},
+    {x:4360,y:GROUND_Y,w:1060,h:150,kind:'floor'},
+    // القسم 4: ممر بوابات الإنجاز والاندفاعة الختامية.
+    {x:5465,y:GROUND_Y,w:1885,h:150,kind:'floor'},
+
+    {x:520,y:GROUND_Y-62,w:190,h:62,kind:'book'},
+    {x:900,y:GROUND_Y-48,w:210,h:48,kind:'desk'},
+    {x:1425,y:GROUND_Y-42,w:260,h:42,kind:'ruler'},
+    {x:1870,y:GROUND_Y-58,w:210,h:58,kind:'book'},
+    {x:2240,y:GROUND_Y-42,w:300,h:42,kind:'ruler'},
+    {x:2680,y:GROUND_Y-55,w:240,h:55,kind:'paper'},
+    {x:3250,y:GROUND_Y-70,w:220,h:70,kind:'book'},
+    {x:3580,y:GROUND_Y-50,w:245,h:50,kind:'desk'},
+    {x:3940,y:GROUND_Y-78,w:230,h:78,kind:'book'},
+    {x:4480,y:GROUND_Y-50,w:270,h:50,kind:'ruler'},
+    {x:4900,y:GROUND_Y-68,w:240,h:68,kind:'paper'},
+    {x:5580,y:GROUND_Y-55,w:250,h:55,kind:'desk'},
+    {x:6030,y:GROUND_Y-72,w:230,h:72,kind:'book'},
+    {x:6560,y:GROUND_Y-46,w:300,h:46,kind:'ruler'},
   ]);
 
   const hazardsRef = useRef<Hazard[]>([
-    {id:'paper-1',x:620,y:GROUND_Y-72,w:60,h:70,minX:500,maxX:820,vx:82,alive:true,kind:'paper'},
-    {id:'eraser-1',x:1530,y:GROUND_Y-44,w:60,h:44,minX:1390,maxX:1710,vx:74,alive:true,kind:'eraser'},
-    {id:'clock-1',x:2220,y:GROUND_Y-92,w:64,h:64,minX:2040,maxX:2550,vx:88,alive:true,kind:'clock'},
-    {id:'question-1',x:3190,y:GROUND_Y-68,w:62,h:66,minX:3000,maxX:3540,vx:90,alive:true,kind:'question'},
-    {id:'paper-2',x:4070,y:GROUND_Y-76,w:60,h:74,minX:3900,maxX:4460,vx:94,alive:true,kind:'paper'},
-    {id:'eraser-2',x:5000,y:GROUND_Y-44,w:60,h:44,minX:4800,maxX:5400,vx:96,alive:true,kind:'eraser'},
-    {id:'clock-2',x:5980,y:GROUND_Y-92,w:64,h:64,minX:5760,maxX:6330,vx:100,alive:true,kind:'clock'},
-    {id:'question-2',x:6860,y:GROUND_Y-68,w:62,h:66,minX:6700,maxX:7160,vx:98,alive:true,kind:'question'},
+    // سباق الوقت: ساعات وممحاة أرضية.
+    {id:'clock-1',x:760,y:GROUND_Y-68,w:62,h:62,minX:650,maxX:1080,vx:-115,alive:true,kind:'clock'},
+    {id:'eraser-1',x:1120,y:GROUND_Y-42,w:64,h:42,minX:960,maxX:1260,vx:-95,alive:true,kind:'eraser'},
+    // جسر الأقلام: أوراق طائرة تتحرك على ارتفاع منخفض يمكن تجاوزها.
+    {id:'paper-1',x:1660,y:GROUND_Y-118,w:66,h:72,minX:1480,maxX:2040,vx:102,alive:true,kind:'paper'},
+    {id:'paper-2',x:2520,y:GROUND_Y-125,w:66,h:72,minX:2300,maxX:2920,vx:-108,alive:true,kind:'paper'},
+    // طريق الاختيار: كتب ثابتة وعلامات سؤال متذبذبة.
+    {id:'book-1',x:3380,y:GROUND_Y-72,w:72,h:72,minX:3380,maxX:3381,vx:0,alive:true,kind:'book'},
+    {id:'question-1',x:4000,y:GROUND_Y-112,w:64,h:68,minX:3820,maxX:4200,vx:88,alive:true,kind:'question'},
+    {id:'book-2',x:4700,y:GROUND_Y-72,w:72,h:72,minX:4700,maxX:4701,vx:0,alive:true,kind:'book'},
+    // اندفاعة الإنجاز: نمط متناوب أسرع.
+    {id:'eraser-2',x:5740,y:GROUND_Y-42,w:64,h:42,minX:5580,maxX:6000,vx:125,alive:true,kind:'eraser'},
+    {id:'clock-2',x:6240,y:GROUND_Y-68,w:62,h:62,minX:6120,maxX:6500,vx:-125,alive:true,kind:'clock'},
+    {id:'question-2',x:6810,y:GROUND_Y-108,w:64,h:68,minX:6660,maxX:7060,vx:112,alive:true,kind:'question'},
   ]);
 
   const clearMotion = useCallback(() => {
@@ -311,6 +320,7 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
       player.vx+=(axis*speed-player.vx)*Math.min(1,dt*12);if(axis)player.facing=axis>0?1:-1;
       if(motion.jump&&player.grounded){superTalebAudio.play('jump');player.vy=-515;player.grounded=false;motion.jump=false;}
       player.vy+=1270*dt;player.x+=player.vx*dt;player.y+=player.vy*dt;player.x=Math.max(0,Math.min(WORLD_W-player.w,player.x));
+      const zone=player.x<1320?0:player.x<3090?1:player.x<5420?2:3; if(zone!==zoneRef.current){zoneRef.current=zone;setMessage(['مسار السرعة: تجاوز الساعات والممحاة','جسر الأقلام: استخدم الجسور القصيرة وتفادَ الأوراق','طريق الاختيار: اختر المسار الأنسب واعبر بوابات المعرفة','اندفاعة الإنجاز: تجاوز النمط المتناوب حتى منصة الاحتفال'][zone]);}
       const previousBottom=player.y+player.h-player.vy*dt;const wasGrounded=player.grounded;player.grounded=false;
       platformsRef.current.forEach(platform=>{
         if(player.x+player.w*.8>platform.x&&player.x+player.w*.2<platform.x+platform.w&&previousBottom<=platform.y+12&&player.y+player.h>=platform.y&&player.vy>=0){
@@ -335,8 +345,8 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
       if(player.x>7160)finishLevel();
 
       const viewW=canvas.clientWidth;const viewH=canvas.clientHeight;const landscape=viewW>viewH;
-      const sceneScale=landscape?1.24:1.16;const groundScreenY=landscape?viewH-108:viewH-170;const offsetY=groundScreenY-GROUND_Y*sceneScale;const visibleWorldW=viewW/sceneScale;
-      cameraRef.current+=(Math.max(0,Math.min(WORLD_W-visibleWorldW,player.x-visibleWorldW*.34))-cameraRef.current)*Math.min(1,dt*6);
+      const sceneScale=landscape?1.08:1.04;const groundScreenY=landscape?viewH-82:viewH-126;const offsetY=groundScreenY-GROUND_Y*sceneScale;const visibleWorldW=viewW/sceneScale;
+      cameraRef.current+=(Math.max(0,Math.min(WORLD_W-visibleWorldW,player.x-visibleWorldW*.30))-cameraRef.current)*Math.min(1,dt*6);
       const camera=cameraRef.current;
 
       const assets=assetsRef.current;
@@ -350,27 +360,45 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
       }
 
       context.save();context.translate(0,offsetY);context.scale(sceneScale,sceneScale);context.translate(-camera,0);
+      // الحفر المرئية جزء من العالم وليست فراغًا شفافًا: ظل عميق وحدود حجرية واضحة.
+      [[1320,1365],[2135,2180],[3090,3135],[4315,4360],[5420,5465]].forEach(([left,right])=>{
+        const gradient=context.createLinearGradient(0,GROUND_Y,0,GROUND_Y+150);gradient.addColorStop(0,'#3b2416');gradient.addColorStop(1,'#080b12');
+        context.fillStyle=gradient;context.fillRect(left,GROUND_Y,right-left,170);
+        context.strokeStyle='#f59e0b';context.lineWidth=5;context.beginPath();context.moveTo(left,GROUND_Y+2);context.lineTo(left+10,GROUND_Y+18);context.moveTo(right,GROUND_Y+2);context.lineTo(right-10,GROUND_Y+18);context.stroke();
+      });
       platformsRef.current.forEach(platform=>{
         const image=platform.kind==='floor'?(platform.w>850?assets.floorLong:assets.floorShort):platform.kind==='book'?assets.books:platform.kind==='ruler'?assets.ruler:platform.kind==='paper'?assets.paperPlatform:assets.desk;
-        if(image){const drawH=platform.kind==='floor'?Math.max(125,platform.h):Math.max(48,platform.h+25);context.drawImage(image,platform.x,platform.y,platform.w,drawH);}
-        else{context.fillStyle=platform.kind==='floor'?'#e2b56f':'#9a642f';context.fillRect(platform.x,platform.y,platform.w,platform.h);}
+        // الجسم المرئي نفسه يطابق صندوق التصادم، فلا توجد منصة وهمية أو طالب يمشي في الهواء.
+        if(platform.kind==='floor'){
+          const bodyGradient=context.createLinearGradient(0,platform.y,0,platform.y+platform.h);bodyGradient.addColorStop(0,'#c98a45');bodyGradient.addColorStop(.18,'#95602f');bodyGradient.addColorStop(1,'#3c2619');
+          context.fillStyle=bodyGradient;context.fillRect(platform.x,platform.y,platform.w,platform.h+35);
+          context.fillStyle='#f0c37a';context.fillRect(platform.x,platform.y,platform.w,12);
+          if(image)context.drawImage(image,platform.x,platform.y,platform.w,Math.min(76,platform.h));
+        }else{
+          const h=Math.max(platform.h,42);context.save();
+          context.fillStyle=platform.kind==='book'?'#2563eb':platform.kind==='ruler'?'#facc15':platform.kind==='paper'?'#f8fafc':'#9a642f';
+          context.fillRect(platform.x,platform.y,platform.w,h);
+          context.strokeStyle='rgba(15,23,42,.7)';context.lineWidth=3;context.strokeRect(platform.x,platform.y,platform.w,h);
+          if(image){const ratio=Math.min(platform.w/image.naturalWidth,h/image.naturalHeight);const w=image.naturalWidth*ratio;const ih=image.naturalHeight*ratio;context.drawImage(image,platform.x+(platform.w-w)/2,platform.y,w,ih);}
+          context.restore();
+        }
       });
       gatesRef.current.forEach(gate=>{
         const gateImage=gate.id==='memory'?assets.memoryGate:gate.id==='understanding'?assets.understandingGate:gate.id==='application'?assets.applicationGate:gate.id==='achievement'?assets.achievementGate:assets.futureGate;
         context.save();context.globalAlpha=gate.activated?1:.92;
-        if(gateImage)context.drawImage(gateImage,gate.x-82,GROUND_Y-205,164,205);
+        if(gateImage)context.drawImage(gateImage,gate.x-76,GROUND_Y-180,152,180);
         else{context.strokeStyle=gate.activated?'#22c55e':gate.color;context.lineWidth=12;context.strokeRect(gate.x-54,GROUND_Y-165,108,165);}
         context.globalAlpha=1;context.fillStyle='rgba(15,23,42,.86)';context.fillRect(gate.x-72,GROUND_Y-66,144,34);context.fillStyle='white';context.font='bold 14px sans-serif';context.textAlign='center';context.fillText(gate.title,gate.x,GROUND_Y-43);context.restore();
       });
       hazardsRef.current.forEach(hazard=>{
         if(!hazard.alive)return;const image=hazard.kind==='paper'?assets.paper:hazard.kind==='eraser'?assets.eraser:hazard.kind==='clock'?assets.clock:hazard.kind==='question'?assets.question:assets.revisionBook;
-        context.save();context.translate(hazard.x,hazard.y);if(hazard.vx<0){context.translate(hazard.w,0);context.scale(-1,1);}if(image)context.drawImage(image,-7,-9,hazard.w+14,hazard.h+14);else{context.fillStyle='#ef4444';context.fillRect(0,0,hazard.w,hazard.h);}context.restore();
+        context.save();context.translate(hazard.x,hazard.y);if(hazard.vx<0){context.translate(hazard.w,0);context.scale(-1,1);}if(image){const ratio=Math.min(hazard.w/image.naturalWidth,hazard.h/image.naturalHeight);const dw=image.naturalWidth*ratio;const dh=image.naturalHeight*ratio;context.drawImage(image,(hazard.w-dw)/2,hazard.h-dh,dw,dh);}else{context.fillStyle='#ef4444';context.fillRect(0,0,hazard.w,hazard.h);}context.restore();
       });
       projectilesRef.current.forEach(shot=>{if(assets.pencilEffect)context.drawImage(assets.pencilEffect,shot.x,shot.y-12,48,30);else{context.fillStyle='#facc15';context.fillRect(shot.x,shot.y,30,8);}});
       // منصة الاحتفال النهائية.
-      if(assets.podium)context.drawImage(assets.podium,7045,395,260,195);else{context.fillStyle='#0f766e';context.fillRect(7100,410,190,180);}
-      if(assets.chestClosed)context.drawImage(finished&&assets.chestOpen?assets.chestOpen:assets.chestClosed,7140,455,115,105);
-      if(assets.omanFlag)context.drawImage(assets.omanFlag,7270,360,70,160);
+      if(assets.podium)context.drawImage(assets.podium,7045,GROUND_Y-195,260,195);else{context.fillStyle='#0f766e';context.fillRect(7100,410,190,180);}
+      if(assets.chestClosed)context.drawImage(finished&&assets.chestOpen?assets.chestOpen:assets.chestClosed,7140,GROUND_Y-105,115,105);
+      if(assets.omanFlag)context.drawImage(assets.omanFlag,7270,GROUND_Y-160,70,160);
 
       const blink=time<player.invulnerableUntil&&Math.floor(time/100)%2===0;
       if(!blink){
@@ -380,7 +408,7 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
         else if(Math.abs(player.vx)>260){image=assets.playerRun;frames=7;fps=13;}
         else if(Math.abs(player.vx)>20){image=assets.playerWalk;frames=7;fps=9;}
         context.save();context.translate(player.x+player.w/2,player.y+player.h);context.scale(player.facing,1);
-        if(image){const frame=Math.floor(time/1000*fps)%frames;context.drawImage(image,frame*256,0,256,256,-61,-109,122,122);}else{context.fillStyle='#fff';context.fillRect(-20,-82,40,82);}context.restore();
+        if(image){const frame=Math.floor(time/1000*fps)%frames;context.drawImage(image,frame*256,0,256,256,-62,-124,124,124);}else{context.fillStyle='#fff';context.fillRect(-20,-82,40,82);}context.restore();
       }
       context.restore();
       context.fillStyle='rgba(15,23,42,.9)';context.fillRect(12,12,Math.min(580,viewW-24),58);context.fillStyle='#fff';context.font='bold 17px sans-serif';context.textAlign='left';context.fillText(`❤️ ${lives}   ⭐ ${correctIds.length}   ✏️ ${pencilAmmo}   النقاط ${score}`,28,48);
@@ -400,7 +428,7 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
     {!started && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/78 p-4 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-3xl border border-amber-300/45 bg-slate-900 p-6 text-center text-white shadow-2xl">
         <div className="text-6xl">🏆</div><h2 className="mt-2 text-3xl font-black">المرحلة الثالثة: تحدي نهاية العام</h2>
-        <p className="mt-3 leading-7 text-slate-300">اعبر بوابات التذكّر والفهم والتطبيق والإنجاز والمستقبل، وتفاعل مع جميع أسئلة اليوم للوصول إلى منصة الاحتفال.</p>
+        <p className="mt-3 leading-7 text-slate-300">تتغير طريقة اللعب في أربعة أقسام: سباق الوقت، جسر الأقلام، طريق الاختيار، ثم اندفاعة الإنجاز. اعبر بوابات المعرفة وأكمل أسئلة اليوم.</p>
         <p className="mt-3 rounded-2xl bg-amber-400/15 p-3 text-sm font-bold text-amber-200">هذه مغامرة يومية عادية وليست اختبارًا رسميًا.</p>
         <button type="button" onClick={()=>setStarted(true)} className="mt-5 rounded-2xl bg-amber-400 px-8 py-3 font-black text-slate-950">ابدأ المرحلة الثالثة</button>
       </div>
