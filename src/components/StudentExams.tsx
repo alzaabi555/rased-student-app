@@ -137,6 +137,8 @@ export interface StudentExamsProps {
   onRefreshExams?: () => Promise<RasedExam[] | void> | RasedExam[] | void;
 }
 
+const EXAMS_CLOUD_URL = 'https://script.google.com/macros/s/AKfycbwMYqSpnXvlMrL6po82-XePyAWBd9FMNCTgY7WlYaOH6pn1kTazLqxEfvremqsSk_dU/exec';
+
 const STORAGE_KEYS = {
   receivedExams: 'rased_student_received_exams_v1',
   teacherLocalExams: 'rased_teacher_exams_v1',
@@ -263,11 +265,43 @@ export default function StudentExams({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const autoSubmitRef = useRef<string | null>(null);
+  const effectiveRefreshExams = onRefreshExams || (async () => {
+    const response = await fetch(EXAMS_CLOUD_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'getStudentExams',
+        schoolCode: schoolCode || '',
+        studentId,
+        className: studentClassIds[0] || '',
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || payload?.success === false) throw new Error(payload?.error || 'فشل جلب الاختبارات.');
+    return Array.isArray(payload?.data) ? payload.data : [];
+  });
+  const effectiveResultSubmit = onResultSubmit || (async (result: StudentExamResult) => {
+    const response = await fetch(EXAMS_CLOUD_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'studentExamResult',
+        schoolCode: schoolCode || '',
+        studentId,
+        studentName,
+        className: studentClassIds[0] || '',
+        examResult: result,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || payload?.success === false) throw new Error(payload?.error || 'فشل إرسال نتيجة الاختبار.');
+  });
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+  useEffect(() => {
+    void refreshExams();
+  }, [studentId, schoolCode, studentClassIds.join('|')]);
 
   useEffect(() => {
     if (suppliedExams?.length) {
@@ -324,10 +358,9 @@ export default function StudentExams({
   const sectionExams = eligibleExams.filter((exam) => getExamSection(exam) === section);
 
   async function refreshExams() {
-    if (!onRefreshExams) return;
     try {
       setIsRefreshing(true);
-      const refreshed = await onRefreshExams();
+      const refreshed = await effectiveRefreshExams();
       if (Array.isArray(refreshed)) {
         setReceivedExams((current) => deduplicateExams([...current, ...refreshed]));
       }
@@ -506,7 +539,7 @@ export default function StudentExams({
       submittedAt,
       durationSeconds: Math.max(0, Math.floor((new Date(submittedAt).getTime() - new Date(activeProgress.startedAt).getTime()) / 1000)),
       completed: true,
-      syncStatus: onResultSubmit ? 'pending' : 'synced',
+      syncStatus: 'pending',
     };
 
     setResults((current) => {
@@ -517,16 +550,14 @@ export default function StudentExams({
       ? { ...progress, status: reason === 'time' ? 'expired' : 'submitted', submittedAt, lastSavedAt: submittedAt }
       : progress));
 
-    if (onResultSubmit) {
-      try {
-        await onResultSubmit(result);
+    try {
+        await effectiveResultSubmit(result);
         setResults((current) => current.map((item) => item.id === result.id ? { ...item, syncStatus: 'synced' } : item));
       } catch (error) {
         console.error('Failed to submit exam result', error);
         setResults((current) => current.map((item) => item.id === result.id ? { ...item, syncStatus: 'failed' } : item));
         setMessage('تم حفظ النتيجة على الجهاز، وستُعاد محاولة إرسالها عند توفر الاتصال.');
       }
-    }
 
     setScreen('result');
   }
@@ -792,11 +823,9 @@ export default function StudentExams({
             <p className="mt-2 text-sm font-bold text-blue-100">التقييمات الرسمية المستقلة عن الألعاب التعليمية.</p>
             {studentName && <p className="mt-1 text-xs font-bold text-blue-200">الطالب: {studentName}</p>}
           </div>
-          {onRefreshExams && (
-            <button type="button" onClick={() => void refreshExams()} disabled={isRefreshing} className="flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-3 font-black backdrop-blur disabled:opacity-50">
-              <RotateCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> تحديث الاختبارات
-            </button>
-          )}
+          <button type="button" onClick={() => void refreshExams()} disabled={isRefreshing} className="flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-3 font-black backdrop-blur disabled:opacity-50">
+            <RotateCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> {isRefreshing ? 'جاري التحديث...' : 'تحديث الاختبارات'}
+          </button>
         </div>
       </header>
 
