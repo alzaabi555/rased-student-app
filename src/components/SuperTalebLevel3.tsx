@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { superTalebAudio } from './super-taleb/SuperTalebAudio';
 import type {
   SuperTalebLevelComponentProps,
   SuperTalebLevelResult,
@@ -152,6 +153,8 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
 
   useEffect(() => { persist(); },[persist]);
 
+  useEffect(() => { const unlock=()=>void superTalebAudio.unlock(); window.addEventListener('pointerdown',unlock,{once:true}); return()=>window.removeEventListener('pointerdown',unlock); }, []);
+
   useEffect(() => {
     let cancelled=false;
     const paths:Record<string,string> = {
@@ -175,24 +178,24 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
       chestClosed:'/assets/games/super-taleb/level-3/items/completion-chest-closed.webp',
       chestOpen:'/assets/games/super-taleb/level-3/items/completion-chest-open.webp',
       omanFlag:'/assets/games/super-taleb/level-3/items/oman-flag.webp',
-      exitArch:'/assets/games/super-taleb/level-3/items/exit-arch.webp',
       floorLong:'/assets/games/super-taleb/level-3/terrain/corridor-long-a.webp',
       floorShort:'/assets/games/super-taleb/level-3/terrain/corridor-short.webp',
       books:'/assets/games/super-taleb/level-3/terrain/books-medium.webp',
       desk:'/assets/games/super-taleb/level-3/terrain/desk-medium.webp',
-      pencilBridge:'/assets/games/super-taleb/level-3/terrain/pencil-medium.webp',
       ruler:'/assets/games/super-taleb/level-3/terrain/ruler-medium.webp',
       paperPlatform:'/assets/games/super-taleb/level-3/terrain/paper-medium.webp',
-      paper:'/assets/games/super-taleb/level-3/enemies/flying-paper.webp',
-      eraser:'/assets/games/super-taleb/level-3/enemies/error-eraser.webp',
-      clock:'/assets/games/super-taleb/level-3/enemies/time-clock.webp',
       revisionBook:'/assets/games/super-taleb/level-3/enemies/revision-book.webp',
       pencilEffect:'/assets/games/super-taleb/level-3/effects/pencil-projectile.webp',
-      impactSpark:'/assets/games/super-taleb/level-3/effects/impact-spark.webp',
     };
-    Promise.all(Object.entries(paths).map(([key,src]) => new Promise<[string,HTMLImageElement]>((resolve,reject) => {
-      const image=new Image(); image.onload=()=>resolve([key,image]); image.onerror=reject; image.src=src;
-    }))).then(entries => { if(!cancelled) assetsRef.current=Object.fromEntries(entries); }).catch(() => {});
+    Promise.allSettled(Object.entries(paths).map(([key,src]) => new Promise<[string,HTMLImageElement]>((resolve,reject) => {
+      const image=new Image();
+      image.onload=async()=>{ try { await image.decode?.(); } catch {} resolve([key,image]); };
+      image.onerror=reject; image.src=src;
+    }))).then(results => {
+      if(cancelled) return;
+      const loaded=results.flatMap(result=>result.status==='fulfilled'?[result.value]:[]);
+      assetsRef.current={...assetsRef.current,...Object.fromEntries(loaded)};
+    });
     return () => { cancelled=true; };
   },[]);
 
@@ -213,6 +216,7 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
       setActivatedGateIds(next); setMessage(`عبرت ${gate.title} — تابع طريق الإنجاز`); persist({activatedGateIds:next});
       return;
     }
+    superTalebAudio.play('questionOpen');
     setActiveGate(gate); setActiveQuestion(selected); answerLockedRef.current=false;
   },[activeQuestion,activatedGateIds,answeredIds,clearMotion,persist,usableQuestions]);
 
@@ -229,6 +233,9 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
     const nextGates=Array.from(new Set([...activatedGateIds,activeGate.id]));
     activeGate.activated=true;
     setAnsweredIds(nextAnswered);setCorrectIds(nextCorrect);setWeakIds(nextWeak);setScore(nextScore);setPencilAmmo(nextAmmo);setActivatedGateIds(nextGates);
+    superTalebAudio.play(isCorrect?'correct':'incorrect');
+    if(isCorrect){superTalebAudio.play('star');superTalebAudio.play('pencilEarned');}
+    superTalebAudio.play('gateOpen');
     setFeedback({correct:isCorrect,text:isCorrect?'إجابة صحيحة: +10 نقاط وطلقة قلم':'إجابة غير صحيحة: لا نقاط ولا خسارة قلب، وتستمر المغامرة'});
     persist({answeredQuestionIds:nextAnswered,correctQuestionIds:nextCorrect,weakQuestionIds:nextWeak,score:nextScore,pencilAmmo:nextAmmo,activatedGateIds:nextGates});
     window.setTimeout(()=>{setActiveQuestion(null);setActiveGate(null);setFeedback(null);answerLockedRef.current=false;},850);
@@ -237,6 +244,7 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
   const shootPencil=useCallback(()=>{
     if(pencilAmmo<=0 || activeQuestion || gameOver) return;
     const player=playerRef.current;
+    superTalebAudio.play('pencilFire');
     projectilesRef.current.push({x:player.x+(player.facing>0?player.w:-24),y:player.y+34,vx:player.facing*650,alive:true});
     setPencilAmmo(value=>Math.max(0,value-1));
   },[activeQuestion,gameOver,pencilAmmo]);
@@ -245,7 +253,7 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
     if(completionSentRef.current) return;
     const remaining=usableQuestions.filter(item=>!answeredIds.includes(String(item.id)));
     if(remaining.length>0){setMessage(`تبقى ${remaining.length} سؤالًا — عد إلى بوابة المعرفة التالية`);return;}
-    completionSentRef.current=true;clearMotion();setFinished(true);
+    completionSentRef.current=true;clearMotion();setFinished(true);superTalebAudio.play('levelComplete');
     const result:SuperTalebLevelResult={
       completed:true,score:correctIds.length*10,pointsEarned:correctIds.length*10,
       correct:correctIds.length,correctAnswers:correctIds.length,
@@ -259,10 +267,10 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
   const damagePlayer=useCallback((sourceX:number)=>{
     const now=performance.now();const player=playerRef.current;
     if(now<player.invulnerableUntil || gameOver) return;
-    player.invulnerableUntil=now+2300;
+    player.invulnerableUntil=now+2300;superTalebAudio.play('obstacleHit');
     player.x=Math.max(100,safeXRef.current);player.y=GROUND_Y-player.h;player.vx=sourceX>player.x?-90:90;player.vy=-190;
     const next=Math.max(0,player.lives-1);player.lives=next;setLives(next);clearMotion();
-    if(next<=0){player.vx=0;player.vy=0;setGameOver(true);setMessage('انتهت المحاولة — أعد المرحلة من البداية');}
+    if(next<=0){player.vx=0;player.vy=0;setGameOver(true);superTalebAudio.play('gameOver');setMessage('انتهت المحاولة — أعد المرحلة من البداية');}
   },[clearMotion,gameOver]);
 
   const restartAttempt=useCallback(()=>{
@@ -301,20 +309,58 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
       const player=playerRef.current;const motion=motionRef.current;
       const speed=motion.run?410:205;const axis=(motion.right?1:0)-(motion.left?1:0);
       player.vx+=(axis*speed-player.vx)*Math.min(1,dt*12);if(axis)player.facing=axis>0?1:-1;
-      if(motion.jump&&player.grounded){player.vy=-515;player.grounded=false;motion.jump=false;}
+      if(motion.jump&&player.grounded){superTalebAudio.play('jump');player.vy=-515;player.grounded=false;motion.jump=false;}
       player.vy+=1270*dt;player.x+=player.vx*dt;player.y+=player.vy*dt;player.x=Math.max(0,Math.min(WORLD_W-player.w,player.x));
-      const previousBottom=player.y+player.h-player.vy*dt;player.grounded=false;
+      const previousBottom=player.y+player.h-player.vy*dt;const wasGrounded=player.grounded;player.grounded=false;
+      platformsRef.current.forEach(platform=>{
+        if(player.x+player.w*.8>platform.x&&player.x+player.w*.2<platform.x+platform.w&&previousBottom<=platform.y+12&&player.y+player.h>=platform.y&&player.vy>=0){
+          player.y=platform.y-player.h;player.vy=0;player.grounded=true;if(!wasGrounded)superTalebAudio.play('land');
+          if(platform.kind==='floor'&&player.x>safeXRef.current+200)safeXRef.current=player.x;
+        }
+      });
+      if(player.y>WORLD_H+100) damagePlayer(player.x);
+      hazardsRef.current.forEach(hazard=>{
+        if(!hazard.alive)return;hazard.x+=hazard.vx*dt;if(hazard.x<=hazard.minX||hazard.x>=hazard.maxX)hazard.vx*=-1;
+        const body={x:player.x+11,y:player.y+15,w:player.w-22,h:player.h-20};
+        const target={x:hazard.x+10,y:hazard.y+8,w:hazard.w-20,h:hazard.h-12};
+        if(overlaps(body,target))damagePlayer(hazard.x);
+      });
+      projectilesRef.current.forEach(shot=>{
+        if(!shot.alive)return;shot.x+=shot.vx*dt;
+        hazardsRef.current.forEach(hazard=>{if(hazard.alive&&overlaps({x:shot.x,y:shot.y,w:30,h:9},hazard)){hazard.alive=false;shot.alive=false;}});
+        if(shot.x<cameraRef.current-100||shot.x>cameraRef.current+1800)shot.alive=false;
+      });
+      projectilesRef.current=projectilesRef.current.filter(item=>item.alive);
+      gatesRef.current.forEach(gate=>{if(!gate.activated&&Math.abs((player.x+player.w/2)-gate.x)<80&&player.y+player.h>GROUND_Y-150)openGate(gate);});
+      if(player.x>7160)finishLevel();
+
+      const viewW=canvas.clientWidth;const viewH=canvas.clientHeight;const landscape=viewW>viewH;
+      const sceneScale=landscape?1.24:1.16;const groundScreenY=landscape?viewH-108:viewH-170;const offsetY=groundScreenY-GROUND_Y*sceneScale;const visibleWorldW=viewW/sceneScale;
+      cameraRef.current+=(Math.max(0,Math.min(WORLD_W-visibleWorldW,player.x-visibleWorldW*.34))-cameraRef.current)*Math.min(1,dt*6);
+      const camera=cameraRef.current;
+
+      const assets=assetsRef.current;
+      const sky=context.createLinearGradient(0,0,0,viewH);sky.addColorStop(0,'#5bb9f5');sky.addColorStop(1,'#f8d9a5');context.fillStyle=sky;context.fillRect(0,0,viewW,viewH);
+      if(assets.background){
+        const bgW=1536; const bgH=Math.max(viewH,620); const shift=-(camera*.13)%bgW;
+        for(let x=shift-bgW;x<viewW+bgW;x+=bgW) context.drawImage(assets.background,x,0,bgW,bgH);
+      } else {
+        const parallax=-(camera*.13)%900;
+        for(let x=parallax-900;x<viewW+900;x+=900){context.fillStyle='#f6e2bd';context.fillRect(x,80,900,430);context.fillStyle='#8ccde8';context.fillRect(x+90,145,255,190);context.fillRect(x+550,145,255,190);}
+      }
+
+      context.save();context.translate(0,offsetY);context.scale(sceneScale,sceneScale);context.translate(-camera,0);
       platformsRef.current.forEach(platform=>{
         const image=platform.kind==='floor'?(platform.w>850?assets.floorLong:assets.floorShort):platform.kind==='book'?assets.books:platform.kind==='ruler'?assets.ruler:platform.kind==='paper'?assets.paperPlatform:assets.desk;
-        if(image){const drawH=platform.kind==='floor'?Math.max(125,platform.h):Math.max(48,platform.h+25);context.drawImage(image,platform.x,platform.y,platform.w,drawH);return;}
-        context.fillStyle=platform.kind==='floor'?'#e2b56f':'#9a642f';context.fillRect(platform.x,platform.y,platform.w,platform.h);
+        if(image){const drawH=platform.kind==='floor'?Math.max(125,platform.h):Math.max(48,platform.h+25);context.drawImage(image,platform.x,platform.y,platform.w,drawH);}
+        else{context.fillStyle=platform.kind==='floor'?'#e2b56f':'#9a642f';context.fillRect(platform.x,platform.y,platform.w,platform.h);}
       });
       gatesRef.current.forEach(gate=>{
         const gateImage=gate.id==='memory'?assets.memoryGate:gate.id==='understanding'?assets.understandingGate:gate.id==='application'?assets.applicationGate:gate.id==='achievement'?assets.achievementGate:assets.futureGate;
         context.save();context.globalAlpha=gate.activated?1:.92;
         if(gateImage)context.drawImage(gateImage,gate.x-82,GROUND_Y-205,164,205);
         else{context.strokeStyle=gate.activated?'#22c55e':gate.color;context.lineWidth=12;context.strokeRect(gate.x-54,GROUND_Y-165,108,165);}
-        context.globalAlpha=1;context.fillStyle='rgba(15,23,42,.86)';context.beginPath();context.roundRect(gate.x-72,GROUND_Y-66,144,34,12);context.fill();context.fillStyle='white';context.font='bold 14px sans-serif';context.textAlign='center';context.fillText(gate.title,gate.x,GROUND_Y-43);context.restore();
+        context.globalAlpha=1;context.fillStyle='rgba(15,23,42,.86)';context.fillRect(gate.x-72,GROUND_Y-66,144,34);context.fillStyle='white';context.font='bold 14px sans-serif';context.textAlign='center';context.fillText(gate.title,gate.x,GROUND_Y-43);context.restore();
       });
       hazardsRef.current.forEach(hazard=>{
         if(!hazard.alive)return;const image=hazard.kind==='paper'?assets.paper:hazard.kind==='eraser'?assets.eraser:hazard.kind==='clock'?assets.clock:hazard.kind==='question'?assets.question:assets.revisionBook;
@@ -322,7 +368,7 @@ const SuperTalebLevel3:React.FC<SuperTalebLevelComponentProps> = ({
       });
       projectilesRef.current.forEach(shot=>{if(assets.pencilEffect)context.drawImage(assets.pencilEffect,shot.x,shot.y-12,48,30);else{context.fillStyle='#facc15';context.fillRect(shot.x,shot.y,30,8);}});
       // منصة الاحتفال النهائية.
-      if(assets.podium)context.drawImage(assets.podium,7045,395,260,195);
+      if(assets.podium)context.drawImage(assets.podium,7045,395,260,195);else{context.fillStyle='#0f766e';context.fillRect(7100,410,190,180);}
       if(assets.chestClosed)context.drawImage(finished&&assets.chestOpen?assets.chestOpen:assets.chestClosed,7140,455,115,105);
       if(assets.omanFlag)context.drawImage(assets.omanFlag,7270,360,70,160);
 
