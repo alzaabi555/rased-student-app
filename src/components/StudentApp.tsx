@@ -6,6 +6,7 @@ import {
   CheckSquare,
   ShieldCheck,
   Library,
+  ClipboardCheck,
   Loader2,
   AlertTriangle
 } from 'lucide-react';
@@ -18,6 +19,7 @@ import StudentDashboard from './StudentDashboard';
 import StudentTasks from './StudentTasks';
 import StudentGrades from './StudentGrades';
 import StudentLibrary from './StudentLibrary';
+import StudentExams from './StudentExams';
 import StudentReviewPlan from './StudentGames';
 
 const StudentApp: React.FC = () => {
@@ -26,7 +28,7 @@ const StudentApp: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const [isGameActive, setIsGameActive] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    'home' | 'review' | 'tasks' | 'library' | 'grades'
+    'home' | 'review' | 'tasks' | 'library' | 'grades' | 'exams'
   >('home');
 
   const handleLogin = async (secretCode: string) => {
@@ -101,7 +103,8 @@ const StudentApp: React.FC = () => {
     { id: 'tasks', icon: CheckSquare, label: 'مهامي' },
     { id: 'review', icon: Target, label: 'العابي' },
     { id: 'grades', icon: ShieldCheck, label: 'إتقاني' },
-    { id: 'library', icon: Library, label: 'مكتبتي' }
+    { id: 'library', icon: Library, label: 'مكتبتي' },
+    { id: 'exams', icon: ClipboardCheck, label: 'الاختبارات' }
   ] as const;
 
   const renderContent = () => {
@@ -128,6 +131,30 @@ const StudentApp: React.FC = () => {
 
       case 'library':
         return <StudentLibrary />;
+
+      case 'exams':
+        return (
+          <StudentExams
+            studentId={String(
+              (studentData as any)?.id ||
+              (studentData as any)?.studentId ||
+              (studentData as any)?.rasedId ||
+              localStorage.getItem('rased_student_id') ||
+              'student_local'
+            )}
+            studentName={String((studentData as any)?.name || '')}
+            studentClassIds={
+              Array.isArray((studentData as any)?.classes)
+                ? (studentData as any).classes
+                : [(studentData as any)?.className || (studentData as any)?.class || ''].filter(Boolean)
+            }
+            schoolCode={String(
+              (studentData as any)?.schoolCode ||
+              localStorage.getItem('rased_admin_school_code') ||
+              ''
+            )}
+          />
+        );
 
       default:
         return <StudentDashboard student={studentData} currentSemester="1" />;
