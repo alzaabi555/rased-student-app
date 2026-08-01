@@ -883,13 +883,13 @@ export default function StudentExams({
   ];
 
   return (
-    <div dir="rtl" className="h-full min-h-0 overflow-y-auto overscroll-contain bg-slate-50 pb-28 text-slate-900">
-      <header className="bg-gradient-to-l from-indigo-700 to-blue-600 px-4 py-7 text-white sm:px-7">
+    <div dir="rtl" className="flex h-full min-h-0 flex-col overflow-hidden bg-slate-50 text-slate-900">
+      <header className="shrink-0 bg-gradient-to-l from-indigo-700 to-blue-600 px-4 py-7 text-white sm:px-7">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-sm font-black text-blue-100"><GraduationCap className="h-4 w-4" /> راصد الطالب</div>
             <h1 className="mt-2 text-3xl font-black">الاختبارات</h1>
-            <p className="mt-2 text-sm font-bold text-blue-100">التجريبية للاستعداد الاختبارات الرسمية .</p>
+            <p className="mt-2 text-sm font-bold text-blue-100">التجريبية استعدادا للاختبارات الرسمية.</p>
             {studentName && <p className="mt-1 text-xs font-bold text-blue-200">الطالب: {studentName}</p>}
           </div>
           <button type="button" onClick={() => void refreshExams()} disabled={isRefreshing} className="flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-3 font-black backdrop-blur disabled:opacity-50">
@@ -898,7 +898,7 @@ export default function StudentExams({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl p-4 sm:p-7">
+      <main className="mx-auto min-h-0 w-full max-w-6xl flex-1 overflow-y-auto overscroll-contain p-4 pb-32 [-webkit-overflow-scrolling:touch] touch-pan-y sm:p-7 sm:pb-32">
         {message && (
           <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
