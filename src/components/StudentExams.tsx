@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import {
   AlertTriangle,
   BookOpen,
@@ -17,7 +19,7 @@ import {
   XCircle,
 } from 'lucide-react';
 
-export type ExamType = 'short_exam_1' | 'short_exam_2' | 'final_exam';
+export type ExamType = string;
 export type ExamStatus = 'draft' | 'scheduled' | 'published' | 'closed' | 'archived';
 export type ExamQuestionType = 'multiple_choice' | 'true_false' | 'match' | 'sequence';
 export type ExamDifficulty = 'easy' | 'medium' | 'hard';
@@ -146,11 +148,12 @@ const STORAGE_KEYS = {
   results: 'rased_student_exam_results_v1',
 } as const;
 
-const EXAM_TYPE_LABELS: Record<ExamType, string> = {
+const LEGACY_EXAM_TYPE_LABELS: Record<string, string> = {
   short_exam_1: 'الاختبار القصير الأول',
   short_exam_2: 'الاختبار القصير الثاني',
   final_exam: 'الاختبار النهائي',
 };
+const getExamTypeLabel = (type?: string) => LEGACY_EXAM_TYPE_LABELS[String(type || '')] || String(type || 'اختبار');
 
 const nowIso = () => new Date().toISOString();
 
@@ -259,7 +262,7 @@ export default function StudentExams({
   const [progressList, setProgressList] = useLocalStorageState<StudentExamProgress[]>(STORAGE_KEYS.progress, []);
   const [results, setResults] = useLocalStorageState<StudentExamResult[]>(STORAGE_KEYS.results, []);
   const [section, setSection] = useState<StudentExamSection>('available');
-  const [screen, setScreen] = useState<'list' | 'intro' | 'solve' | 'review' | 'result'>('list');
+  const [screen, setScreen] = useState<'list' | 'intro' | 'solve' | 'review' | 'result' | 'answer_review'>('list');
   const [activeExamId, setActiveExamId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -295,12 +298,49 @@ export default function StudentExams({
     if (!response.ok || payload?.success === false) throw new Error(payload?.error || 'فشل إرسال نتيجة الاختبار.');
   });
 
+  async function notifyNewExams(exams: RasedExam[]) {
+    const key = `rased_student_known_exam_ids_v1_${studentId}`;
+    const knownIds = safeRead<string[]>(key, []);
+    const newExams = exams.filter((exam) => exam?.id && !knownIds.includes(exam.id) && exam.status === 'published');
+    const nextIds = Array.from(new Set([...knownIds, ...exams.map((exam) => exam.id).filter(Boolean)]));
+    window.localStorage.setItem(key, JSON.stringify(nextIds));
+    if (newExams.length === 0 || !Capacitor.isNativePlatform()) return;
+    try {
+      let permission = await LocalNotifications.checkPermissions();
+      if (permission.display !== 'granted') permission = await LocalNotifications.requestPermissions();
+      if (permission.display !== 'granted') return;
+      await LocalNotifications.schedule({
+        notifications: newExams.slice(0, 5).map((exam, index) => ({
+          id: Math.abs(Array.from(`${exam.id}_${Date.now()}_${index}`).reduce((hash, char) => ((hash * 31) + char.charCodeAt(0)) | 0, 7)),
+          title: 'اختبار جديد في راصد',
+          body: `${exam.title}${exam.subject ? ` - ${exam.subject}` : ''}`,
+          schedule: { at: new Date(Date.now() + 1500 + (index * 500)) },
+          extra: { page: 'exams', examId: exam.id },
+        })),
+      });
+    } catch (error) {
+      console.error('Failed to show exam notification', error);
+    }
+  }
+
+
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
   useEffect(() => {
     void refreshExams();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refreshExams();
+    };
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void refreshExams();
+    }, 180000);
+    return () => {
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.clearInterval(interval);
+    };
   }, [studentId, schoolCode, studentClassIds.join('|')]);
 
   useEffect(() => {
@@ -362,6 +402,7 @@ export default function StudentExams({
       setIsRefreshing(true);
       const refreshed = await effectiveRefreshExams();
       if (Array.isArray(refreshed)) {
+        await notifyNewExams(refreshed);
         setReceivedExams((current) => deduplicateExams([...current, ...refreshed]));
       }
     } catch (error) {
@@ -582,12 +623,12 @@ export default function StudentExams({
   if (activeExam && screen === 'intro') {
     const attemptsUsed = getAttempts(activeExam.id).length;
     return (
-      <div dir="rtl" className="min-h-full bg-gradient-to-b from-blue-50 to-slate-50 p-4 sm:p-7">
+      <div dir="rtl" className="h-full min-h-0 overflow-y-auto overscroll-contain bg-gradient-to-b from-blue-50 to-slate-50 p-4 pb-28 sm:p-7">
         <div className="mx-auto max-w-2xl rounded-3xl bg-white p-6 shadow-xl shadow-blue-100 sm:p-8">
           <button type="button" onClick={() => backToList()} className="mb-6 flex items-center gap-1 text-sm font-black text-slate-500">
             <ChevronRight className="h-4 w-4" /> العودة إلى الاختبارات
           </button>
-          <Badge tone="blue">{EXAM_TYPE_LABELS[activeExam.examType]}</Badge>
+          <Badge tone="blue">{getExamTypeLabel(activeExam.examType)}</Badge>
           <h1 className="mt-4 text-3xl font-black text-slate-900">{activeExam.title}</h1>
           <p className="mt-2 font-bold text-slate-500">{activeExam.subject || 'اختبار متعدد المواد'}</p>
 
@@ -627,7 +668,7 @@ export default function StudentExams({
       : 0;
 
     return (
-      <div dir="rtl" className="min-h-full bg-slate-50 p-3 sm:p-7">
+      <div dir="rtl" className="h-full min-h-0 overflow-y-auto overscroll-contain bg-slate-50 p-3 pb-28 sm:p-7">
         <div className="mx-auto max-w-4xl">
           <header className="mb-4 rounded-3xl bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
@@ -729,7 +770,7 @@ export default function StudentExams({
       .filter((value): value is number => value !== null);
 
     return (
-      <div dir="rtl" className="min-h-full bg-slate-50 p-4 sm:p-7">
+      <div dir="rtl" className="h-full min-h-0 overflow-y-auto overscroll-contain bg-slate-50 p-4 pb-28 sm:p-7">
         <div className="mx-auto max-w-2xl rounded-3xl bg-white p-6 shadow-sm sm:p-8">
           <h1 className="text-2xl font-black">مراجعة الاختبار</h1>
           <p className="mt-2 font-bold text-slate-500">تحقق من إجاباتك قبل التسليم النهائي.</p>
@@ -778,7 +819,7 @@ export default function StudentExams({
   if (activeExam && screen === 'result') {
     const result = activeResult;
     return (
-      <div dir="rtl" className="min-h-full bg-gradient-to-b from-emerald-50 to-white p-4 sm:p-7">
+      <div dir="rtl" className="h-full min-h-0 overflow-y-auto overscroll-contain bg-gradient-to-b from-emerald-50 to-white p-4 pb-28 sm:p-7">
         <div className="mx-auto max-w-xl rounded-3xl bg-white p-7 text-center shadow-xl shadow-emerald-100">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100"><CheckCircle2 className="h-10 w-10 text-emerald-600" /></div>
           <h1 className="mt-5 text-2xl font-black">{result ? 'تم تسليم الاختبار' : 'نتيجة الاختبار'}</h1>
@@ -800,7 +841,35 @@ export default function StudentExams({
           )}
 
           {result?.syncStatus === 'failed' && <p className="mt-4 text-xs font-black text-amber-700">النتيجة محفوظة محليًا وتنتظر إعادة الإرسال.</p>}
-          <button type="button" onClick={() => backToList('completed')} className="mt-7 w-full rounded-2xl bg-slate-900 py-4 font-black text-white">العودة إلى الاختبارات</button>
+          {result && <button type="button" onClick={() => setScreen('answer_review')} className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 font-black text-white"><ListChecks className="h-5 w-5" /> مراجعة الأسئلة والإجابات</button>}
+          <button type="button" onClick={() => backToList('completed')} className="mt-3 w-full rounded-2xl bg-slate-900 py-4 font-black text-white">العودة إلى الاختبارات</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeExam && activeResult && screen === 'answer_review') {
+    return (
+      <div dir="rtl" className="h-full min-h-0 overflow-y-auto overscroll-contain bg-slate-50 p-4 pb-28 sm:p-7">
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-4 flex items-center justify-between rounded-3xl bg-white p-5 shadow-sm">
+            <div><p className="text-xs font-black text-blue-600">مراجعة الاختبار المنجز</p><h1 className="mt-1 text-xl font-black">{activeExam.title}</h1></div>
+            <button type="button" onClick={() => setScreen('result')} className="rounded-2xl bg-slate-100 px-4 py-3 font-black text-slate-700">النتيجة</button>
+          </div>
+          <div className="space-y-4">
+            {activeExam.questionsSnapshot.map((question, index) => {
+              const answer = activeResult.answers.find((item) => item.questionId === question.id || item.questionId === question.sourceQuestionId);
+              const selectedIndex = answer?.selectedAnswerIndex;
+              return (
+                <section key={question.id} className="rounded-3xl bg-white p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black text-slate-400">السؤال {index + 1}</p><h2 className="mt-2 font-black leading-7">{question.question}</h2></div><Badge tone={answer?.isCorrect ? 'green' : 'red'}>{answer?.isCorrect ? 'صحيحة' : 'غير صحيحة'}</Badge></div>
+                  {(question.questionType === 'multiple_choice' || question.questionType === 'true_false') && <div className="mt-4 space-y-2">{(question.options || []).map((option, optionIndex) => { const correct = optionIndex === question.correctAnswerIndex; const selected = optionIndex === selectedIndex; return <div key={optionIndex} className={`rounded-2xl border p-3 text-sm font-bold ${correct ? 'border-emerald-400 bg-emerald-50 text-emerald-900' : selected ? 'border-red-300 bg-red-50 text-red-800' : 'border-slate-200 bg-slate-50 text-slate-600'}`}><span className="ml-2">{correct ? '✓' : selected ? '✕' : '•'}</span>{option}{correct && <span className="mr-2 text-xs">الإجابة الصحيحة</span>}{selected && !correct && <span className="mr-2 text-xs">إجابتك</span>}</div>; })}</div>}
+                  {question.explanation && <div className="mt-4 rounded-2xl bg-blue-50 p-4 text-sm font-bold leading-7 text-blue-900"><span className="font-black">التفسير: </span>{question.explanation}</div>}
+                  <p className="mt-3 text-xs font-black text-slate-500">الدرجة: {answer?.earnedGrade || 0} من {question.grade}</p>
+                </section>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -814,13 +883,13 @@ export default function StudentExams({
   ];
 
   return (
-    <div dir="rtl" className="min-h-full bg-slate-50 text-slate-900">
+    <div dir="rtl" className="h-full min-h-0 overflow-y-auto overscroll-contain bg-slate-50 pb-28 text-slate-900">
       <header className="bg-gradient-to-l from-indigo-700 to-blue-600 px-4 py-7 text-white sm:px-7">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-sm font-black text-blue-100"><GraduationCap className="h-4 w-4" /> راصد الطالب</div>
             <h1 className="mt-2 text-3xl font-black">الاختبارات</h1>
-            <p className="mt-2 text-sm font-bold text-blue-100">التقييمات الرسمية المستقلة عن الألعاب التعليمية.</p>
+            <p className="mt-2 text-sm font-bold text-blue-100">التجريبية للاستعداد الاختبارات الرسمية .</p>
             {studentName && <p className="mt-1 text-xs font-bold text-blue-200">الطالب: {studentName}</p>}
           </div>
           <button type="button" onClick={() => void refreshExams()} disabled={isRefreshing} className="flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-3 font-black backdrop-blur disabled:opacity-50">
@@ -838,19 +907,16 @@ export default function StudentExams({
           </div>
         )}
 
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+        <div className="mb-6 sm:hidden">
+          <label className="mb-2 block text-xs font-black text-slate-500">حالة الاختبارات</label>
+          <select value={section} onChange={(event) => setSection(event.target.value as StudentExamSection)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-black text-slate-800 shadow-sm">
+            {tabs.map(({ id, label }) => <option key={id} value={id}>{label} ({eligibleExams.filter((exam) => getExamSection(exam) === id).length})</option>)}
+          </select>
+        </div>
+        <div className="mb-6 hidden gap-2 sm:flex sm:flex-wrap">
           {tabs.map(({ id, label, icon: Icon }) => {
             const count = eligibleExams.filter((exam) => getExamSection(exam) === id).length;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setSection(id)}
-                className={`flex shrink-0 items-center gap-2 rounded-2xl px-4 py-3 text-sm font-black ${section === id ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 shadow-sm'}`}
-              >
-                <Icon className="h-4 w-4" /> {label} <span className="opacity-70">{count}</span>
-              </button>
-            );
+            return <button key={id} type="button" onClick={() => setSection(id)} className={`flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-black ${section === id ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 shadow-sm'}`}><Icon className="h-4 w-4" /> {label} <span className="opacity-70">{count}</span></button>;
           })}
         </div>
 
@@ -871,7 +937,7 @@ export default function StudentExams({
               return (
                 <article key={exam.id} className="rounded-3xl bg-white p-5 shadow-sm">
                   <div className="flex flex-wrap gap-2">
-                    <Badge tone="blue">{EXAM_TYPE_LABELS[exam.examType]}</Badge>
+                    <Badge tone="blue">{getExamTypeLabel(exam.examType)}</Badge>
                     <Badge tone={examSection === 'in_progress' ? 'amber' : examSection === 'completed' ? 'green' : examSection === 'closed' ? 'red' : 'slate'}>
                       {examSection === 'available' ? 'متاح' : examSection === 'in_progress' ? 'غير مكتمل' : examSection === 'completed' ? 'مكتمل' : 'مغلق'}
                     </Badge>
