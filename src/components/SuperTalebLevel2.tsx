@@ -11,7 +11,13 @@ type Player = {
   x: number; y: number; vx: number; vy: number; w: number; h: number;
   grounded: boolean; facing: 1 | -1; lives: number; invulnerableUntil: number;
 };
-type Platform = { x: number; y: number; w: number; h: number; kind: 'floor'|'desk'|'books'|'ruler' };
+type PlatformKind = 'floor'|'desk'|'books'|'ruler';
+type Platform = { x: number; y: number; w: number; h: number; kind: PlatformKind; assetId?: string };
+type CalibratedAsset = { key: string; src: string; worldWidth: number; worldHeight: number; topWorld: number };
+
+// platform.y is always the physical walk surface. The image is drawn at y - topWorld.
+const LEVEL2_TERRAIN: Record<string, CalibratedAsset> = {"book-platform-long":{"key":"v2_book_platform_long","src":"/assets/games/super-taleb/level-2/v2/terrain/book-platform-long.webp","worldWidth":211,"worldHeight":80,"topWorld":2.526},"book-platform-short":{"key":"v2_book_platform_short","src":"/assets/games/super-taleb/level-2/v2/terrain/book-platform-short.webp","worldWidth":240,"worldHeight":80,"topWorld":2.526},"checkpoint":{"key":"v2_checkpoint","src":"/assets/games/super-taleb/level-2/v2/terrain/checkpoint.webp","worldWidth":186,"worldHeight":94,"topWorld":7.938},"classroom-exit":{"key":"v2_classroom_exit","src":"/assets/games/super-taleb/level-2/v2/terrain/classroom-exit.webp","worldWidth":224,"worldHeight":128,"topWorld":4.197},"desk-long":{"key":"v2_desk_long","src":"/assets/games/super-taleb/level-2/v2/terrain/desk-long.webp","worldWidth":280,"worldHeight":80,"topWorld":2.526},"desk-short":{"key":"v2_desk_short","src":"/assets/games/super-taleb/level-2/v2/terrain/desk-short.webp","worldWidth":161,"worldHeight":80,"topWorld":2.526},"floor-continuous":{"key":"v2_floor_continuous","src":"/assets/games/super-taleb/level-2/v2/terrain/floor-continuous.webp","worldWidth":330,"worldHeight":49,"topWorld":7.12},"floor-long":{"key":"v2_floor_long","src":"/assets/games/super-taleb/level-2/v2/terrain/floor-long.webp","worldWidth":261,"worldHeight":37,"topWorld":3.828},"floor-medium":{"key":"v2_floor_medium","src":"/assets/games/super-taleb/level-2/v2/terrain/floor-medium.webp","worldWidth":169,"worldHeight":46,"topWorld":9.706},"pit-edge-left":{"key":"v2_pit_edge_left","src":"/assets/games/super-taleb/level-2/v2/terrain/pit-edge-left.webp","worldWidth":130,"worldHeight":63,"topWorld":5.074},"pit-edge-right":{"key":"v2_pit_edge_right","src":"/assets/games/super-taleb/level-2/v2/terrain/pit-edge-right.webp","worldWidth":81,"worldHeight":68,"topWorld":8.344},"ruler-bridge-long":{"key":"v2_ruler_bridge_long","src":"/assets/games/super-taleb/level-2/v2/terrain/ruler-bridge-long.webp","worldWidth":262,"worldHeight":67,"topWorld":3.769},"ruler-bridge-short":{"key":"v2_ruler_bridge_short","src":"/assets/games/super-taleb/level-2/v2/terrain/ruler-bridge-short.webp","worldWidth":264,"worldHeight":52,"topWorld":5.824},"safe-platform":{"key":"v2_safe_platform","src":"/assets/games/super-taleb/level-2/v2/terrain/safe-platform.webp","worldWidth":217,"worldHeight":94,"topWorld":7.938},"smart-board-platform":{"key":"v2_smart_board_platform","src":"/assets/games/super-taleb/level-2/v2/terrain/smart-board-platform.webp","worldWidth":223,"worldHeight":116,"topWorld":0.422},"stone-platform":{"key":"v2_stone_platform","src":"/assets/games/super-taleb/level-2/v2/terrain/stone-platform.webp","worldWidth":213,"worldHeight":97,"topWorld":8.013}};
+
 type Station = { id: StationId; x: number; y: number; title: string; color: string; active: boolean };
 type Hazard = { id: string; x: number; y: number; w: number; h: number; minX: number; maxX: number; vx: number; alive: boolean; kind: 'eraser'|'paper'|'bag' };
 type Projectile = { x: number; y: number; vx: number; alive: boolean };
@@ -90,29 +96,29 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
 
   const platformsRef = useRef<Platform[]>([
     // مقاطع أرضية منفصلة: فجوات متوسطة 70–90 وحدة، قابلة للقفز دون جري إلزامي.
-    { x: 0, y: GROUND_Y, w: 820, h: 130, kind: 'floor' },
-    { x: 868, y: GROUND_Y, w: 820, h: 130, kind: 'floor' },
-    { x: 1758, y: GROUND_Y, w: 760, h: 130, kind: 'floor' },
-    { x: 2608, y: GROUND_Y, w: 790, h: 130, kind: 'floor' },
-    { x: 3478, y: GROUND_Y, w: 800, h: 130, kind: 'floor' },
-    { x: 4368, y: GROUND_Y, w: 800, h: 130, kind: 'floor' },
-    { x: 5250, y: GROUND_Y, w: 760, h: 130, kind: 'floor' },
-    { x: 6098, y: GROUND_Y, w: 670, h: 130, kind: 'floor' },
-    { x: 420, y: 505, w: 220, h: 36, kind: 'desk' },
-    { x: 690, y: 458, w: 150, h: 30, kind: 'books' },
-    { x: 1160, y: 500, w: 245, h: 36, kind: 'desk' },
-    { x: 1475, y: 448, w: 170, h: 30, kind: 'ruler' },
-    { x: 1940, y: 505, w: 230, h: 34, kind: 'desk' },
-    { x: 2215, y: 452, w: 175, h: 30, kind: 'books' },
-    { x: 2780, y: 500, w: 230, h: 34, kind: 'ruler' },
-    { x: 3070, y: 440, w: 180, h: 32, kind: 'books' },
-    { x: 3650, y: 505, w: 225, h: 36, kind: 'desk' },
-    { x: 3935, y: 455, w: 180, h: 30, kind: 'ruler' },
-    { x: 4525, y: 500, w: 235, h: 36, kind: 'desk' },
-    { x: 4820, y: 440, w: 175, h: 32, kind: 'books' },
-    { x: 5415, y: 500, w: 220, h: 36, kind: 'ruler' },
-    { x: 5690, y: 450, w: 170, h: 30, kind: 'books' },
-    { x: 6250, y: 500, w: 230, h: 36, kind: 'desk' },
+    { x: 0, y: GROUND_Y, w: 820, h: 130, kind: 'floor', assetId: 'floor-long' },
+    { x: 868, y: GROUND_Y, w: 820, h: 130, kind: 'floor', assetId: 'floor-long' },
+    { x: 1758, y: GROUND_Y, w: 760, h: 130, kind: 'floor', assetId: 'floor-medium' },
+    { x: 2608, y: GROUND_Y, w: 790, h: 130, kind: 'floor', assetId: 'floor-long' },
+    { x: 3478, y: GROUND_Y, w: 800, h: 130, kind: 'floor', assetId: 'floor-long' },
+    { x: 4368, y: GROUND_Y, w: 800, h: 130, kind: 'floor', assetId: 'floor-long' },
+    { x: 5250, y: GROUND_Y, w: 760, h: 130, kind: 'floor', assetId: 'floor-medium' },
+    { x: 6098, y: GROUND_Y, w: 670, h: 130, kind: 'floor', assetId: 'floor-medium' },
+    { x: 420, y: 505, w: 220, h: 36, kind: 'desk', assetId: 'desk-long' },
+    { x: 690, y: 458, w: 150, h: 30, kind: 'books', assetId: 'book-platform-short' },
+    { x: 1160, y: 500, w: 245, h: 36, kind: 'desk', assetId: 'desk-long' },
+    { x: 1475, y: 448, w: 170, h: 30, kind: 'ruler', assetId: 'ruler-bridge-short' },
+    { x: 1940, y: 505, w: 230, h: 34, kind: 'desk', assetId: 'desk-long' },
+    { x: 2215, y: 452, w: 175, h: 30, kind: 'books', assetId: 'book-platform-long' },
+    { x: 2780, y: 500, w: 230, h: 34, kind: 'ruler', assetId: 'ruler-bridge-long' },
+    { x: 3070, y: 440, w: 180, h: 32, kind: 'books', assetId: 'book-platform-long' },
+    { x: 3650, y: 505, w: 225, h: 36, kind: 'desk', assetId: 'desk-long' },
+    { x: 3935, y: 455, w: 180, h: 30, kind: 'ruler', assetId: 'ruler-bridge-short' },
+    { x: 4525, y: 500, w: 235, h: 36, kind: 'desk', assetId: 'desk-long' },
+    { x: 4820, y: 440, w: 175, h: 32, kind: 'books', assetId: 'book-platform-long' },
+    { x: 5415, y: 500, w: 220, h: 36, kind: 'ruler', assetId: 'ruler-bridge-long' },
+    { x: 5690, y: 450, w: 170, h: 30, kind: 'books', assetId: 'book-platform-long' },
+    { x: 6250, y: 500, w: 230, h: 36, kind: 'desk', assetId: 'desk-long' },
   ]);
 
   const hazardsRef = useRef<Hazard[]>([
@@ -151,29 +157,38 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
     let cancelled = false;
     const paths: Record<string,string> = {
       background:'/assets/games/super-taleb/level-2/backgrounds/smart-classroom.webp',
-      socialStation:'/assets/games/super-taleb/level-2/stations/social-station.webp',
-      scienceStation:'/assets/games/super-taleb/level-2/stations/science-station.webp',
-      arabicStation:'/assets/games/super-taleb/level-2/stations/social-station.webp',
-      englishStation:'/assets/games/super-taleb/level-2/stations/math-station.webp',
-      mathStation:'/assets/games/super-taleb/level-2/stations/math-station.webp',
+      v2_book_platform_long:'/assets/games/super-taleb/level-2/v2/terrain/book-platform-long.webp',
+      v2_book_platform_short:'/assets/games/super-taleb/level-2/v2/terrain/book-platform-short.webp',
+      v2_checkpoint:'/assets/games/super-taleb/level-2/v2/terrain/checkpoint.webp',
+      v2_classroom_exit:'/assets/games/super-taleb/level-2/v2/terrain/classroom-exit.webp',
+      v2_desk_long:'/assets/games/super-taleb/level-2/v2/terrain/desk-long.webp',
+      v2_desk_short:'/assets/games/super-taleb/level-2/v2/terrain/desk-short.webp',
+      v2_floor_continuous:'/assets/games/super-taleb/level-2/v2/terrain/floor-continuous.webp',
+      v2_floor_long:'/assets/games/super-taleb/level-2/v2/terrain/floor-long.webp',
+      v2_floor_medium:'/assets/games/super-taleb/level-2/v2/terrain/floor-medium.webp',
+      v2_pit_edge_left:'/assets/games/super-taleb/level-2/v2/terrain/pit-edge-left.webp',
+      v2_pit_edge_right:'/assets/games/super-taleb/level-2/v2/terrain/pit-edge-right.webp',
+      v2_ruler_bridge_long:'/assets/games/super-taleb/level-2/v2/terrain/ruler-bridge-long.webp',
+      v2_ruler_bridge_short:'/assets/games/super-taleb/level-2/v2/terrain/ruler-bridge-short.webp',
+      v2_safe_platform:'/assets/games/super-taleb/level-2/v2/terrain/safe-platform.webp',
+      v2_smart_board_platform:'/assets/games/super-taleb/level-2/v2/terrain/smart-board-platform.webp',
+      v2_stone_platform:'/assets/games/super-taleb/level-2/v2/terrain/stone-platform.webp',
+      socialStation:'/assets/games/super-taleb/level-2/v2/stations/station-social.webp',
+      scienceStation:'/assets/games/super-taleb/level-2/v2/stations/station-science.webp',
+      arabicStation:'/assets/games/super-taleb/level-2/v2/stations/station-arabic.webp',
+      englishStation:'/assets/games/super-taleb/level-2/v2/stations/station-english.webp',
+      mathStation:'/assets/games/super-taleb/level-2/v2/stations/station-math.webp',
       socialKey:'/assets/games/super-taleb/level-2/items/social-key.webp',
       scienceKey:'/assets/games/super-taleb/level-2/items/science-key.webp',
       arabicKey:'/assets/games/super-taleb/level-2/items/social-key.webp',
       englishKey:'/assets/games/super-taleb/level-2/items/math-key.webp',
       mathKey:'/assets/games/super-taleb/level-2/items/math-key.webp',
-      boardLocked:'/assets/games/super-taleb/level-2/items/smart-board-locked.webp',
-      boardActive:'/assets/games/super-taleb/level-2/items/smart-board-active.webp',
-      exitDoor:'/assets/games/super-taleb/level-2/items/classroom-exit.webp',
-      floorLong:'/assets/games/super-taleb/level-2/terrain/floor-long.webp',
-      floorShort:'/assets/games/super-taleb/level-2/terrain/floor-short.webp',
-      desk:'/assets/games/super-taleb/level-2/terrain/desk-platform.webp',
-      books:'/assets/games/super-taleb/level-2/terrain/book-stack-platform.webp',
-      ruler:'/assets/games/super-taleb/level-2/terrain/ruler-platform.webp',
-      movingBook:'/assets/games/super-taleb/level-2/terrain/moving-book-platform.webp',
-      bookshelf:'/assets/games/super-taleb/level-2/terrain/bookshelf-platform.webp',
-      eraser:'/assets/games/super-taleb/level-2/enemies/eraser.webp',
-      paper:'/assets/games/super-taleb/level-2/enemies/flying-paper.webp',
-      bag:'/assets/games/super-taleb/level-2/enemies/school-bag.webp',
+      boardLocked:'/assets/games/super-taleb/level-2/v2/items/smart-board-locked.webp',
+      boardActive:'/assets/games/super-taleb/level-2/v2/items/smart-board-active.webp',
+      exitDoor:'/assets/games/super-taleb/level-2/v2/terrain/classroom-exit.webp',
+      eraser:'/assets/games/super-taleb/level-2/v2/enemies/enemy-eraser.webp',
+      paper:'/assets/games/super-taleb/level-2/v2/enemies/enemy-worksheet.webp',
+      bag:'/assets/games/super-taleb/level-2/v2/enemies/enemy-schoolbag.webp',
       playerIdle:'/assets/games/super-taleb/player/idle.webp',
       playerWalk:'/assets/games/super-taleb/player/walk.webp',
       playerRun:'/assets/games/super-taleb/player/run.webp',
@@ -346,8 +361,10 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
 
       const previousBottom = p.y + p.h - p.vy * dt; p.grounded = false;
       platformsRef.current.forEach((platform) => {
-        if (p.x + p.w * 0.8 > platform.x && p.x + p.w * 0.2 < platform.x + platform.w && previousBottom <= platform.y + 12 && p.y + p.h >= platform.y && p.vy >= 0) {
-          p.y = platform.y - p.h; p.vy = 0; p.grounded = true;
+        // platform.y is the calibrated walk surface, not the image-file top.
+        const walkSurfaceY = platform.y;
+        if (p.x + p.w * 0.8 > platform.x && p.x + p.w * 0.2 < platform.x + platform.w && previousBottom <= walkSurfaceY + 12 && p.y + p.h >= walkSurfaceY && p.vy >= 0) {
+          p.y = walkSurfaceY - p.h; p.vy = 0; p.grounded = true;
           if (platform.kind === 'floor' && p.x > safeXRef.current + 180) safeXRef.current = p.x;
         }
       });
@@ -418,24 +435,34 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       }
 
       platformsRef.current.forEach((platform) => {
-        let image:HTMLImageElement|undefined;
-        if(assetsReadyRef.current){
-          image=platform.kind==='floor'?(platform.w>900?assets.floorLong:assets.floorShort):platform.kind==='desk'?assets.desk:platform.kind==='books'?assets.books:assets.ruler;
-        }
-        if(image){
-          // أعلى الصورة يساوي platform.y، وهو سطح التصادم نفسه.
-          const drawH=platform.kind==='floor'?Math.max(138,platform.h):Math.max(52,platform.h+22);
-          ctx.drawImage(image,platform.x,platform.y,platform.w,drawH);
+        const calibrated = LEVEL2_TERRAIN[platform.assetId || ''];
+        const image = calibrated ? assets[calibrated.key] : undefined;
+        if (calibrated && image) {
+          // The source image-file top may contain decoration/transparent padding.
+          // Move the image upward by topWorld so its calibrated walk surface equals platform.y.
+          const drawY = platform.y - calibrated.topWorld;
+          const drawH = calibrated.worldHeight;
+          if (platform.kind === 'floor') {
+            // Tile calibrated floor modules instead of stretching one image across 800+ world units.
+            const tileW = calibrated.worldWidth;
+            for (let tileX = platform.x; tileX < platform.x + platform.w - 0.5; tileX += tileW) {
+              const remaining = platform.x + platform.w - tileX;
+              const width = Math.min(tileW, remaining);
+              ctx.drawImage(image, tileX, drawY, width, drawH);
+            }
+          } else {
+            ctx.drawImage(image, platform.x, drawY, platform.w, drawH);
+          }
           return;
         }
+        // Fallback is drawn only when the calibrated V2 image failed to load.
         if(platform.kind==='floor'){
           const floorGradient=ctx.createLinearGradient(0,platform.y,0,platform.y+platform.h);
-          floorGradient.addColorStop(0,'#e7bc7c');floorGradient.addColorStop(.18,'#b87940');floorGradient.addColorStop(1,'#5b3520');
-          ctx.fillStyle=floorGradient;ctx.fillRect(platform.x,platform.y,platform.w,platform.h);
-          ctx.fillStyle='#f7d49a';ctx.fillRect(platform.x,platform.y,platform.w,10);
+          floorGradient.addColorStop(0,'#e7bc7c'); floorGradient.addColorStop(.18,'#b87940'); floorGradient.addColorStop(1,'#5b3520');
+          ctx.fillStyle=floorGradient; ctx.fillRect(platform.x,platform.y,platform.w,platform.h);
         }else{
-          ctx.fillStyle=platform.kind==='ruler'?'#facc15':platform.kind==='books'?'#2563eb':'#8b5a2b';
-          ctx.fillRect(platform.x,platform.y,platform.w,Math.max(42,platform.h));
+          ctx.fillStyle=platform.kind==='ruler'?'#facc15':platform.kind==='books'?'#64748b':'#8b5a2b';
+          ctx.fillRect(platform.x,platform.y,platform.w,Math.max(32,platform.h));
         }
       });
 
@@ -443,7 +470,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
         const image=station.id==='social'?assets.socialStation:station.id==='arabic'?assets.arabicStation:station.id==='english'?assets.englishStation:station.id==='science'?assets.scienceStation:assets.mathStation;
         const keyImage=station.id==='social'?assets.socialKey:station.id==='arabic'?assets.arabicKey:station.id==='english'?assets.englishKey:station.id==='science'?assets.scienceKey:assets.mathKey;
         if(assetsReadyRef.current&&image){
-          ctx.save();ctx.globalAlpha=station.active?1:.88;ctx.drawImage(image,station.x-76,station.y-120,152,120);ctx.restore();
+          ctx.save();ctx.globalAlpha=station.active?1:.88;ctx.drawImage(image,station.x-64,station.y-104,128,104);ctx.restore();
           if(station.id==='arabic'||station.id==='english'){
             ctx.save();ctx.fillStyle=station.color;ctx.beginPath();ctx.roundRect(station.x-57,station.y-61,114,32,12);ctx.fill();ctx.fillStyle='white';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.fillText(station.id==='arabic'?'اللغة العربية':'English',station.x,station.y-40);ctx.restore();
           }
@@ -472,8 +499,8 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
 
       // السبورة الذكية النهائية
       const boardImage=activatedStations.length===5?assets.boardActive:assets.boardLocked;
-      if(assetsReadyRef.current&&boardImage)ctx.drawImage(boardImage,6480,255,285,235);else{ctx.fillStyle=activatedStations.length===5?'#0ea5e9':'#334155';ctx.fillRect(6490,260,270,230);}
-      if(activatedStations.length===5&&assets.exitDoor)ctx.drawImage(assets.exitDoor,6680,350,105,240);
+      if(assetsReadyRef.current&&boardImage)ctx.drawImage(boardImage,6480,320,260,170);else{ctx.fillStyle=activatedStations.length===5?'#0ea5e9':'#334155';ctx.fillRect(6490,260,270,230);}
+      if(activatedStations.length===5&&assets.exitDoor)ctx.drawImage(assets.exitDoor,6635,GROUND_Y-128,145,128);
 
       const blink = performance.now() < p.invulnerableUntil && Math.floor(performance.now()/100)%2===0;
       if(!blink){
