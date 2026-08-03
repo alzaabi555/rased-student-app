@@ -1,0 +1,551 @@
+{
+  "version": "2.0.0",
+  "level": 2,
+  "coordinateSystem": {
+    "groundY": 590,
+    "playerVisualSize": [
+      118,
+      118
+    ],
+    "playerPhysicsBox": [
+      48,
+      82
+    ],
+    "footAnchor": "bottom-center"
+  },
+  "assets": [
+    {
+      "id": "enemy-eraser",
+      "src": "/assets/games/super-taleb/level-2/v2/enemies/enemy-eraser.webp",
+      "pixelWidth": 205,
+      "pixelHeight": 251,
+      "worldWidth": 127,
+      "worldHeight": 105,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "enemy-schoolbag",
+      "src": "/assets/games/super-taleb/level-2/v2/enemies/enemy-schoolbag.webp",
+      "pixelWidth": 315,
+      "pixelHeight": 267,
+      "worldWidth": 195,
+      "worldHeight": 112,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "enemy-worksheet",
+      "src": "/assets/games/super-taleb/level-2/v2/enemies/enemy-worksheet.webp",
+      "pixelWidth": 325,
+      "pixelHeight": 262,
+      "worldWidth": 202,
+      "worldHeight": 110,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "activation-spark",
+      "src": "/assets/games/super-taleb/level-2/v2/items/activation-spark.webp",
+      "pixelWidth": 340,
+      "pixelHeight": 270,
+      "worldWidth": 211,
+      "worldHeight": 113,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "knowledge-keys",
+      "src": "/assets/games/super-taleb/level-2/v2/items/knowledge-keys.webp",
+      "pixelWidth": 784,
+      "pixelHeight": 127,
+      "worldWidth": 330,
+      "worldHeight": 53,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "pencil-projectile",
+      "src": "/assets/games/super-taleb/level-2/v2/items/pencil-projectile.webp",
+      "pixelWidth": 440,
+      "pixelHeight": 120,
+      "worldWidth": 273,
+      "worldHeight": 50,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "ruler-activation",
+      "src": "/assets/games/super-taleb/level-2/v2/items/ruler-activation.webp",
+      "pixelWidth": 375,
+      "pixelHeight": 113,
+      "worldWidth": 232,
+      "worldHeight": 47,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "smart-board-active",
+      "src": "/assets/games/super-taleb/level-2/v2/items/smart-board-active.webp",
+      "pixelWidth": 335,
+      "pixelHeight": 171,
+      "worldWidth": 208,
+      "worldHeight": 72,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "smart-board-locked",
+      "src": "/assets/games/super-taleb/level-2/v2/items/smart-board-locked.webp",
+      "pixelWidth": 356,
+      "pixelHeight": 171,
+      "worldWidth": 221,
+      "worldHeight": 72,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "station-arabic",
+      "src": "/assets/games/super-taleb/level-2/v2/stations/station-arabic.webp",
+      "pixelWidth": 253,
+      "pixelHeight": 199,
+      "worldWidth": 157,
+      "worldHeight": 84,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "station-english",
+      "src": "/assets/games/super-taleb/level-2/v2/stations/station-english.webp",
+      "pixelWidth": 285,
+      "pixelHeight": 195,
+      "worldWidth": 177,
+      "worldHeight": 82,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "station-math",
+      "src": "/assets/games/super-taleb/level-2/v2/stations/station-math.webp",
+      "pixelWidth": 276,
+      "pixelHeight": 192,
+      "worldWidth": 171,
+      "worldHeight": 81,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "station-science",
+      "src": "/assets/games/super-taleb/level-2/v2/stations/station-science.webp",
+      "pixelWidth": 296,
+      "pixelHeight": 194,
+      "worldWidth": 184,
+      "worldHeight": 81,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "station-social",
+      "src": "/assets/games/super-taleb/level-2/v2/stations/station-social.webp",
+      "pixelWidth": 238,
+      "pixelHeight": 242,
+      "worldWidth": 148,
+      "worldHeight": 102,
+      "collision": {
+        "top": 0,
+        "insetLeft": 2,
+        "insetRight": 2,
+        "walkable": false
+      },
+      "anchor": "top-left",
+      "drawMode": "contain"
+    },
+    {
+      "id": "book-platform-long",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/book-platform-long.webp",
+      "pixelWidth": 340,
+      "pixelHeight": 190,
+      "worldWidth": 211,
+      "worldHeight": 80,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 6,
+        "topWorld": 2.526,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "book-platform-short",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/book-platform-short.webp",
+      "pixelWidth": 387,
+      "pixelHeight": 190,
+      "worldWidth": 240,
+      "worldHeight": 80,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 6,
+        "topWorld": 2.526,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "checkpoint",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/checkpoint.webp",
+      "pixelWidth": 300,
+      "pixelHeight": 225,
+      "worldWidth": 186,
+      "worldHeight": 94,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 19,
+        "topWorld": 7.938,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "classroom-exit",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/classroom-exit.webp",
+      "pixelWidth": 361,
+      "pixelHeight": 305,
+      "worldWidth": 224,
+      "worldHeight": 128,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 10,
+        "topWorld": 4.197,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "desk-long",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/desk-long.webp",
+      "pixelWidth": 452,
+      "pixelHeight": 190,
+      "worldWidth": 280,
+      "worldHeight": 80,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 6,
+        "topWorld": 2.526,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "desk-short",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/desk-short.webp",
+      "pixelWidth": 260,
+      "pixelHeight": 190,
+      "worldWidth": 161,
+      "worldHeight": 80,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 6,
+        "topWorld": 2.526,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "floor-continuous",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/floor-continuous.webp",
+      "pixelWidth": 1337,
+      "pixelHeight": 117,
+      "worldWidth": 330,
+      "worldHeight": 49,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 17,
+        "topWorld": 7.12,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "floor-long",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/floor-long.webp",
+      "pixelWidth": 421,
+      "pixelHeight": 87,
+      "worldWidth": 261,
+      "worldHeight": 37,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 9,
+        "topWorld": 3.828,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "floor-medium",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/floor-medium.webp",
+      "pixelWidth": 272,
+      "pixelHeight": 109,
+      "worldWidth": 169,
+      "worldHeight": 46,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 23,
+        "topWorld": 9.706,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "pit-edge-left",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/pit-edge-left.webp",
+      "pixelWidth": 210,
+      "pixelHeight": 149,
+      "worldWidth": 130,
+      "worldHeight": 63,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 12,
+        "topWorld": 5.074,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "pit-edge-right",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/pit-edge-right.webp",
+      "pixelWidth": 130,
+      "pixelHeight": 163,
+      "worldWidth": 81,
+      "worldHeight": 68,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 20,
+        "topWorld": 8.344,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "ruler-bridge-long",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/ruler-bridge-long.webp",
+      "pixelWidth": 422,
+      "pixelHeight": 160,
+      "worldWidth": 262,
+      "worldHeight": 67,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 9,
+        "topWorld": 3.769,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "ruler-bridge-short",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/ruler-bridge-short.webp",
+      "pixelWidth": 426,
+      "pixelHeight": 125,
+      "worldWidth": 264,
+      "worldHeight": 52,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 14,
+        "topWorld": 5.824,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "safe-platform",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/safe-platform.webp",
+      "pixelWidth": 350,
+      "pixelHeight": 225,
+      "worldWidth": 217,
+      "worldHeight": 94,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 19,
+        "topWorld": 7.938,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "smart-board-platform",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/smart-board-platform.webp",
+      "pixelWidth": 360,
+      "pixelHeight": 275,
+      "worldWidth": 223,
+      "worldHeight": 116,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 1,
+        "topWorld": 0.422,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    },
+    {
+      "id": "stone-platform",
+      "src": "/assets/games/super-taleb/level-2/v2/terrain/stone-platform.webp",
+      "pixelWidth": 344,
+      "pixelHeight": 230,
+      "worldWidth": 213,
+      "worldHeight": 97,
+      "collision": {
+        "top": 0,
+        "insetLeft": 4,
+        "insetRight": 4,
+        "topPx": 19,
+        "topWorld": 8.013,
+        "surfaceRule": "stable-horizontal-support"
+      },
+      "anchor": "top-left",
+      "drawMode": "contain",
+      "footAnchor": "collision-surface"
+    }
+  ],
+  "calibration": {
+    "method": "alpha-profile plus contiguous horizontal-run detection; manually reviewable verification sheets",
+    "playerFootRule": "player.y + player.h = platform.y + collision.topWorld",
+    "verifiedBeforeCodeIntegration": true
+  }
+}
