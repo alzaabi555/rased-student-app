@@ -4,7 +4,6 @@ import type {
   SuperTalebLevelResult,
   SuperTalebQuestion,
 } from './SuperTalebCampaign';
-import { superTalebAudio } from './super-taleb/SuperTalebAudio';
 
 type StationId = 'social' | 'arabic' | 'english' | 'science' | 'math';
 type Motion = { left: boolean; right: boolean; jump: boolean; run: boolean };
@@ -75,6 +74,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   const [activeQuestion, setActiveQuestion] = useState<SuperTalebQuestion | null>(null);
   const [feedback, setFeedback] = useState<{ correct: boolean; text: string } | null>(null);
   const [message, setMessage] = useState('شغّل محطات الدراسات الاجتماعية واللغة العربية واللغة الإنجليزية والعلوم والرياضيات');
+  const [showMessage, setShowMessage] = useState(true);
   const [orientation, setOrientation] = useState<'portrait'|'landscape'>(() => window.innerWidth > window.innerHeight ? 'landscape' : 'portrait');
   const [lives, setLives] = useState(3);
   const [runEnabled, setRunEnabled] = useState(false);
@@ -141,9 +141,12 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   }, [activatedStations, answeredIds, correctIds, weakIds, score, pencilAmmo, lives, onProgress]);
 
   useEffect(() => { persist(); }, [persist]);
+  useEffect(() => {
+    setShowMessage(true);
+    const timer = window.setTimeout(() => setShowMessage(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
 
-
-  useEffect(() => { const unlock=()=>void superTalebAudio.unlock(); window.addEventListener('pointerdown',unlock,{once:true}); return()=>window.removeEventListener('pointerdown',unlock); }, []);
   useEffect(() => {
     let cancelled = false;
     const paths: Record<string,string> = {
@@ -177,10 +180,17 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       playerJump:'/assets/games/super-taleb/player/jump.webp',
       playerFall:'/assets/games/super-taleb/player/fall.webp'
     };
-    Promise.all(Object.entries(paths).map(([key,src])=>new Promise<[string,HTMLImageElement]>((resolve,reject)=>{
-      const image=new Image(); image.onload=()=>resolve([key,image]); image.onerror=reject; image.src=src;
-    }))).then(entries=>{if(!cancelled){assetsRef.current=Object.fromEntries(entries);assetsReadyRef.current=true;}})
-      .catch(error=>{console.warn('SuperTaleb Level 2 assets fallback',error);assetsReadyRef.current=false;});
+    Promise.allSettled(Object.entries(paths).map(([key,src])=>new Promise<[string,HTMLImageElement]>((resolve,reject)=>{
+      const image=new Image();
+      image.onload=async()=>{ try { await image.decode?.(); } catch {} resolve([key,image]); };
+      image.onerror=()=>reject(new Error(`Failed to load ${src}`));
+      image.src=src;
+    }))).then(results=>{
+      if(cancelled) return;
+      const entries=results.flatMap(result=>result.status==='fulfilled'?[result.value]:[]);
+      assetsRef.current=Object.fromEntries(entries);
+      assetsReadyRef.current=entries.length>0;
+    });
     return()=>{cancelled=true;};
   },[]);
 
@@ -204,12 +214,10 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       const nextActivated = Array.from(new Set([...activatedStations, station.id])) as StationId[];
       setActivatedStations(nextActivated);
       stationsRef.current.forEach((item) => { if (item.id === station.id) item.active = true; });
-      superTalebAudio.play('stationActivate');
       setMessage(`تم تشغيل محطة ${station.title} — تابع إلى المحطة التالية`);
       persist({ activatedStations: nextActivated });
       return;
     }
-    superTalebAudio.play('questionOpen');
     setActiveStation(station.id);
     setActiveQuestion(selected);
     answerLockedRef.current = false;
@@ -228,8 +236,6 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
 
     setAnsweredIds(nextAnswered); setCorrectIds(nextCorrect); setWeakIds(nextWeak);
     setScore(nextScore); setPencilAmmo(nextAmmo);
-    superTalebAudio.play(correct ? 'correct' : 'incorrect');
-    if (correct) { superTalebAudio.play('star'); superTalebAudio.play('pencilEarned'); }
     setFeedback({ correct, text: correct ? 'إجابة صحيحة! +10 نقاط وطلقة قلم' : 'إجابة غير صحيحة — تستمر المغامرة دون خصم قلب' });
 
     window.setTimeout(() => {
@@ -245,7 +251,6 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   const shootPencil = useCallback(() => {
     if (pencilAmmo <= 0 || activeQuestion || !started || finished) return;
     const p = playerRef.current;
-    superTalebAudio.play('pencilFire');
     projectilesRef.current.push({ x: p.x + (p.facing === 1 ? p.w : -10), y: p.y + 35, vx: p.facing * 620, alive: true });
     setPencilAmmo((value) => Math.max(0, value - 1));
   }, [pencilAmmo, activeQuestion, started, finished]);
@@ -253,7 +258,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   const finishLevel = useCallback(() => {
     if (completionSentRef.current) return;
     completionSentRef.current = true;
-    setFinished(true); clearMotion(); superTalebAudio.play('levelComplete');
+    setFinished(true); clearMotion();
     const result: SuperTalebLevelResult = {
       score: correctIds.length * POINTS_PER_CORRECT,
       pointsEarned: correctIds.length * POINTS_PER_CORRECT,
@@ -275,12 +280,12 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   const damagePlayer = useCallback((sourceX: number) => {
     const now = performance.now(); const p = playerRef.current;
     if (now < p.invulnerableUntil) return;
-    p.invulnerableUntil = now + 2200; superTalebAudio.play('obstacleHit');
+    p.invulnerableUntil = now + 2200;
     p.x = Math.max(80, safeXRef.current); p.y = GROUND_Y - p.h; p.vx = sourceX > p.x ? -80 : 80; p.vy = -180;
     const nextLives = Math.max(0, p.lives - 1); p.lives = nextLives; setLives(nextLives); clearMotion();
     if (nextLives <= 0) {
       p.vx = 0; p.vy = 0;
-      setGameOver(true); superTalebAudio.play('gameOver');
+      setGameOver(true);
       setMessage('انتهت المحاولة — أعد المرحلة من البداية');
     }
   }, [clearMotion]);
@@ -336,13 +341,13 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       const axis = (motion.right ? 1 : 0) - (motion.left ? 1 : 0);
       p.vx += (axis * speed - p.vx) * Math.min(1, dt * 12);
       if (axis) p.facing = axis > 0 ? 1 : -1;
-      if (motion.jump && p.grounded) { superTalebAudio.play('jump'); p.vy = -505; p.grounded = false; motion.jump = false; }
+      if (motion.jump && p.grounded) { p.vy = -505; p.grounded = false; motion.jump = false; }
       p.vy += 1250 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.x = Math.max(0, Math.min(WORLD_W - p.w, p.x));
 
-      const previousBottom = p.y + p.h - p.vy * dt; const wasGrounded=p.grounded; p.grounded = false;
+      const previousBottom = p.y + p.h - p.vy * dt; p.grounded = false;
       platformsRef.current.forEach((platform) => {
         if (p.x + p.w * 0.8 > platform.x && p.x + p.w * 0.2 < platform.x + platform.w && previousBottom <= platform.y + 12 && p.y + p.h >= platform.y && p.vy >= 0) {
-          p.y = platform.y - p.h; p.vy = 0; p.grounded = true; if(!wasGrounded)superTalebAudio.play('land');
+          p.y = platform.y - p.h; p.vy = 0; p.grounded = true;
           if (platform.kind === 'floor' && p.x > safeXRef.current + 180) safeXRef.current = p.x;
         }
       });
@@ -374,13 +379,17 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
       }
 
       const viewW = canvas.clientWidth; const viewH = canvas.clientHeight;
-      // تقريب موحد مثل المرحلة الأولى مع تثبيت سطح الأرض فوق أزرار التحكم.
-      const landscape = viewW > viewH;
-      const sceneScale = landscape ? 1.28 : 1.18;
-      const groundScreenY = landscape ? viewH - 108 : viewH - 170;
-      const sceneOffsetY = groundScreenY - GROUND_Y * sceneScale;
+      const portraitView = viewH > viewW;
+      // نفس منطق المرحلة الأولى: الوضع الأفقي يعرض مساحة أوسع بدل تكبير العالم.
+      const sceneScale = portraitView
+        ? Math.max(0.86, Math.min(1.12, viewH / 700))
+        : Math.max(0.80, Math.min(1.04, viewH / 560));
+      const bottomClearance = portraitView ? 150 : 118;
+      const sceneOffsetY = viewH - (GROUND_Y + bottomClearance) * sceneScale;
       const visibleWorldW = viewW / sceneScale;
-      cameraRef.current += (Math.max(0, Math.min(WORLD_W - visibleWorldW, p.x - visibleWorldW * 0.34)) - cameraRef.current) * Math.min(1, dt * 6);
+      cameraRef.current += (
+        Math.max(0, Math.min(WORLD_W - visibleWorldW, p.x - visibleWorldW * 0.32)) - cameraRef.current
+      ) * Math.min(1, dt * 6);
       const camera = cameraRef.current;
 
       const bg = ctx.createLinearGradient(0, 0, 0, viewH); bg.addColorStop(0, '#dff4ff'); bg.addColorStop(1, '#f8e7bd'); ctx.fillStyle = bg; ctx.fillRect(0,0,viewW,viewH);
@@ -391,6 +400,18 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
         for(let bx=-(camera*.16)%segmentW-segmentW;bx<viewW+segmentW;bx+=segmentW){ctx.drawImage(bgImage,bx,0,segmentW,Math.max(viewH,690));}
       }
       ctx.save(); ctx.translate(0, sceneOffsetY); ctx.scale(sceneScale, sceneScale); ctx.translate(-camera, 0);
+      // إظهار الفجوات الحقيقية بعمق واضح دون إضافة سطح اصطدام وهمي.
+      const groundPieces = platformsRef.current.filter(platform => platform.kind === 'floor').sort((a,b) => a.x-b.x);
+      for(let index=0; index<groundPieces.length-1; index++){
+        const left=groundPieces[index].x+groundPieces[index].w;
+        const right=groundPieces[index+1].x;
+        if(right<=left) continue;
+        const pit=ctx.createLinearGradient(0,GROUND_Y-5,0,GROUND_Y+145);
+        pit.addColorStop(0,'rgba(15,23,42,.42)'); pit.addColorStop(1,'rgba(2,6,23,.96)');
+        ctx.fillStyle=pit; ctx.fillRect(left,GROUND_Y-4,right-left,170);
+        ctx.strokeStyle='rgba(251,191,36,.78)'; ctx.lineWidth=4;
+        ctx.beginPath(); ctx.moveTo(left,GROUND_Y);ctx.lineTo(left+9,GROUND_Y+14);ctx.moveTo(right,GROUND_Y);ctx.lineTo(right-9,GROUND_Y+14);ctx.stroke();
+      }
       if(!assetsReadyRef.current){
         ctx.fillStyle = '#f4dfb3'; ctx.fillRect(0, 90, WORLD_W, 500);
         for (let x = 250; x < WORLD_W; x += 640) { ctx.fillStyle = '#bfe8ff'; ctx.fillRect(x, 155, 250, 145); ctx.strokeStyle = '#8b5e3c'; ctx.lineWidth = 12; ctx.strokeRect(x,155,250,145); }
@@ -401,9 +422,21 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
         if(assetsReadyRef.current){
           image=platform.kind==='floor'?(platform.w>900?assets.floorLong:assets.floorShort):platform.kind==='desk'?assets.desk:platform.kind==='books'?assets.books:assets.ruler;
         }
-        if(image){const drawH=platform.kind==='floor'?Math.max(130,platform.h):Math.max(58,platform.h+26);ctx.drawImage(image,platform.x,platform.y,platform.w,drawH);return;}
-        if (platform.kind === 'floor') { ctx.fillStyle = '#c28b50'; ctx.fillRect(platform.x,platform.y,platform.w,platform.h); }
-        else { ctx.fillStyle=platform.kind==='ruler'?'#facc15':'#8b5a2b';ctx.fillRect(platform.x,platform.y,platform.w,platform.h); }
+        if(image){
+          // أعلى الصورة يساوي platform.y، وهو سطح التصادم نفسه.
+          const drawH=platform.kind==='floor'?Math.max(138,platform.h):Math.max(52,platform.h+22);
+          ctx.drawImage(image,platform.x,platform.y,platform.w,drawH);
+          return;
+        }
+        if(platform.kind==='floor'){
+          const floorGradient=ctx.createLinearGradient(0,platform.y,0,platform.y+platform.h);
+          floorGradient.addColorStop(0,'#e7bc7c');floorGradient.addColorStop(.18,'#b87940');floorGradient.addColorStop(1,'#5b3520');
+          ctx.fillStyle=floorGradient;ctx.fillRect(platform.x,platform.y,platform.w,platform.h);
+          ctx.fillStyle='#f7d49a';ctx.fillRect(platform.x,platform.y,platform.w,10);
+        }else{
+          ctx.fillStyle=platform.kind==='ruler'?'#facc15':platform.kind==='books'?'#2563eb':'#8b5a2b';
+          ctx.fillRect(platform.x,platform.y,platform.w,Math.max(42,platform.h));
+        }
       });
 
       stationsRef.current.forEach((station) => {
@@ -420,7 +453,21 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
         }
       });
 
-      hazardsRef.current.forEach((hazard) => { if(!hazard.alive)return;const image=hazard.kind==='eraser'?assets.eraser:hazard.kind==='paper'?assets.paper:assets.bag;ctx.save();ctx.translate(hazard.x,hazard.y);if(hazard.vx<0){ctx.translate(hazard.w,0);ctx.scale(-1,1);}if(assetsReadyRef.current&&image)ctx.drawImage(image,-8,-12,hazard.w+16,hazard.h+16);else{ctx.fillStyle=hazard.kind==='eraser'?'#f472b6':hazard.kind==='paper'?'#f8fafc':'#7c2d12';ctx.fillRect(0,0,hazard.w,hazard.h);}ctx.restore(); });
+      hazardsRef.current.forEach((hazard) => {
+        if(!hazard.alive)return;
+        const image=hazard.kind==='eraser'?assets.eraser:hazard.kind==='paper'?assets.paper:assets.bag;
+        ctx.save();ctx.translate(hazard.x,hazard.y);
+        if(hazard.vx<0){ctx.translate(hazard.w,0);ctx.scale(-1,1);}
+        if(assetsReadyRef.current&&image){
+          const ratio=Math.min(hazard.w/image.naturalWidth,hazard.h/image.naturalHeight);
+          const drawW=image.naturalWidth*ratio, drawH=image.naturalHeight*ratio;
+          ctx.drawImage(image,(hazard.w-drawW)/2,hazard.h-drawH,drawW,drawH);
+        }else{
+          ctx.fillStyle=hazard.kind==='eraser'?'#f472b6':hazard.kind==='paper'?'#f8fafc':'#7c2d12';
+          ctx.fillRect(0,0,hazard.w,hazard.h);
+        }
+        ctx.restore();
+      });
       projectilesRef.current.forEach((shot)=>{ctx.fillStyle='#facc15';ctx.fillRect(shot.x,shot.y,28,7);ctx.fillStyle='#ec4899';ctx.beginPath();ctx.moveTo(shot.x+28,shot.y);ctx.lineTo(shot.x+36,shot.y+3.5);ctx.lineTo(shot.x+28,shot.y+7);ctx.fill();});
 
       // السبورة الذكية النهائية
@@ -435,14 +482,11 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
         else if(Math.abs(p.vx)>220){image=assets.playerRun;frames=7;fps=12;}
         else if(Math.abs(p.vx)>20){image=assets.playerWalk;frames=7;fps=9;}
         ctx.save();ctx.translate(p.x+p.w/2,p.y+p.h);ctx.scale(p.facing,1);
-        if(assetsReadyRef.current&&image){const frame=Math.floor(time/1000*fps)%frames;ctx.drawImage(image,frame*256,0,256,256,-58,-104,116,116);}
+        if(assetsReadyRef.current&&image){const frame=Math.floor(time/1000*fps)%frames;ctx.drawImage(image,frame*256,0,256,256,-58,-116,116,116);}
         else{ctx.fillStyle='#fff';ctx.fillRect(-18,-78,36,78);}ctx.restore();
       }
       ctx.restore();
 
-      // HUD
-      ctx.fillStyle='rgba(15,23,42,.88)';ctx.fillRect(12,12,Math.min(560,viewW-24),58);ctx.fillStyle='white';ctx.font='bold 17px sans-serif';ctx.textAlign='left';ctx.fillText(`❤️ ${lives}   ⭐ ${correctIds.length}   ✏️ ${pencilAmmo}   النقاط ${score}`,28,48);
-      ctx.fillStyle='rgba(255,255,255,.92)';ctx.fillRect(14,78,Math.min(680,viewW-28),46);ctx.fillStyle='#0f172a';ctx.font='bold 15px sans-serif';ctx.fillText(message,28,107);
       frameRef.current = requestAnimationFrame(loop);
     };
     frameRef.current = requestAnimationFrame(loop);
@@ -450,12 +494,25 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   }, [started, activeQuestion, finished, gameOver, activatedStations.length, correctIds.length, pencilAmmo, score, lives, damagePlayer, finishLevel, openStationQuestion, message]);
 
   const press = (key: keyof Motion, value: boolean) => { motionRef.current[key] = value; };
-  const controlSize = orientation === 'landscape' ? 76 : 68;
-  const baseBtn: React.CSSProperties = { width: controlSize, height: controlSize, borderRadius: 22, border: '2px solid rgba(255,255,255,.65)', background: 'rgba(15,23,42,.85)', color: 'white', fontWeight: 900, fontSize: 23, boxShadow: '0 8px 22px rgba(0,0,0,.25)', touchAction: 'none' };
+  const touchButton = (key:keyof Motion) => (down:boolean) => () => press(key,down);
 
   return (
     <div className="fixed inset-0 z-[120] overflow-hidden bg-slate-950" dir="rtl">
       <canvas ref={canvasRef} className="h-full w-full" />
+      {started && !finished && !gameOver && (
+        <div style={{position:'absolute',top:orientation==='landscape'?8:12,left:12,right:12,display:'flex',justifyContent:'space-between',alignItems:'center',pointerEvents:'none',transform:orientation==='landscape'?'scale(.92)':'none',transformOrigin:'top center',zIndex:12}}>
+          <button type="button" onClick={onClose} style={{pointerEvents:'auto',width:46,height:46,borderRadius:16,border:'1px solid rgba(255,255,255,.35)',background:'rgba(7,21,47,.85)',color:'#fff',fontSize:23,fontWeight:900}}>×</button>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <Level2Hud text={`❤️ ${lives}`} color="#EF4444" />
+            <Level2Hud text={`⭐ ${correctIds.length}`} color="#FACC15" />
+            <Level2Hud text={`✏️ ${pencilAmmo}`} color="#22D3EE" />
+            <Level2Hud text={`النقاط ${score}`} color="#38BDF8" />
+          </div>
+        </div>
+      )}
+      {started && !activeQuestion && !finished && !gameOver && showMessage && (
+        <div style={{position:'absolute',top:orientation==='landscape'?72:82,left:'50%',transform:'translateX(-50%)',maxWidth:orientation==='landscape'?'60vw':'88vw',padding:orientation==='landscape'?'8px 16px':'10px 14px',borderRadius:16,background:'rgba(248,250,252,.92)',border:'1px solid rgba(56,189,248,.35)',boxShadow:'0 8px 24px rgba(0,0,0,.15)',color:'#0f172a',fontWeight:800,fontSize:orientation==='landscape'?14:15,textAlign:'center',zIndex:11,pointerEvents:'none'}}>{message}</div>
+      )}
       {!started && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-3xl border border-sky-300/40 bg-slate-900 p-6 text-center text-white shadow-2xl">
@@ -476,54 +533,18 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
           </div>
         </div>
       )}
-      {started && !activeQuestion && !finished && (
-        <>
-          {/* أزرار الاتجاهات في الجهة اليسرى لسهولة التحكم بالإبهام */}
-          <div style={{ position: 'absolute', left: 18, bottom: 20, display: 'flex', gap: orientation === 'landscape' ? 24 : 18, direction: 'ltr' }}>
-            <button
-              aria-label="تحرك إلى اليسار"
-              onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); press('left', true); }}
-              onPointerUp={(event) => { event.currentTarget.releasePointerCapture?.(event.pointerId); press('left', false); }}
-              onPointerCancel={() => press('left', false)}
-              onPointerLeave={(event) => { if (event.buttons === 0) press('left', false); }}
-              style={baseBtn}
-            >◀</button>
-            <button
-              aria-label="تحرك إلى اليمين"
-              onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); press('right', true); }}
-              onPointerUp={(event) => { event.currentTarget.releasePointerCapture?.(event.pointerId); press('right', false); }}
-              onPointerCancel={() => press('right', false)}
-              onPointerLeave={(event) => { if (event.buttons === 0) press('right', false); }}
-              style={baseBtn}
-            >▶</button>
+      {started && !activeQuestion && !finished && !gameOver && (
+        <div style={{position:'absolute',bottom:orientation==='landscape'?10:14,left:orientation==='landscape'?30:18,right:orientation==='landscape'?30:18,display:'flex',justifyContent:'space-between',alignItems:'flex-end',pointerEvents:'none',zIndex:12}}>
+          <div style={{display:'flex',gap:orientation==='landscape'?24:18,direction:'ltr',pointerEvents:'auto'}}>
+            <Level2Control label="◀" large={orientation==='landscape'} onDown={touchButton('left')(true)} onUp={touchButton('left')(false)} />
+            <Level2Control label="▶" large={orientation==='landscape'} onDown={touchButton('right')(true)} onUp={touchButton('right')(false)} />
           </div>
-
-          {/* القفز والجري في الجهة اليمنى */}
-          <div style={{ position: 'absolute', right: 18, bottom: 20, display: 'flex', gap: orientation === 'landscape' ? 18 : 14, alignItems: 'flex-end', direction: 'ltr' }}>
-            {pencilAmmo > 0 && (
-              <button
-                type="button"
-                aria-label="إطلاق قلم المعرفة"
-                onClick={shootPencil}
-                style={{ ...baseBtn, fontSize: 18, background: 'rgba(14,116,144,.92)' }}
-              >✏️ {pencilAmmo}</button>
-            )}
-            <button
-              type="button"
-              aria-label={runEnabled ? 'إيقاف الجري' : 'تشغيل الجري'}
-              onClick={() => { const next = !runEnabled; setRunEnabled(next); motionRef.current.run = next; }}
-              style={{ ...baseBtn, fontSize: 15, background: runEnabled ? 'linear-gradient(145deg,#0ea5e9,#1d4ed8)' : 'rgba(37,99,235,.93)', border: runEnabled ? '3px solid #fde68a' : baseBtn.border }}
-            >{runEnabled ? 'إيقاف' : 'جري'}</button>
-            <button
-              aria-label="قفز"
-              onPointerDown={(event) => { event.currentTarget.setPointerCapture?.(event.pointerId); press('jump', true); }}
-              onPointerUp={(event) => { event.currentTarget.releasePointerCapture?.(event.pointerId); press('jump', false); }}
-              onPointerCancel={() => press('jump', false)}
-              style={{ ...baseBtn, background: '#f97316', fontSize: 16 }}
-            >قفز</button>
+          <div style={{display:'flex',gap:orientation==='landscape'?18:12,alignItems:'flex-end',direction:'ltr',pointerEvents:'auto'}}>
+            {pencilAmmo > 0 && <button type="button" onClick={shootPencil} style={{width:orientation==='landscape'?74:64,height:orientation==='landscape'?74:64,borderRadius:24,border:'3px solid #A5F3FC',background:'linear-gradient(145deg,#0891B2,#0E7490)',color:'#fff',fontSize:15,fontWeight:900,touchAction:'none',boxShadow:'0 10px 28px rgba(0,0,0,.28)'}}>✏️ {pencilAmmo}</button>}
+            <button type="button" onClick={()=>{const next=!runEnabled;setRunEnabled(next);motionRef.current.run=next;}} style={{width:orientation==='landscape'?74:64,height:orientation==='landscape'?74:64,borderRadius:24,border:runEnabled?'3px solid #FDE68A':'2px solid rgba(255,255,255,.55)',background:runEnabled?'linear-gradient(145deg,rgba(14,165,233,.92),rgba(3,105,161,.92))':'rgba(7,21,47,.68)',color:'#fff',fontSize:17,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)',touchAction:'none'}}>{runEnabled?'إيقاف':'جري'}</button>
+            <Level2Control label="قفز" large={orientation==='landscape'} accent onDown={touchButton('jump')(true)} onUp={touchButton('jump')(false)} />
           </div>
-          <button onClick={onClose} className="absolute left-4 top-4 rounded-2xl bg-slate-900/90 px-4 py-3 font-black text-white">×</button>
-        </>
+        </div>
       )}
       {gameOver && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
@@ -541,5 +562,12 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
     </div>
   );
 };
+
+function Level2Hud({text,color}:{text:string;color:string}){
+  return <div style={{padding:'9px 13px',borderRadius:14,background:'rgba(7,21,47,.84)',border:`1px solid ${color}88`,color:'#fff',fontWeight:900,fontSize:15,boxShadow:'0 8px 25px rgba(0,0,0,.18)'}}>{text}</div>;
+}
+function Level2Control({label,accent,large,onDown,onUp}:{label:string;accent?:boolean;large?:boolean;onDown:()=>void;onUp:()=>void}){
+  return <button type="button" onContextMenu={event=>event.preventDefault()} onPointerDown={event=>{event.preventDefault();event.currentTarget.setPointerCapture?.(event.pointerId);onDown();}} onPointerUp={event=>{event.preventDefault();if(event.currentTarget.hasPointerCapture?.(event.pointerId))event.currentTarget.releasePointerCapture?.(event.pointerId);onUp();}} onPointerCancel={onUp} onLostPointerCapture={onUp} style={{width:large?74:64,height:large?74:64,borderRadius:24,border:'2px solid rgba(255,255,255,.55)',background:accent?'linear-gradient(145deg,rgba(245,158,11,.92),rgba(234,88,12,.92))':'rgba(7,21,47,.68)',color:'#fff',fontSize:label.length>1?16:27,fontWeight:900,boxShadow:'0 10px 28px rgba(0,0,0,.28)',touchAction:'none',WebkitUserSelect:'none',userSelect:'none'}}>{label}</button>;
+}
 
 export default SuperTalebLevel2;
