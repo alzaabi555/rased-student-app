@@ -91,6 +91,21 @@ type MasteryLevel = 'excellent' | 'good' | 'needs_review' | 'needs_followup';
 type UnifiedGameResult = SnakeLadderResult | KnowledgeRaceResult | FootballKnowledgeResult | SuperTalebCampaignResult | TrueFalseResult | MatchCardsResult | SequenceOrderResult;
 type UnifiedGameType = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'super_taleb' | 'true_false' | 'match_cards' | 'sequence_order';
 
+type DailyChoiceGameType = 'snake_ladder' | 'knowledge_race' | 'football_quiz';
+type DailyChoiceState = {
+  dateKey: string;
+  selectedGame: DailyChoiceGameType | null;
+  completedAttempts: number;
+  selectedAt?: string;
+  lastCompletedAt?: string;
+};
+
+const DAILY_CHOICE_GAMES: DailyChoiceGameType[] = ['snake_ladder', 'knowledge_race', 'football_quiz'];
+const DAILY_CHOICE_MAX_ATTEMPTS = 2;
+const DAILY_CHOICE_STORAGE_PREFIX = 'rased_student_daily_game_choice_v1';
+const isDailyChoiceGame = (gameType: string | null | undefined): gameType is DailyChoiceGameType =>
+  Boolean(gameType && DAILY_CHOICE_GAMES.includes(gameType as DailyChoiceGameType));
+
 type ResultCloudMeta = {
   schoolCode: string;
   teacherId: string;
@@ -538,6 +553,33 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
   const [gamesMode, setGamesMode] = useState<GamesMode>('daily');
 
   const studentKey = student?.rasedId || student?.civilId || student?.id || 'default';
+  const dailyChoiceDateKey = getTodayKey();
+  const dailyChoiceStorageKey = `${DAILY_CHOICE_STORAGE_PREFIX}:${studentKey}:${dailyChoiceDateKey}`;
+  const readDailyChoiceState = (): DailyChoiceState => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(dailyChoiceStorageKey) || '{}') as Partial<DailyChoiceState>;
+      return {
+        dateKey: dailyChoiceDateKey,
+        selectedGame: isDailyChoiceGame(parsed.selectedGame) ? parsed.selectedGame : null,
+        completedAttempts: Math.max(0, Math.min(DAILY_CHOICE_MAX_ATTEMPTS, Number(parsed.completedAttempts || 0))),
+        selectedAt: parsed.selectedAt,
+        lastCompletedAt: parsed.lastCompletedAt,
+      };
+    } catch {
+      return { dateKey: dailyChoiceDateKey, selectedGame: null, completedAttempts: 0 };
+    }
+  };
+  const [dailyChoice, setDailyChoice] = useState<DailyChoiceState>(() => readDailyChoiceState());
+  const persistDailyChoice = (next: DailyChoiceState) => {
+    setDailyChoice(next);
+    try { localStorage.setItem(dailyChoiceStorageKey, JSON.stringify(next)); } catch {}
+  };
+  const dailyChoiceRemainingAttempts = Math.max(0, DAILY_CHOICE_MAX_ATTEMPTS - dailyChoice.completedAttempts);
+  const dailyChoiceSelectedTitle = dailyChoice.selectedGame ? GAME_TITLES[dailyChoice.selectedGame] : '';
+  const isDailyChoiceLocked = (gameId: UnifiedGameType) => !isReviewMode && isDailyChoiceGame(gameId) && Boolean(
+    (dailyChoice.selectedGame && dailyChoice.selectedGame !== gameId) ||
+    (dailyChoice.selectedGame === gameId && dailyChoiceRemainingAttempts <= 0)
+  );
   useEffect(() => {
     onGameActiveChange?.(activeGame !== null);
     return () => onGameActiveChange?.(false);
@@ -666,6 +708,18 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
   };
 
   const handleStartGame = (game: GameCardWithAvailability) => {
+    if (!isReviewMode && isDailyChoiceGame(game.id)) {
+      if (dailyChoice.selectedGame && dailyChoice.selectedGame !== game.id) return;
+      if (dailyChoice.selectedGame === game.id && dailyChoiceRemainingAttempts <= 0) return;
+      if (!dailyChoice.selectedGame) {
+        persistDailyChoice({
+          dateKey: dailyChoiceDateKey,
+          selectedGame: game.id,
+          completedAttempts: 0,
+          selectedAt: new Date().toISOString(),
+        });
+      }
+    }
     if (game.id === 'snake_ladder') { setSelectedGame(null); setActiveGame('snake_ladder'); return; }
     if (game.id === 'knowledge_race') { if (knowledgeRaceQuestions.length === 0) return; setSelectedGame(null); setActiveGame('knowledge_race'); return; }
     if (game.id === 'football_quiz') { if (footballQuestions.length === 0) return; setSelectedGame(null); setActiveGame('football_quiz'); return; }
@@ -784,6 +838,21 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
         return;
       }
 
+      // A completed official round consumes one of the two allowed attempts.
+      if (isDailyChoiceGame(resultGameType)) {
+        const current = readDailyChoiceState();
+        const selectedGame = current.selectedGame || resultGameType;
+        if (selectedGame === resultGameType) {
+          persistDailyChoice({
+            ...current,
+            selectedGame,
+            selectedAt: current.selectedAt || new Date().toISOString(),
+            completedAttempts: Math.min(DAILY_CHOICE_MAX_ATTEMPTS, current.completedAttempts + 1),
+            lastCompletedAt: new Date().toISOString(),
+          });
+        }
+      }
+
       const latestKey = `rased_student_latest_game_result_${studentKey}`;
       const logKey = `rased_student_game_results_log_${studentKey}`;
       const pendingSyncKey = `rased_student_game_results_pending_sync_${studentKey}`;
@@ -868,9 +937,16 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
                 {isReviewMode ? 'مراجعاتي' : 'تحدي التعلم اليوم'}
               </h2>
               <p className="text-[10px] font-bold text-textSecondary leading-6">
-                {isReviewMode ? 'راجع الأسئلة السابقة التي وضعها المعلم للمذاكرة والاستعداد للاختبارات.' : 'اختر لعبة قصيرة، أجب عن الأسئلة، واجمع الشارات.'}
+                {isReviewMode ? 'راجع الأسئلة السابقة التي وضعها المعلم للمذاكرة والاستعداد للاختبارات.' : 'اختر لعبة واحدة من الألعاب اليومية الثلاث. يمكنك إكمالها ثم إعادتها مرة واحدة فقط.'}
               </p>
               {isReviewMode && <p className="text-[9px] font-black text-warning mt-1">نتائج مراجعاتي تحفظ محليًا فقط ولا تُرسل إلى راصد المعلم أو ولي الأمر.</p>}
+              {!isReviewMode && <div className="mt-2 rounded-xl border border-warning/25 bg-warning/10 px-3 py-2 text-[9px] font-black leading-5 text-warning">
+                {dailyChoice.selectedGame
+                  ? dailyChoiceRemainingAttempts > 0
+                    ? `اختيار اليوم: ${dailyChoiceSelectedTitle}. المتبقي ${dailyChoiceRemainingAttempts} من محاولتين.`
+                    : `اكتملت محاولتا ${dailyChoiceSelectedTitle} اليوم. تعود حرية الاختيار غدًا.`
+                  : 'اختر اليوم: سباق المعرفة أو ركلات المعرفة أو السلم والثعبان. بعد بدء اللعبة يثبت الاختيار لبقية اليوم.'}
+              </div>}
             </div>
             <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
               {isReviewMode ? <BookOpen className="w-7 h-7" /> : <Trophy className="w-7 h-7" />}
@@ -902,15 +978,16 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
             {games.map(game => {
               const tone = getToneClasses(game.color);
               const Icon = game.icon;
-              const isAvailable = game.status === 'available';
+              const dailyLocked = isDailyChoiceLocked(game.id);
+              const isAvailable = game.status === 'available' && !dailyLocked;
               return (
                 <button key={game.id} type="button" onClick={() => setSelectedGame(game)} className={`w-full text-start rounded-3xl border p-4 shadow-sm transition-all active:scale-[0.99] ${isAvailable ? 'bg-bgCard border-borderColor hover:border-primary/20 hover:shadow-card' : 'bg-bgCard border-borderColor opacity-90'}`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center shrink-0 ${tone.icon}`}><Icon className="w-7 h-7" /></div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1"><h3 className="text-sm font-black text-textPrimary truncate">{game.title}</h3>{!isAvailable && <span className="shrink-0 text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary">{game.questionCount > 0 ? 'تحتاج أسئلة أكثر' : 'قريبًا'}</span>}</div>
+                      <div className="flex items-center gap-2 mb-1"><h3 className="text-sm font-black text-textPrimary truncate">{game.title}</h3>{dailyLocked ? <span className="shrink-0 text-[8px] font-black px-2 py-0.5 rounded-full bg-warning/10 border border-warning/20 text-warning">{dailyChoice.selectedGame === game.id ? 'اكتملت محاولتان' : `اخترت ${dailyChoiceSelectedTitle}`}</span> : !isAvailable && <span className="shrink-0 text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary">{game.questionCount > 0 ? 'تحتاج أسئلة أكثر' : 'قريبًا'}</span>}</div>
                       <p className="text-[10px] font-bold text-textSecondary leading-5 line-clamp-2">{game.description}</p>
-                      <div className="flex flex-wrap items-center gap-2 mt-2"><span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary flex items-center gap-1"><BookOpen className="w-3 h-3" />{game.questionCount} سؤال</span><span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary flex items-center gap-1"><Timer className="w-3 h-3" />{game.estimatedTime}</span>{isReviewMode && <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary">مراجعة</span>}</div>
+                      <div className="flex flex-wrap items-center gap-2 mt-2"><span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary flex items-center gap-1"><BookOpen className="w-3 h-3" />{game.questionCount} سؤال</span><span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary flex items-center gap-1"><Timer className="w-3 h-3" />{game.estimatedTime}</span>{isReviewMode && <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary">مراجعة مفتوحة</span>}{!isReviewMode && isDailyChoiceGame(game.id) && dailyChoice.selectedGame === game.id && <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-success/10 border border-success/20 text-success">المتبقي {dailyChoiceRemainingAttempts}</span>}</div>
                     </div>
                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${isAvailable ? tone.button : 'bg-bgSoft text-textMuted border border-borderColor'}`}>{isAvailable ? <Play className="w-5 h-5" /> : <Lock className="w-5 h-5" />}</div>
                   </div>
@@ -928,13 +1005,23 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
             {(() => {
               const tone = getToneClasses(selectedGame.color);
               const Icon = selectedGame.icon;
-              const isAvailable = selectedGame.status === 'available' || selectedGame.id === 'snake_ladder' || selectedGame.id === 'super_taleb';
+              const dailyLocked = isDailyChoiceLocked(selectedGame.id);
+              const isAvailable = (selectedGame.status === 'available' || selectedGame.id === 'snake_ladder' || selectedGame.id === 'super_taleb') && !dailyLocked;
               return (
                 <div>
                   <div className="flex items-center gap-3 mb-4"><div className={`w-12 h-12 rounded-2xl border flex items-center justify-center ${tone.icon}`}><Icon className="w-6 h-6" /></div><div><h3 className="text-base font-black text-textPrimary">{selectedGame.title}</h3><p className="text-[10px] font-bold text-textSecondary">{selectedGame.questionCount} سؤال متاح · {selectedGame.estimatedTime}</p></div></div>
                   <p className="text-xs font-bold text-textSecondary leading-6 mb-3">{selectedGame.description}</p>
                   {isReviewMode && <div className="bg-primary/10 border border-primary/20 text-primary rounded-2xl p-3 mb-4 text-[10px] font-black leading-5">هذه اللعبة ضمن مراجعاتي. النتيجة تحفظ محليًا فقط ولا تُرسل إلى راصد المعلم أو ولي الأمر.</div>}
-                  {isAvailable ? <button type="button" className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`} onClick={() => handleStartGame(selectedGame)}><Play className="w-5 h-5" />{selectedGame.id === 'super_taleb' ? 'ابدأ مغامرة سوبر طالب' : selectedGame.id === 'snake_ladder' && selectedGame.questionCount === 0 ? 'فتح اللعبة' : isReviewMode ? 'ابدأ المراجعة' : 'ابدأ اللعبة'}</button> : <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-xs font-black text-textPrimary mb-1">اللعبة غير متاحة بعد</p><p className="text-[10px] font-bold text-textSecondary leading-5">{isReviewMode ? 'ستعمل هذه اللعبة عندما تتوفر أسئلة مراجعة مناسبة لها.' : 'ستعمل هذه اللعبة عندما يضيف المعلم عددًا كافيًا من الأسئلة المناسبة لها من راصد المعلم.'}</p></div>}
+                  {!isReviewMode && isDailyChoiceGame(selectedGame.id) && <div className={`rounded-2xl border p-3 mb-4 text-[10px] font-black leading-5 ${dailyLocked ? 'bg-warning/10 border-warning/20 text-warning' : 'bg-success/10 border-success/20 text-success'}`}>
+                    {dailyLocked
+                      ? dailyChoice.selectedGame === selectedGame.id
+                        ? 'اكتملت المحاولة الأساسية والإعادة الوحيدة لهذا اليوم.'
+                        : `تم تثبيت ${dailyChoiceSelectedTitle} كلعبة اليوم. لا يمكن الانتقال إلى لعبة يومية أخرى حتى الغد.`
+                      : dailyChoice.selectedGame === selectedGame.id
+                        ? `هذه هي لعبة اليوم. المتبقي ${dailyChoiceRemainingAttempts} من محاولتين.`
+                        : 'عند البدء ستصبح هذه لعبة اليوم، وستتاح إعادتها مرة واحدة فقط.'}
+                  </div>}
+                  {isAvailable ? <button type="button" className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`} onClick={() => handleStartGame(selectedGame)}><Play className="w-5 h-5" />{selectedGame.id === 'super_taleb' ? 'ابدأ مغامرة سوبر طالب' : selectedGame.id === 'snake_ladder' && selectedGame.questionCount === 0 ? 'فتح اللعبة' : isReviewMode ? 'ابدأ المراجعة' : 'ابدأ اللعبة'}</button> : <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-xs font-black text-textPrimary mb-1">اللعبة غير متاحة بعد</p><p className="text-[10px] font-bold text-textSecondary leading-5">{dailyLocked ? dailyChoice.selectedGame === selectedGame.id ? 'استخدمت المحاولتين المتاحتين لهذه اللعبة اليوم.' : `اختيار اليوم هو ${dailyChoiceSelectedTitle}. ستتاح الألعاب الثلاث للاختيار من جديد غدًا.` : isReviewMode ? 'ستعمل هذه اللعبة عندما تتوفر أسئلة مراجعة مناسبة لها.' : 'ستعمل هذه اللعبة عندما يضيف المعلم عددًا كافيًا من الأسئلة المناسبة لها من راصد المعلم.'}</p></div>}
                   <button type="button" onClick={() => setSelectedGame(null)} className="w-full mt-3 h-10 rounded-2xl font-black text-xs text-textSecondary hover:text-danger transition-colors">إغلاق</button>
                 </div>
               );
