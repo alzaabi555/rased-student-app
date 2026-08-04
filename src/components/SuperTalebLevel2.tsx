@@ -156,7 +156,7 @@ const SuperTalebLevel2: React.FC<SuperTalebLevelComponentProps> = ({
   useEffect(() => {
     let cancelled = false;
     const paths: Record<string,string> = {
-      background:'/assets/games/super-taleb/level-2/backgrounds/smart-classroom.webp',
+      background:'/assets/games/super-taleb/level-2/v2/backgrounds/smart-classroom.webp',
       v2_book_platform_long:'/assets/games/super-taleb/level-2/v2/terrain/book-platform-long.webp',
       v2_book_platform_short:'/assets/games/super-taleb/level-2/v2/terrain/book-platform-short.webp',
       v2_checkpoint:'/assets/games/super-taleb/level-2/v2/terrain/checkpoint.webp',
