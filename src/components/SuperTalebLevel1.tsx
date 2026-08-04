@@ -40,7 +40,9 @@ type Enemy = Rect & { kind: EnemyKind; vx: number; minX: number; maxX: number; a
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number };
 type PencilShot = { x:number; y:number; vx:number; life:number; facing:number }; 
 
-const WORLD_W = 5200;
+const WORLD_W = 9200;
+const FINISH_X = 8960;
+const DOOR_X = 9020;
 const GROUND_Y = 650;
 const PLAYER_W = 54;
 const PLAYER_H = 78;
@@ -61,50 +63,96 @@ const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(ma
 const overlap = (a: Rect, b: Rect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
 const createLevel = (questionCount: number) => {
+  // One extended, stable world built only from the proven Level 1 assets and physics.
+  // Ground gaps remain within the successful jump envelope: 65 to 95 world units.
   const platforms: Platform[] = [
+    // Zone 1: School gate and movement tutorial.
     { x: 0, y: GROUND_Y, w: 875, h: 180, kind: 'ground' },
     { x: 940, y: GROUND_Y, w: 695, h: 180, kind: 'ground' },
-    { x: 1720, y: GROUND_Y, w: 750, h: 180, kind: 'ground' },
-    { x: 2560, y: GROUND_Y, w: 610, h: 180, kind: 'ground' },
-    { x: 3260, y: GROUND_Y, w: 805, h: 180, kind: 'ground' },
-    { x: 4140, y: GROUND_Y, w: 1060, h: 180, kind: 'ground' },
     { x: 330, y: 515, w: 150, h: 28, kind: 'stone' },
     { x: 535, y: 470, w: 145, h: 28, kind: 'stone' },
     { x: 775, y: 500, w: 120, h: 25, kind: 'moving', vx: 70, minX: 730, maxX: 870 },
     { x: 1120, y: 500, w: 170, h: 28, kind: 'stone' },
     { x: 1370, y: 465, w: 135, h: 28, kind: 'stone' },
+
+    // Zone 2: School yard. Broad safe floor with optional upper route.
+    { x: 1720, y: GROUND_Y, w: 780, h: 180, kind: 'ground' },
+    { x: 2585, y: GROUND_Y, w: 760, h: 180, kind: 'ground' },
     { x: 1840, y: 500, w: 180, h: 28, kind: 'wood' },
     { x: 2085, y: 455, w: 135, h: 28, kind: 'stone' },
-    { x: 2670, y: 485, w: 155, h: 28, kind: 'stone' },
-    { x: 2885, y: 455, w: 150, h: 28, kind: 'moving', vx: 85, minX: 2800, maxX: 3000 },
-    { x: 3370, y: 500, w: 175, h: 28, kind: 'stone' },
-    { x: 3630, y: 455, w: 150, h: 28, kind: 'stone' },
-    { x: 4210, y: 500, w: 165, h: 28, kind: 'wood' },
-    { x: 4470, y: 465, w: 150, h: 28, kind: 'stone' },
+    { x: 2300, y: 505, w: 155, h: 28, kind: 'stone' },
+    { x: 2700, y: 485, w: 155, h: 28, kind: 'stone' },
+    { x: 2915, y: 455, w: 150, h: 28, kind: 'moving', vx: 82, minX: 2840, maxX: 3060 },
+    { x: 3140, y: 500, w: 150, h: 28, kind: 'stone' },
+
+    // Zone 3: Bridge corridor. Clear run-up and recovery ground on both sides.
+    { x: 3430, y: GROUND_Y, w: 720, h: 180, kind: 'ground' },
+    { x: 4235, y: GROUND_Y, w: 735, h: 180, kind: 'ground' },
+    { x: 3535, y: 505, w: 175, h: 28, kind: 'stone' },
+    { x: 3785, y: 455, w: 150, h: 28, kind: 'stone' },
+    { x: 4050, y: 500, w: 175, h: 28, kind: 'wood' },
+    { x: 4370, y: 470, w: 155, h: 28, kind: 'stone' },
+    { x: 4620, y: 505, w: 165, h: 28, kind: 'stone' },
+
+    // Zone 4: Knowledge garden. A safe lower route and a rewarding upper route.
+    { x: 5060, y: GROUND_Y, w: 820, h: 180, kind: 'ground' },
+    { x: 5965, y: GROUND_Y, w: 730, h: 180, kind: 'ground' },
+    { x: 5150, y: 510, w: 155, h: 28, kind: 'stone' },
+    { x: 5370, y: 465, w: 145, h: 28, kind: 'stone' },
+    { x: 5600, y: 420, w: 145, h: 28, kind: 'moving', vx: 72, minX: 5535, maxX: 5760 },
+    { x: 6075, y: 500, w: 180, h: 28, kind: 'wood' },
+    { x: 6340, y: 455, w: 150, h: 28, kind: 'stone' },
+    { x: 6515, y: 505, w: 130, h: 28, kind: 'stone' },
+
+    // Zone 5: Route to Rased classroom. Denser but fair final challenge.
+    { x: 6780, y: GROUND_Y, w: 725, h: 180, kind: 'ground' },
+    { x: 7590, y: GROUND_Y, w: 690, h: 180, kind: 'ground' },
+    { x: 8365, y: GROUND_Y, w: 835, h: 180, kind: 'ground' },
+    { x: 6890, y: 500, w: 170, h: 28, kind: 'stone' },
+    { x: 7135, y: 455, w: 145, h: 28, kind: 'stone' },
+    { x: 7410, y: 500, w: 170, h: 28, kind: 'wood' },
+    { x: 7695, y: 475, w: 150, h: 28, kind: 'stone' },
+    { x: 7910, y: 430, w: 145, h: 28, kind: 'moving', vx: 78, minX: 7850, maxX: 8075 },
+    { x: 8125, y: 500, w: 135, h: 28, kind: 'stone' },
+    { x: 8490, y: 500, w: 170, h: 28, kind: 'stone' },
+    { x: 8725, y: 455, w: 150, h: 28, kind: 'stone' },
   ];
 
   const coinPoints = [
-    [180, 575], [255, 575], [365, 455], [445, 455], [565, 375], [645, 375], [800, 445],
-    [1020, 575], [1110, 440], [1190, 440], [1405, 360], [1480, 360], [1775, 575], [1870, 440],
-    [1960, 440], [2115, 350], [2200, 350], [2610, 575], [2710, 425], [2895, 335], [2980, 335],
-    [3320, 575], [3400, 445], [3500, 445], [3665, 345], [3750, 345], [4170, 575], [4250, 440],
-    [4520, 355], [4600, 355], [4780, 575], [4880, 575],
+    [180,575],[255,575],[365,455],[445,455],[565,375],[645,375],[800,445],[1020,575],[1110,440],[1190,440],[1405,360],[1480,360],
+    [1780,575],[1870,440],[1960,440],[2115,350],[2200,350],[2360,445],[2640,575],[2730,425],[2940,350],[3025,350],[3180,440],
+    [3480,575],[3570,445],[3660,445],[3815,350],[3900,350],[4100,440],[4295,575],[4410,410],[4490,410],[4660,445],[4770,445],
+    [5120,575],[5190,450],[5410,365],[5490,365],[5625,320],[5710,320],[6025,575],[6110,440],[6200,440],[6370,350],[6450,350],[6610,445],
+    [6840,575],[6940,440],[7030,440],[7165,350],[7250,350],[7440,440],[7650,575],[7730,415],[7940,330],[8020,330],[8160,440],[8405,575],[8530,440],[8620,440],[8755,350],[8835,350]
   ];
-  const coins: Coin[] = coinPoints.map(([x, y]) => ({ x, y, collected: false }));
+  const coins: Coin[] = coinPoints.map(([x,y]) => ({ x, y, collected:false }));
 
-  const qPositions = [620, 1260, 2180, 3010, 3900, 4580, 4860, 5060];
-  const boxes: Box[] = Array.from({ length: Math.min(Math.max(questionCount, 5), 8) }, (_, i) => ({
-    x: qPositions[i], y: i % 2 === 0 ? 360 : 515, w: 58, h: 58, questionIndex: i, opened: false, active: false,
-  }));
+  // Spread exactly today's questions across the complete journey. No duplicate boxes.
+  const questionSlots = [
+    {x:620,y:360},{x:1480,y:515},{x:2230,y:515},{x:3160,y:515},
+    {x:3890,y:360},{x:4740,y:515},{x:5480,y:360},{x:6460,y:515},
+    {x:7180,y:360},{x:8030,y:515},{x:8580,y:515},{x:8840,y:360}
+  ];
+  const count = Math.min(Math.max(questionCount, 1), questionSlots.length);
+  const selectedSlots = Array.from({length:count}, (_,i) => questionSlots[Math.round(i*(questionSlots.length-1)/Math.max(1,count-1))]);
+  const boxes: Box[] = selectedSlots.map((slot,i) => ({ x:slot.x,y:slot.y,w:58,h:58,questionIndex:i,opened:false,active:false }));
 
   const enemies: Enemy[] = [
-    { x: 720, y: GROUND_Y - 64, w: 54, h: 64, kind: 'worksheet', vx: 60, minX: 680, maxX: 820, alive: true, hp: 1, hitFlash: 0 },
-    { x: 1490, y: GROUND_Y - 66, w: 58, h: 66, kind: 'worksheet', vx: -70, minX: 1320, maxX: 1530, alive: true, hp: 1, hitFlash: 0 },
-    { x: 2300, y: GROUND_Y - 74, w: 64, h: 74, kind: 'report', vx: 58, minX: 2220, maxX: 2390, alive: true, hp: 2, hitFlash: 0 },
-    { x: 3100, y: GROUND_Y - 66, w: 58, h: 66, kind: 'worksheet', vx: -75, minX: 3020, maxX: 3190, alive: true, hp: 1, hitFlash: 0 },
-    { x: 3940, y: GROUND_Y - 74, w: 64, h: 74, kind: 'report', vx: 64, minX: 3820, maxX: 3990, alive: true, hp: 2, hitFlash: 0 },
+    { x:720,y:GROUND_Y-64,w:54,h:64,kind:'worksheet',vx:60,minX:680,maxX:820,alive:true,hp:1,hitFlash:0 },
+    { x:1490,y:GROUND_Y-66,w:58,h:66,kind:'worksheet',vx:-70,minX:1320,maxX:1530,alive:true,hp:1,hitFlash:0 },
+    { x:1930,y:GROUND_Y-66,w:58,h:66,kind:'worksheet',vx:68,minX:1810,maxX:2070,alive:true,hp:1,hitFlash:0 },
+    { x:2390,y:GROUND_Y-74,w:64,h:74,kind:'report',vx:58,minX:2260,maxX:2440,alive:true,hp:2,hitFlash:0 },
+    { x:3180,y:GROUND_Y-66,w:58,h:66,kind:'worksheet',vx:-74,minX:3070,maxX:3290,alive:true,hp:1,hitFlash:0 },
+    { x:3650,y:GROUND_Y-66,w:58,h:66,kind:'worksheet',vx:76,minX:3490,maxX:3870,alive:true,hp:1,hitFlash:0 },
+    { x:4560,y:GROUND_Y-74,w:64,h:74,kind:'report',vx:62,minX:4410,maxX:4800,alive:true,hp:2,hitFlash:0 },
+    { x:5250,y:GROUND_Y-66,w:58,h:66,kind:'worksheet',vx:-78,minX:5130,maxX:5450,alive:true,hp:1,hitFlash:0 },
+    { x:6140,y:GROUND_Y-74,w:64,h:74,kind:'report',vx:64,minX:6020,maxX:6300,alive:true,hp:2,hitFlash:0 },
+    { x:6910,y:GROUND_Y-66,w:58,h:66,kind:'worksheet',vx:82,minX:6840,maxX:7190,alive:true,hp:1,hitFlash:0 },
+    { x:7800,y:GROUND_Y-74,w:64,h:74,kind:'report',vx:-66,minX:7660,maxX:8060,alive:true,hp:2,hitFlash:0 },
+    { x:8520,y:GROUND_Y-66,w:58,h:66,kind:'worksheet',vx:86,minX:8420,maxX:8780,alive:true,hp:1,hitFlash:0 },
   ];
-  return { platforms, coins, boxes, enemies };
+  const checkpoints = [105, 1800, 3520, 5160, 6870, 8420];
+  return { platforms, coins, boxes, enemies, checkpoints };
 };
 
 export default function SuperTalebLevel1({ questions, onComplete, onClose }: Props) {
@@ -360,7 +408,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         const yardW = 1320;
         let yardX = gateW - parallaxCam - 20;
         while (yardX < w + yardW) {
-          drawFull(cam > 3500 && assets.bgCorridor ? assets.bgCorridor : assets.bgYard, yardX, 0, yardW, h);
+          drawFull(cam > 7350 && assets.bgClassroom ? assets.bgClassroom : (cam > 3300 && assets.bgCorridor ? assets.bgCorridor : assets.bgYard), yardX, 0, yardW, h);
           yardX += yardW;
         }
         const shade = ctx.createLinearGradient(0, 0, 0, h);
@@ -507,7 +555,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     };
 
     const drawDoor = (cam: number) => {
-      const x = 5060 - cam;
+      const x = DOOR_X - cam;
       if (x > canvas.clientWidth / Math.max(.45, dimensionsForCameraRef.current) + 180) return;
       const door = environmentAssetsRef.current.classroomDoor;
       if (environmentReadyRef.current && door) {
@@ -555,7 +603,10 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
           const candidate=clamp(p.x, support.x+70, support.x+support.w-p.w-70);
           const farFromEnemy=levelRef.current.enemies.every(e=>!e.alive || Math.abs((e.x+e.w/2)-(candidate+p.w/2))>150);
           const roomAhead=candidate>support.x+55 && candidate+p.w<support.x+support.w-55;
-          if(farFromEnemy && roomAhead) p.checkpointX=candidate;
+          if(farFromEnemy && roomAhead) {
+            const reached = levelRef.current.checkpoints.filter(cp => p.x >= cp).at(-1);
+            if (reached !== undefined && reached > p.checkpointX) p.checkpointX = reached;
+          }
         }
       }
       if(p.y>850 && p.hazardCooldown<=0){
@@ -605,7 +656,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
         }
       }
       pencilShotsRef.current=pencilShotsRef.current.filter(shot=>shot.life>0&&shot.x>0&&shot.x<WORLD_W);
-      if(p.x>5000){finish(true);return;}
+      if(p.x>FINISH_X){finish(true);return;}
       const logicalW = w / (dimensionsForCameraRef.current || 1); const target=clamp(p.x-logicalW*.32,0,WORLD_W-logicalW);cameraRef.current+= (target-cameraRef.current)*Math.min(1,dt*6);
       for(const q of particlesRef.current){q.x+=q.vx*dt;q.y+=q.vy*dt;q.vy+=550*dt;q.life-=dt;}particlesRef.current=particlesRef.current.filter(q=>q.life>0);
     };
