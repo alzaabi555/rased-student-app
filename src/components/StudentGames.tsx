@@ -27,9 +27,7 @@ import type { KnowledgeRaceQuestion, KnowledgeRaceResult } from './StudentKnowle
 import StudentFootballKnowledgeGame from './StudentFootballKnowledgeGame';
 import type { FootballKnowledgeQuestion, FootballKnowledgeResult } from './StudentFootballKnowledgeGame';
 import SuperTalebCampaign from './SuperTalebCampaign';
-import type { SuperTalebQuestion, SuperTalebCampaignResult, SuperTalebLevelNumber } from './SuperTalebCampaign';
-import SuperTalebLevel2 from './SuperTalebLevel2';
-import SuperTalebLevel3 from './SuperTalebLevel3';
+import type { SuperTalebQuestion, SuperTalebCampaignResult } from './SuperTalebCampaign';
 import StudentTrueFalseGame from './StudentTrueFalseGame';
 import type { TrueFalseQuestion, TrueFalseResult } from './StudentTrueFalseGame';
 import StudentMatchCardsGame from './StudentMatchCardsGame';
@@ -625,16 +623,6 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
     const modePrefix = isReviewMode ? 'review' : 'daily';
     return batchIds.length > 0 ? `${modePrefix}:${batchIds.join('|')}` : `${modePrefix}:${getTodayKey()}`;
   }, [superTalebQuestions, isReviewMode]);
-  const superTalebInitialUnlockedLevel = useMemo<SuperTalebLevelNumber>(() => {
-    try {
-      const permanent = Number(localStorage.getItem(`rased_super_taleb_unlocked_level_v1:${studentKey}`) || 1);
-      const oldResults = readJsonArray<StudentGameResultLogEntry>(`rased_student_game_results_log_${studentKey}`);
-      const completedOldLevelOne = oldResults.some(entry => entry.gameType === 'super_taleb' && entry.completed);
-      if (permanent >= 3) return 3;
-      if (permanent >= 2 || completedOldLevelOne) return 2;
-    } catch {}
-    return 1;
-  }, [studentKey, statsVersion]);
   const trueFalseQuestions = useMemo(() => {
     const game = findBaseGame('true_false');
     return game ? toTrueFalseQuestions(currentGameQuestions.filter(q => isQuestionCompatibleWithGame(q, game))) : [];
@@ -837,9 +825,6 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
         studentId={studentKey}
         challengeId={superTalebChallengeId}
         campaignMode={isReviewMode ? 'review' : 'daily'}
-        initialUnlockedLevel={isReviewMode ? 3 : superTalebInitialUnlockedLevel}
-        Level2Component={SuperTalebLevel2}
-        Level3Component={SuperTalebLevel3}
         onClose={() => { setActiveGame(null); refreshStats(); }}
         onComplete={handleGameComplete}
       />
