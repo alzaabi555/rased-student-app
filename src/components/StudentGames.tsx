@@ -44,6 +44,7 @@ export interface GameQuestion {
   teacherId?: string;
   semester?: string;
   subject?: string;
+  subjectId?: string;
   grade?: string;
   className?: string;
   classes?: string[];
@@ -91,21 +92,96 @@ type MasteryLevel = 'excellent' | 'good' | 'needs_review' | 'needs_followup';
 type UnifiedGameResult = SnakeLadderResult | KnowledgeRaceResult | FootballKnowledgeResult | SuperTalebCampaignResult | TrueFalseResult | MatchCardsResult | SequenceOrderResult;
 type UnifiedGameType = 'snake_ladder' | 'knowledge_race' | 'football_quiz' | 'super_taleb' | 'true_false' | 'match_cards' | 'sequence_order';
 
-type DailyChoiceGameType = 'snake_ladder' | 'knowledge_race' | 'football_quiz';
-type DailyChoiceState = {
+type CanonicalSubjectId =
+  | 'arabic' | 'english' | 'mathematics' | 'science' | 'social_studies'
+  | 'islamic_education' | 'information_technology' | 'physical_education'
+  | 'arts' | 'music' | 'other';
+type TaskChoiceState = {
+  version: 2;
+  taskId: string;
+  publishBatchId: string;
   dateKey: string;
-  selectedGame: DailyChoiceGameType | null;
+  subjectId: string;
+  subjectName: string;
+  selectedGame: UnifiedGameType | null;
   completedAttempts: number;
+  maxAttempts: 2;
+  firstScore?: number;
+  secondScore?: number;
+  bestScore: number;
   selectedAt?: string;
   lastCompletedAt?: string;
 };
-
-const DAILY_CHOICE_GAMES: DailyChoiceGameType[] = ['snake_ladder', 'knowledge_race', 'football_quiz'];
-const DAILY_CHOICE_MAX_ATTEMPTS = 2;
-const DAILY_CHOICE_STORAGE_PREFIX = 'rased_student_daily_game_choice_v1';
-const isDailyChoiceGame = (gameType: string | null | undefined): gameType is DailyChoiceGameType =>
-  Boolean(gameType && DAILY_CHOICE_GAMES.includes(gameType as DailyChoiceGameType));
-
+type StudentGameTask = {
+  taskId: string;
+  publishBatchId: string;
+  subjectId: string;
+  subjectName: string;
+  teacherId: string;
+  unit: string;
+  lesson: string;
+  title: string;
+  questions: GameQuestion[];
+};
+type StudentGameSubjectGroup = { subjectId: string; subjectName: string; tasks: StudentGameTask[]; totalQuestions: number };
+const TASK_MAX_ATTEMPTS = 2 as const;
+const TASK_CHOICE_STORAGE_PREFIX = 'rased_student_game_task_choice_v2';
+const SUBJECT_NAMES: Record<string, string> = {
+  arabic: 'اللغة العربية', english: 'اللغة الإنجليزية', mathematics: 'الرياضيات', science: 'العلوم',
+  social_studies: 'الدراسات الاجتماعية', islamic_education: 'التربية الإسلامية', information_technology: 'تقنية المعلومات',
+  physical_education: 'الرياضة المدرسية', arts: 'الفنون التشكيلية', music: 'المهارات الموسيقية', other: 'مادة أخرى'
+};
+const normalizeSubjectText = (value = '') => value.trim().toLowerCase()
+  .replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ـ/g, '')
+  .replace(/[\u064B-\u065F\u0670]/g, '').replace(/[^\u0600-\u06ffa-z0-9]/g, '');
+const SUBJECT_ALIASES: Record<string, CanonicalSubjectId> = {
+  'العربيه':'arabic','اللغهالعربيه':'arabic','لغهعربيه':'arabic','عربي':'arabic','arabic':'arabic',
+  'الانجليزيه':'english','اللغهالانجليزيه':'english','لغهانجليزيه':'english','انجليزي':'english','english':'english',
+  'الرياضيات':'mathematics','رياضيات':'mathematics','مادهالرياضيات':'mathematics','math':'mathematics','mathematics':'mathematics',
+  'العلوم':'science','علوم':'science','مادهالعلوم':'science','science':'science',
+  'الدراساتالاجتماعيه':'social_studies','دراساتاجتماعيه':'social_studies','دراسات':'social_studies','اجتماعيات':'social_studies',
+  'التربيهالاسلاميه':'islamic_education','تربيهاسلاميه':'islamic_education','اسلاميه':'islamic_education',
+  'تقنيهالمعلومات':'information_technology','تقنيه':'information_technology','حاسوب':'information_technology','it':'information_technology',
+  'الرياضهالمدرسيه':'physical_education','تربيهرياضيه':'physical_education','رياضه':'physical_education',
+  'الفنونالتشكيليه':'arts','فنون':'arts','تربيهفنيه':'arts',
+  'المهاراتالموسيقيه':'music','موسيقي':'music'
+};
+const resolveSubject = (question: GameQuestion) => {
+  const explicit = String(question.subjectId || '').trim();
+  const normalized = normalizeSubjectText(question.subject || '');
+  const subjectId = (explicit || SUBJECT_ALIASES[normalized] || `other:${normalized || 'unspecified'}`) as string;
+  return { subjectId, subjectName: SUBJECT_NAMES[subjectId] || question.subject?.trim() || 'مادة غير محددة' };
+};
+const resolveTaskId = (question: GameQuestion, dateKey: string) => question.publishBatchId || [
+  'legacy', question.teacherId || 'unknown_teacher', resolveSubject(question).subjectId,
+  normalizeSubjectText(question.unit || 'no_unit'), normalizeSubjectText(question.lesson || 'no_lesson'),
+  question.visibleFrom?.slice(0, 10) || dateKey
+].join(':');
+const buildGameTasks = (questions: GameQuestion[], dateKey: string): StudentGameTask[] => {
+  const map = new Map<string, StudentGameTask>();
+  questions.forEach(question => {
+    const taskId = resolveTaskId(question, dateKey);
+    const subject = resolveSubject(question);
+    const existing = map.get(taskId);
+    if (existing) {
+      if (existing.subjectId !== subject.subjectId) console.warn('[StudentGames] دفعة تحتوي أكثر من مادة', taskId);
+      existing.questions.push(question);
+      return;
+    }
+    map.set(taskId, { taskId, publishBatchId: question.publishBatchId || taskId, ...subject,
+      teacherId: question.teacherId || '', unit: question.unit || '', lesson: question.lesson || '',
+      title: question.lesson || question.unit || `دفعة ${subject.subjectName}`, questions: [question] });
+  });
+  return Array.from(map.values());
+};
+const groupTasksBySubject = (tasks: StudentGameTask[]): StudentGameSubjectGroup[] => {
+  const map = new Map<string, StudentGameSubjectGroup>();
+  tasks.forEach(task => {
+    const group = map.get(task.subjectId) || { subjectId: task.subjectId, subjectName: task.subjectName, tasks: [], totalQuestions: 0 };
+    group.tasks.push(task); group.totalQuestions += task.questions.length; map.set(task.subjectId, group);
+  });
+  return Array.from(map.values()).sort((a,b) => a.subjectName.localeCompare(b.subjectName, 'ar'));
+};
 type ResultCloudMeta = {
   schoolCode: string;
   teacherId: string;
@@ -126,6 +202,11 @@ export interface StudentGameResultLogEntry {
   teacherId?: string;
   gameType: UnifiedGameType | string;
   gameTitle?: string;
+  taskId?: string;
+  publishBatchId?: string;
+  subjectId?: string;
+  bestScore?: number;
+  isOfficialBest?: boolean;
   subject?: string;
   unit?: string;
   lesson?: string;
@@ -553,33 +634,9 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
   const [gamesMode, setGamesMode] = useState<GamesMode>('daily');
 
   const studentKey = student?.rasedId || student?.civilId || student?.id || 'default';
-  const dailyChoiceDateKey = getTodayKey();
-  const dailyChoiceStorageKey = `${DAILY_CHOICE_STORAGE_PREFIX}:${studentKey}:${dailyChoiceDateKey}`;
-  const readDailyChoiceState = (): DailyChoiceState => {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(dailyChoiceStorageKey) || '{}') as Partial<DailyChoiceState>;
-      return {
-        dateKey: dailyChoiceDateKey,
-        selectedGame: isDailyChoiceGame(parsed.selectedGame) ? parsed.selectedGame : null,
-        completedAttempts: Math.max(0, Math.min(DAILY_CHOICE_MAX_ATTEMPTS, Number(parsed.completedAttempts || 0))),
-        selectedAt: parsed.selectedAt,
-        lastCompletedAt: parsed.lastCompletedAt,
-      };
-    } catch {
-      return { dateKey: dailyChoiceDateKey, selectedGame: null, completedAttempts: 0 };
-    }
-  };
-  const [dailyChoice, setDailyChoice] = useState<DailyChoiceState>(() => readDailyChoiceState());
-  const persistDailyChoice = (next: DailyChoiceState) => {
-    setDailyChoice(next);
-    try { localStorage.setItem(dailyChoiceStorageKey, JSON.stringify(next)); } catch {}
-  };
-  const dailyChoiceRemainingAttempts = Math.max(0, DAILY_CHOICE_MAX_ATTEMPTS - dailyChoice.completedAttempts);
-  const dailyChoiceSelectedTitle = dailyChoice.selectedGame ? GAME_TITLES[dailyChoice.selectedGame] : '';
-  const isDailyChoiceLocked = (gameId: UnifiedGameType) => !isReviewMode && isDailyChoiceGame(gameId) && Boolean(
-    (dailyChoice.selectedGame && dailyChoice.selectedGame !== gameId) ||
-    (dailyChoice.selectedGame === gameId && dailyChoiceRemainingAttempts <= 0)
-  );
+  const dateKey = getTodayKey();
+  const [activeSubjectId, setActiveSubjectId] = useState<string | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   useEffect(() => {
     onGameActiveChange?.(activeGame !== null);
     return () => onGameActiveChange?.(false);
@@ -607,8 +664,30 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
   }, [student]);
   const gameQuestions = timedQuestionCollections.daily;
   const reviewGameQuestions = timedQuestionCollections.review;
-  const currentGameQuestions = gamesMode === 'review' ? reviewGameQuestions : gameQuestions;
   const isReviewMode = gamesMode === 'review';
+  const sourceQuestions = isReviewMode ? reviewGameQuestions : gameQuestions;
+  const gameTasks = useMemo(() => buildGameTasks(sourceQuestions, dateKey), [sourceQuestions, dateKey]);
+  const subjectGroups = useMemo(() => groupTasksBySubject(gameTasks), [gameTasks]);
+  const activeTask = useMemo(() => gameTasks.find(task => task.taskId === activeTaskId) || null, [gameTasks, activeTaskId]);
+  const currentGameQuestions = activeTask?.questions || [];
+  const taskStorageKey = activeTask ? `${TASK_CHOICE_STORAGE_PREFIX}:${studentKey}:${dateKey}:${activeTask.taskId}` : '';
+  const readTaskState = (): TaskChoiceState | null => {
+    if (!activeTask || !taskStorageKey) return null;
+    try {
+      const parsed = JSON.parse(localStorage.getItem(taskStorageKey) || '{}') as Partial<TaskChoiceState>;
+      return { version: 2, taskId: activeTask.taskId, publishBatchId: activeTask.publishBatchId, dateKey,
+        subjectId: activeTask.subjectId, subjectName: activeTask.subjectName,
+        selectedGame: typeof parsed.selectedGame === 'string' ? parsed.selectedGame as UnifiedGameType : null,
+        completedAttempts: Math.max(0, Math.min(TASK_MAX_ATTEMPTS, Number(parsed.completedAttempts || 0))), maxAttempts: 2,
+        firstScore: parsed.firstScore, secondScore: parsed.secondScore, bestScore: Math.max(0, Number(parsed.bestScore || 0)),
+        selectedAt: parsed.selectedAt, lastCompletedAt: parsed.lastCompletedAt };
+    } catch { return null; }
+  };
+  const [taskStateVersion, setTaskStateVersion] = useState(0);
+  const taskState = useMemo(() => readTaskState(), [taskStorageKey, taskStateVersion]);
+  const persistTaskState = (next: TaskChoiceState) => { try { localStorage.setItem(taskStorageKey, JSON.stringify(next)); } catch {} setTaskStateVersion(v => v + 1); };
+  const taskRemainingAttempts = taskState ? Math.max(0, TASK_MAX_ATTEMPTS - taskState.completedAttempts) : TASK_MAX_ATTEMPTS;
+  const isTaskGameLocked = (gameId: UnifiedGameType) => !isReviewMode && Boolean(taskState && ((taskState.selectedGame && taskState.selectedGame !== gameId) || (taskState.selectedGame === gameId && taskRemainingAttempts <= 0)));
 
   const stats = useMemo(() => {
     const raw = readLocalGameStats(studentKey);
@@ -691,7 +770,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
   }), [snakeLadderQuestions, knowledgeRaceQuestions, footballQuestions, superTalebQuestions, trueFalseQuestions, matchCardsQuestions, sequenceOrderQuestions]);
 
   const availableGames = games.filter(g => g.status === 'available');
-  const totalQuestions = currentGameQuestions.length;
+  const totalQuestions = sourceQuestions.length;
 
   const refreshStats = () => setStatsVersion(prev => prev + 1);
 
@@ -708,17 +787,14 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
   };
 
   const handleStartGame = (game: GameCardWithAvailability) => {
-    if (!isReviewMode && isDailyChoiceGame(game.id)) {
-      if (dailyChoice.selectedGame && dailyChoice.selectedGame !== game.id) return;
-      if (dailyChoice.selectedGame === game.id && dailyChoiceRemainingAttempts <= 0) return;
-      if (!dailyChoice.selectedGame) {
-        persistDailyChoice({
-          dateKey: dailyChoiceDateKey,
-          selectedGame: game.id,
-          completedAttempts: 0,
-          selectedAt: new Date().toISOString(),
-        });
-      }
+    if (!activeTask) return;
+    if (!isReviewMode) {
+      const current = readTaskState();
+      if (current?.selectedGame && current.selectedGame !== game.id) return;
+      if (current?.selectedGame === game.id && current.completedAttempts >= TASK_MAX_ATTEMPTS) return;
+      if (!current?.selectedGame) persistTaskState({ version: 2, taskId: activeTask.taskId, publishBatchId: activeTask.publishBatchId,
+        dateKey, subjectId: activeTask.subjectId, subjectName: activeTask.subjectName, selectedGame: game.id,
+        completedAttempts: 0, maxAttempts: 2, bestScore: 0, selectedAt: new Date().toISOString() });
     }
     if (game.id === 'snake_ladder') { setSelectedGame(null); setActiveGame('snake_ladder'); return; }
     if (game.id === 'knowledge_race') { if (knowledgeRaceQuestions.length === 0) return; setSelectedGame(null); setActiveGame('knowledge_race'); return; }
@@ -838,20 +914,20 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
         return;
       }
 
-      // A completed official round consumes one of the two allowed attempts.
-      if (isDailyChoiceGame(resultGameType)) {
-        const current = readDailyChoiceState();
-        const selectedGame = current.selectedGame || resultGameType;
-        if (selectedGame === resultGameType) {
-          persistDailyChoice({
-            ...current,
-            selectedGame,
-            selectedAt: current.selectedAt || new Date().toISOString(),
-            completedAttempts: Math.min(DAILY_CHOICE_MAX_ATTEMPTS, current.completedAttempts + 1),
-            lastCompletedAt: new Date().toISOString(),
-          });
-        }
-      }
+      const currentTaskState = readTaskState();
+      if (!activeTask || !currentTaskState || currentTaskState.selectedGame !== resultGameType) return;
+      if (currentTaskState.completedAttempts >= TASK_MAX_ATTEMPTS) return;
+      const completedAttempt = currentTaskState.completedAttempts + 1;
+      const attemptScore = Math.max(0, Number(logEntry.pointsEarned || logEntry.score || 0));
+      const nextBestScore = Math.max(currentTaskState.bestScore, attemptScore);
+      const nextTaskState: TaskChoiceState = { ...currentTaskState, completedAttempts: completedAttempt,
+        firstScore: completedAttempt === 1 ? attemptScore : currentTaskState.firstScore,
+        secondScore: completedAttempt === 2 ? attemptScore : currentTaskState.secondScore,
+        bestScore: nextBestScore, lastCompletedAt: new Date().toISOString() };
+      persistTaskState(nextTaskState);
+      logEntry.taskId = activeTask.taskId; logEntry.publishBatchId = activeTask.publishBatchId;
+      logEntry.subjectId = activeTask.subjectId; logEntry.attemptNumber = completedAttempt;
+      logEntry.bestScore = nextBestScore; logEntry.isOfficialBest = attemptScore >= currentTaskState.bestScore;
 
       const latestKey = `rased_student_latest_game_result_${studentKey}`;
       const logKey = `rased_student_game_results_log_${studentKey}`;
@@ -860,8 +936,14 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
       const oldPending = readJsonArray<StudentGameResultLogEntry>(pendingSyncKey);
 
       localStorage.setItem(latestKey, JSON.stringify(logEntry));
-      localStorage.setItem(logKey, JSON.stringify([logEntry, ...oldLog].slice(0, 100)));
-      localStorage.setItem(pendingSyncKey, JSON.stringify([logEntry, ...oldPending].slice(0, 100)));
+      const officialId = `${studentKey}:${dateKey}:${activeTask.publishBatchId}:official-best`;
+      logEntry.id = officialId;
+      const previousOfficial = oldLog.find(item => item.id === officialId);
+      const shouldUpdateOfficial = !previousOfficial || logEntry.pointsEarned >= previousOfficial.pointsEarned;
+      const nextOfficialLog = shouldUpdateOfficial ? [logEntry, ...oldLog.filter(item => item.id !== officialId)].slice(0, 100) : oldLog;
+      localStorage.setItem(logKey, JSON.stringify(nextOfficialLog));
+      if (!shouldUpdateOfficial) return;
+      localStorage.setItem(pendingSyncKey, JSON.stringify([logEntry, ...oldPending.filter(item => item.id !== officialId)].slice(0, 100)));
 
       Promise.all([syncGameResultToCloud(logEntry), syncGameResultToParentCloud(logEntry)]).then(([studentSuccess, parentSuccess]) => {
         if (studentSuccess) {
@@ -882,6 +964,8 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
     setGamesMode(mode);
     setSelectedGame(null);
     setActiveGame(null);
+    setActiveSubjectId(null);
+    setActiveTaskId(null);
   };
 
   const renderGame = () => {
@@ -940,12 +1024,8 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
                 {isReviewMode ? 'راجع الأسئلة السابقة التي وضعها المعلم للمذاكرة والاستعداد للاختبارات.' : 'اختر لعبة واحدة من الألعاب اليومية الثلاث. يمكنك إكمالها ثم إعادتها مرة واحدة فقط.'}
               </p>
               {isReviewMode && <p className="text-[9px] font-black text-warning mt-1">نتائج مراجعاتي تحفظ محليًا فقط ولا تُرسل إلى راصد المعلم أو ولي الأمر.</p>}
-              {!isReviewMode && <div className="mt-2 rounded-xl border border-warning/25 bg-warning/10 px-3 py-2 text-[9px] font-black leading-5 text-warning">
-                {dailyChoice.selectedGame
-                  ? dailyChoiceRemainingAttempts > 0
-                    ? `اختيار اليوم: ${dailyChoiceSelectedTitle}. المتبقي ${dailyChoiceRemainingAttempts} من محاولتين.`
-                    : `اكتملت محاولتا ${dailyChoiceSelectedTitle} اليوم. تعود حرية الاختيار غدًا.`
-                  : 'اختر اليوم: سباق المعرفة أو ركلات المعرفة أو السلم والثعبان. بعد بدء اللعبة يثبت الاختيار لبقية اليوم.'}
+              {!isReviewMode && activeTask && <div className="mt-2 rounded-xl border border-warning/25 bg-warning/10 px-3 py-2 text-[9px] font-black leading-5 text-warning">
+                {taskState?.selectedGame ? `لعبة الدفعة: ${GAME_TITLES[taskState.selectedGame]}. المتبقي ${taskRemainingAttempts} من محاولتين.` : 'اختر لعبة واحدة لهذه الدفعة. بعد البدء يثبت الاختيار للدفعة نفسها.'}
               </div>}
             </div>
             <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
@@ -969,25 +1049,39 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
           </section>
         )}
 
-        <section>
+        {!activeSubjectId && <section>
+          <h2 className="text-sm font-black text-textPrimary mb-3">اختر المادة</h2>
+          <div className="grid gap-3">{subjectGroups.map(group => <button key={group.subjectId} type="button" onClick={() => { setActiveSubjectId(group.subjectId); setActiveTaskId(null); }} className="w-full text-start rounded-3xl border border-borderColor bg-bgCard p-4 shadow-sm">
+            <div className="flex items-center justify-between"><div><h3 className="font-black text-textPrimary">{group.subjectName}</h3><p className="text-[10px] font-bold text-textSecondary mt-1">{group.tasks.length} دفعة · {group.totalQuestions} سؤالًا</p></div><BookOpen className="w-6 h-6 text-primary" /></div>
+          </button>)}</div>
+        </section>}
+        {activeSubjectId && !activeTask && <section>
+          <button type="button" onClick={() => setActiveSubjectId(null)} className="mb-3 text-xs font-black text-primary">العودة إلى المواد</button>
+          <h2 className="text-sm font-black text-textPrimary mb-3">دفعات {subjectGroups.find(g => g.subjectId === activeSubjectId)?.subjectName}</h2>
+          <div className="grid gap-3">{subjectGroups.find(g => g.subjectId === activeSubjectId)?.tasks.map(task => <button key={task.taskId} type="button" onClick={() => setActiveTaskId(task.taskId)} className="w-full text-start rounded-3xl border border-borderColor bg-bgCard p-4 shadow-sm">
+            <h3 className="font-black text-textPrimary">{task.title}</h3><p className="text-[10px] font-bold text-textSecondary mt-1">{task.questions.length} سؤالًا{task.unit ? ` · ${task.unit}` : ''}{task.lesson ? ` · ${task.lesson}` : ''}</p>
+          </button>)}</div>
+        </section>}
+        {activeTask && <section>
+          <button type="button" onClick={() => setActiveTaskId(null)} className="mb-3 text-xs font-black text-primary">العودة إلى دفعات المادة</button>
           <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-sm font-black text-textPrimary flex items-center gap-2">{isReviewMode ? <Archive className="w-4 h-4 text-primary" /> : <Star className="w-4 h-4 text-warning" />}{isReviewMode ? 'ألعاب المراجعة' : 'الألعاب'}</h2>
+            <h2 className="text-sm font-black text-textPrimary flex items-center gap-2">{isReviewMode ? <Archive className="w-4 h-4 text-primary" /> : <Star className="w-4 h-4 text-warning" />}{activeTask.subjectName} · {activeTask.title}</h2>
             <span className="text-[9px] font-black text-textSecondary bg-bgSoft border border-borderColor px-2 py-1 rounded-full">{availableGames.length} متاحة</span>
           </div>
           <div className="grid grid-cols-1 gap-3">
             {games.map(game => {
               const tone = getToneClasses(game.color);
               const Icon = game.icon;
-              const dailyLocked = isDailyChoiceLocked(game.id);
+              const dailyLocked = isTaskGameLocked(game.id);
               const isAvailable = game.status === 'available' && !dailyLocked;
               return (
                 <button key={game.id} type="button" onClick={() => setSelectedGame(game)} className={`w-full text-start rounded-3xl border p-4 shadow-sm transition-all active:scale-[0.99] ${isAvailable ? 'bg-bgCard border-borderColor hover:border-primary/20 hover:shadow-card' : 'bg-bgCard border-borderColor opacity-90'}`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center shrink-0 ${tone.icon}`}><Icon className="w-7 h-7" /></div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1"><h3 className="text-sm font-black text-textPrimary truncate">{game.title}</h3>{dailyLocked ? <span className="shrink-0 text-[8px] font-black px-2 py-0.5 rounded-full bg-warning/10 border border-warning/20 text-warning">{dailyChoice.selectedGame === game.id ? 'اكتملت محاولتان' : `اخترت ${dailyChoiceSelectedTitle}`}</span> : !isAvailable && <span className="shrink-0 text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary">{game.questionCount > 0 ? 'تحتاج أسئلة أكثر' : 'قريبًا'}</span>}</div>
+                      <div className="flex items-center gap-2 mb-1"><h3 className="text-sm font-black text-textPrimary truncate">{game.title}</h3>{dailyLocked ? <span className="shrink-0 text-[8px] font-black px-2 py-0.5 rounded-full bg-warning/10 border border-warning/20 text-warning">{taskState?.selectedGame === game.id ? 'اكتملت محاولتان' : `اخترت ${GAME_TITLES[taskState?.selectedGame || ''] || ''}`}</span> : !isAvailable && <span className="shrink-0 text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary">{game.questionCount > 0 ? 'تحتاج أسئلة أكثر' : 'قريبًا'}</span>}</div>
                       <p className="text-[10px] font-bold text-textSecondary leading-5 line-clamp-2">{game.description}</p>
-                      <div className="flex flex-wrap items-center gap-2 mt-2"><span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary flex items-center gap-1"><BookOpen className="w-3 h-3" />{game.questionCount} سؤال</span><span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary flex items-center gap-1"><Timer className="w-3 h-3" />{game.estimatedTime}</span>{isReviewMode && <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary">مراجعة مفتوحة</span>}{!isReviewMode && isDailyChoiceGame(game.id) && dailyChoice.selectedGame === game.id && <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-success/10 border border-success/20 text-success">المتبقي {dailyChoiceRemainingAttempts}</span>}</div>
+                      <div className="flex flex-wrap items-center gap-2 mt-2"><span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary flex items-center gap-1"><BookOpen className="w-3 h-3" />{game.questionCount} سؤال</span><span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-bgSoft border border-borderColor text-textSecondary flex items-center gap-1"><Timer className="w-3 h-3" />{game.estimatedTime}</span>{isReviewMode && <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary">مراجعة مفتوحة</span>}{!isReviewMode && Boolean(activeTask) && taskState?.selectedGame === game.id && <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-success/10 border border-success/20 text-success">المتبقي {taskRemainingAttempts}</span>}</div>
                     </div>
                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${isAvailable ? tone.button : 'bg-bgSoft text-textMuted border border-borderColor'}`}>{isAvailable ? <Play className="w-5 h-5" /> : <Lock className="w-5 h-5" />}</div>
                   </div>
@@ -995,7 +1089,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
               );
             })}
           </div>
-        </section>
+        </section>}
       </main>
 
       {selectedGame && (
@@ -1005,23 +1099,23 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
             {(() => {
               const tone = getToneClasses(selectedGame.color);
               const Icon = selectedGame.icon;
-              const dailyLocked = isDailyChoiceLocked(selectedGame.id);
+              const dailyLocked = isTaskGameLocked(selectedGame.id);
               const isAvailable = (selectedGame.status === 'available' || selectedGame.id === 'snake_ladder' || selectedGame.id === 'super_taleb') && !dailyLocked;
               return (
                 <div>
                   <div className="flex items-center gap-3 mb-4"><div className={`w-12 h-12 rounded-2xl border flex items-center justify-center ${tone.icon}`}><Icon className="w-6 h-6" /></div><div><h3 className="text-base font-black text-textPrimary">{selectedGame.title}</h3><p className="text-[10px] font-bold text-textSecondary">{selectedGame.questionCount} سؤال متاح · {selectedGame.estimatedTime}</p></div></div>
                   <p className="text-xs font-bold text-textSecondary leading-6 mb-3">{selectedGame.description}</p>
                   {isReviewMode && <div className="bg-primary/10 border border-primary/20 text-primary rounded-2xl p-3 mb-4 text-[10px] font-black leading-5">هذه اللعبة ضمن مراجعاتي. النتيجة تحفظ محليًا فقط ولا تُرسل إلى راصد المعلم أو ولي الأمر.</div>}
-                  {!isReviewMode && isDailyChoiceGame(selectedGame.id) && <div className={`rounded-2xl border p-3 mb-4 text-[10px] font-black leading-5 ${dailyLocked ? 'bg-warning/10 border-warning/20 text-warning' : 'bg-success/10 border-success/20 text-success'}`}>
+                  {!isReviewMode && Boolean(activeTask) && <div className={`rounded-2xl border p-3 mb-4 text-[10px] font-black leading-5 ${dailyLocked ? 'bg-warning/10 border-warning/20 text-warning' : 'bg-success/10 border-success/20 text-success'}`}>
                     {dailyLocked
-                      ? dailyChoice.selectedGame === selectedGame.id
+                      ? taskState?.selectedGame === selectedGame.id
                         ? 'اكتملت المحاولة الأساسية والإعادة الوحيدة لهذا اليوم.'
-                        : `تم تثبيت ${dailyChoiceSelectedTitle} كلعبة اليوم. لا يمكن الانتقال إلى لعبة يومية أخرى حتى الغد.`
-                      : dailyChoice.selectedGame === selectedGame.id
-                        ? `هذه هي لعبة اليوم. المتبقي ${dailyChoiceRemainingAttempts} من محاولتين.`
+                        : `تم تثبيت ${GAME_TITLES[taskState?.selectedGame || ''] || ''} كلعبة اليوم. لا يمكن الانتقال إلى لعبة يومية أخرى حتى الغد.`
+                      : taskState?.selectedGame === selectedGame.id
+                        ? `هذه هي لعبة اليوم. المتبقي ${taskRemainingAttempts} من محاولتين.`
                         : 'عند البدء ستصبح هذه لعبة اليوم، وستتاح إعادتها مرة واحدة فقط.'}
                   </div>}
-                  {isAvailable ? <button type="button" className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`} onClick={() => handleStartGame(selectedGame)}><Play className="w-5 h-5" />{selectedGame.id === 'super_taleb' ? 'ابدأ مغامرة سوبر طالب' : selectedGame.id === 'snake_ladder' && selectedGame.questionCount === 0 ? 'فتح اللعبة' : isReviewMode ? 'ابدأ المراجعة' : 'ابدأ اللعبة'}</button> : <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-xs font-black text-textPrimary mb-1">اللعبة غير متاحة بعد</p><p className="text-[10px] font-bold text-textSecondary leading-5">{dailyLocked ? dailyChoice.selectedGame === selectedGame.id ? 'استخدمت المحاولتين المتاحتين لهذه اللعبة اليوم.' : `اختيار اليوم هو ${dailyChoiceSelectedTitle}. ستتاح الألعاب الثلاث للاختيار من جديد غدًا.` : isReviewMode ? 'ستعمل هذه اللعبة عندما تتوفر أسئلة مراجعة مناسبة لها.' : 'ستعمل هذه اللعبة عندما يضيف المعلم عددًا كافيًا من الأسئلة المناسبة لها من راصد المعلم.'}</p></div>}
+                  {isAvailable ? <button type="button" className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`} onClick={() => handleStartGame(selectedGame)}><Play className="w-5 h-5" />{selectedGame.id === 'super_taleb' ? 'ابدأ مغامرة سوبر طالب' : selectedGame.id === 'snake_ladder' && selectedGame.questionCount === 0 ? 'فتح اللعبة' : isReviewMode ? 'ابدأ المراجعة' : 'ابدأ اللعبة'}</button> : <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-xs font-black text-textPrimary mb-1">اللعبة غير متاحة بعد</p><p className="text-[10px] font-bold text-textSecondary leading-5">{dailyLocked ? taskState?.selectedGame === selectedGame.id ? 'استخدمت المحاولتين المتاحتين لهذه اللعبة اليوم.' : `اختيار اليوم هو ${GAME_TITLES[taskState?.selectedGame || ''] || ''}. ستتاح الألعاب الثلاث للاختيار من جديد غدًا.` : isReviewMode ? 'ستعمل هذه اللعبة عندما تتوفر أسئلة مراجعة مناسبة لها.' : 'ستعمل هذه اللعبة عندما يضيف المعلم عددًا كافيًا من الأسئلة المناسبة لها من راصد المعلم.'}</p></div>}
                   <button type="button" onClick={() => setSelectedGame(null)} className="w-full mt-3 h-10 rounded-2xl font-black text-xs text-textSecondary hover:text-danger transition-colors">إغلاق</button>
                 </div>
               );
