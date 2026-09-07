@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   X,
   Dice5,
@@ -124,6 +124,9 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
   const [lives, setLives] = useState(3);
   const [completed, setCompleted] = useState(false);
   const [weakQuestionIds, setWeakQuestionIds] = useState<string[]>([]);
+  // Each question may award its 10 points only once per game attempt.
+  // Repeated questions can still move the token, but cannot inflate score or correct count.
+  const scoredQuestionIdsRef = useRef<Set<string>>(new Set());
   const [lastMoveLabel, setLastMoveLabel] = useState('استعد للعب');
 
   const canPlay = usableQuestions.length > 0;
@@ -224,9 +227,21 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
       moveLabel = `ثعبان من ${rawPosition} إلى ${finalPosition}`;
     }
 
-    // 👇 التعديل تم هنا: إضافة 10 نقاط فقط للإجابة الصحيحة
-    const nextScore = score + 10; 
-    const nextCorrect = correct + 1;
+    // تمنح كل مفردة 10 نقاط مرة واحدة فقط في المحاولة الحالية.
+    // إذا تكرر السؤال بعد انتهاء حزمة الأسئلة، تسمح الإجابة الصحيحة بالحركة
+    // ولكنها لا تضيف نقاطًا جديدة ولا ترفع عداد الإجابات الصحيحة.
+    const questionId = String(question.id || '');
+    const isFirstScoredCorrect = !scoredQuestionIdsRef.current.has(questionId);
+    if (isFirstScoredCorrect) scoredQuestionIdsRef.current.add(questionId);
+    const nextScore = score + (isFirstScoredCorrect ? 10 : 0);
+    const nextCorrect = correct + (isFirstScoredCorrect ? 1 : 0);
+    if (!isFirstScoredCorrect) {
+      bonusMessage = LADDERS[rawPosition]
+        ? 'إجابة صحيحة لسؤال مكرر، صعدت السلم دون نقاط إضافية.'
+        : SNAKES[rawPosition]
+          ? 'إجابة صحيحة لسؤال مكرر، تحركت ثم نزلت مع الثعبان دون نقاط إضافية.'
+          : 'إجابة صحيحة لسؤال مكرر، تحركت دون نقاط إضافية.';
+    }
 
     if (finalPosition >= BOARD_SIZE && nextCorrect < correctToWin) {
       finalPosition = BOARD_SIZE - 1;
@@ -318,6 +333,7 @@ const StudentSnakeLadderGame: React.FC<StudentSnakeLadderGameProps> = ({
     setLives(3);
     setCompleted(false);
     setWeakQuestionIds([]);
+    scoredQuestionIdsRef.current.clear();
     setLastMoveLabel('استعد للعب');
   };
 
