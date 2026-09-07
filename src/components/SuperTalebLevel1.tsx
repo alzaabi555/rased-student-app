@@ -59,6 +59,14 @@ const fallbackQuestions: SuperTalebQuestion[] = [
   { id: 'st-5', question: 'العلم العُماني يحتوي على اللون الأخضر.', options: ['صحيح', 'خطأ'], correctAnswer: 0 },
 ];
 
+const APP_BASE_URL = import.meta.env.BASE_URL || './';
+const resolvePublicAsset = (path: string) => {
+  const value = String(path || '').trim();
+  if (!value) return '';
+  if (/^(?:https?:|data:|blob:)/i.test(value)) return value;
+  const clean = value.replace(/^\.\/+/, '').replace(/^\/+/, '').replace(/^public\//, '');
+  return `${APP_BASE_URL}${clean}`;
+};
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const overlap = (a: Rect, b: Rect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
@@ -299,45 +307,53 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
       image.src = src;
     });
     const assetPaths: Record<string, string> = {
-      bgGate: '/assets/games/super-taleb/backgrounds/school-gate.webp',
-      bgYard: '/assets/games/super-taleb/backgrounds/school-yard.webp',
-      bgCorridor: '/assets/games/super-taleb/backgrounds/school-corridor.webp',
-      bgClassroom: '/assets/games/super-taleb/backgrounds/classroom.webp',
-      playerIdle: '/assets/games/super-taleb/player/idle.webp',
-      playerWalk: '/assets/games/super-taleb/player/walk.webp',
-      playerRun: '/assets/games/super-taleb/player/run.webp',
-      playerJump: '/assets/games/super-taleb/player/jump.webp',
-      playerFall: '/assets/games/super-taleb/player/fall.webp',
-      playerLand: '/assets/games/super-taleb/player/land.webp',
-      playerHit: '/assets/games/super-taleb/player/hit.webp',
-      playerVictory: '/assets/games/super-taleb/player/victory.webp',
-      groundA: '/assets/games/super-taleb/terrain/grass-long-a.webp',
-      groundB: '/assets/games/super-taleb/terrain/grass-long-b.webp',
-      groundC: '/assets/games/super-taleb/terrain/grass-long-c.webp',
-      stoneGround: '/assets/games/super-taleb/terrain/stone-ground.webp',
-      stoneLong: '/assets/games/super-taleb/terrain/stone-long.webp',
-      grassMediumA: '/assets/games/super-taleb/terrain/grass-medium-a.webp',
-      grassMediumB: '/assets/games/super-taleb/terrain/grass-medium-b.webp',
-      grassSmall: '/assets/games/super-taleb/terrain/grass-small.webp',
-      grassPlatform: '/assets/games/super-taleb/terrain/grass-platform.webp',
-      woodBridge: '/assets/games/super-taleb/terrain/wood-bridge.webp',
-      worksheet: '/assets/games/super-taleb/enemies/worksheet.webp',
-      lateReport: '/assets/games/super-taleb/enemies/late-report.webp',
-      coin: '/assets/games/super-taleb/items/knowledge-coin.webp',
-      woodCrate: '/assets/games/super-taleb/items/wood-crate.webp',
-      questionBox: '/assets/games/super-taleb/items/question-box.webp',
-      knowledgeBook: '/assets/games/super-taleb/items/knowledge-book.webp',
-      classroomDoor: '/assets/games/super-taleb/items/classroom-door.webp',
-      finishFlag: '/assets/games/super-taleb/items/finish-flag.webp',
+      bgGate: resolvePublicAsset('/assets/games/super-taleb/backgrounds/school-gate.webp'),
+      bgYard: resolvePublicAsset('/assets/games/super-taleb/backgrounds/school-yard.webp'),
+      bgCorridor: resolvePublicAsset('/assets/games/super-taleb/backgrounds/school-corridor.webp'),
+      bgClassroom: resolvePublicAsset('/assets/games/super-taleb/backgrounds/classroom.webp'),
+      playerIdle: resolvePublicAsset('/assets/games/super-taleb/player/idle.webp'),
+      playerWalk: resolvePublicAsset('/assets/games/super-taleb/player/walk.webp'),
+      playerRun: resolvePublicAsset('/assets/games/super-taleb/player/run.webp'),
+      playerJump: resolvePublicAsset('/assets/games/super-taleb/player/jump.webp'),
+      playerFall: resolvePublicAsset('/assets/games/super-taleb/player/fall.webp'),
+      playerLand: resolvePublicAsset('/assets/games/super-taleb/player/land.webp'),
+      playerHit: resolvePublicAsset('/assets/games/super-taleb/player/hit.webp'),
+      playerVictory: resolvePublicAsset('/assets/games/super-taleb/player/victory.webp'),
+      groundA: resolvePublicAsset('/assets/games/super-taleb/terrain/grass-long-a.webp'),
+      groundB: resolvePublicAsset('/assets/games/super-taleb/terrain/grass-long-b.webp'),
+      groundC: resolvePublicAsset('/assets/games/super-taleb/terrain/grass-long-c.webp'),
+      stoneGround: resolvePublicAsset('/assets/games/super-taleb/terrain/stone-ground.webp'),
+      stoneLong: resolvePublicAsset('/assets/games/super-taleb/terrain/stone-long.webp'),
+      grassMediumA: resolvePublicAsset('/assets/games/super-taleb/terrain/grass-medium-a.webp'),
+      grassMediumB: resolvePublicAsset('/assets/games/super-taleb/terrain/grass-medium-b.webp'),
+      grassSmall: resolvePublicAsset('/assets/games/super-taleb/terrain/grass-small.webp'),
+      grassPlatform: resolvePublicAsset('/assets/games/super-taleb/terrain/grass-platform.webp'),
+      woodBridge: resolvePublicAsset('/assets/games/super-taleb/terrain/wood-bridge.webp'),
+      worksheet: resolvePublicAsset('/assets/games/super-taleb/enemies/worksheet.webp'),
+      lateReport: resolvePublicAsset('/assets/games/super-taleb/enemies/late-report.webp'),
+      coin: resolvePublicAsset('/assets/games/super-taleb/items/knowledge-coin.webp'),
+      woodCrate: resolvePublicAsset('/assets/games/super-taleb/items/wood-crate.webp'),
+      questionBox: resolvePublicAsset('/assets/games/super-taleb/items/question-box.webp'),
+      knowledgeBook: resolvePublicAsset('/assets/games/super-taleb/items/knowledge-book.webp'),
+      classroomDoor: resolvePublicAsset('/assets/games/super-taleb/items/classroom-door.webp'),
+      finishFlag: resolvePublicAsset('/assets/games/super-taleb/items/finish-flag.webp'),
       guideSigns: '/assets/games/super-taleb/items/guide-signs.webp'
     };
-    Promise.all(Object.entries(assetPaths).map(async ([key, path]) => [key, await loadImage(path)] as const)).then(entries => {
+    Promise.allSettled(
+      Object.entries(assetPaths).map(async ([key, path]) => [key, await loadImage(path)] as const),
+    ).then(results => {
       if (cancelled) return;
-      environmentAssetsRef.current = Object.fromEntries(entries);
-      environmentReadyRef.current = true;
-    }).catch(error => {
-      console.warn('Super Taleb environment assets fallback to Canvas', error);
-      environmentReadyRef.current = false;
+      const keys = Object.keys(assetPaths);
+      const loadedEntries: Array<readonly [string, HTMLImageElement]> = [];
+      const failedAssets: string[] = [];
+      results.forEach((result, index) => {
+        const key = keys[index];
+        if (result.status === 'fulfilled') loadedEntries.push(result.value);
+        else failedAssets.push(`${key}: ${assetPaths[key]}`);
+      });
+      environmentAssetsRef.current = Object.fromEntries(loadedEntries);
+      environmentReadyRef.current = loadedEntries.length > 0;
+      if (failedAssets.length) console.warn('Super Taleb assets not loaded', failedAssets);
     });
     return () => { cancelled = true; };
   }, []);
