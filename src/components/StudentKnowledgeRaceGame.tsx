@@ -177,6 +177,7 @@ const shuffleArray = <T,>(arr: T[]) => {
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 
+// Public assets must include Vite's base path on GitHub Pages.
 const resolvePublicAsset = (path: string) => {
   const cleanPath = String(path || '')
     .trim()
@@ -203,6 +204,8 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
   const spriteStartRef = useRef(performance.now());
   const answerTimerRef = useRef<number | null>(null);
   const [spritesReady, setSpritesReady] = useState(false);
+  const [spriteLoadError, setSpriteLoadError] = useState<string | null>(null);
+  const [spriteReloadKey, setSpriteReloadKey] = useState(0);
   const spriteModeRef = useRef(false);
   const spriteLoadFailedRef = useRef(false);
 
@@ -261,34 +264,42 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
     const loadAndDecode = async ([key, src]: [string, string]) => {
       const image = new Image();
       image.decoding = 'async';
-      image.src = resolvePublicAsset(src);
+      const resolvedSrc = resolvePublicAsset(src);
+      image.src = resolvedSrc;
       if (!image.complete) {
         await new Promise<void>((resolve, reject) => {
           image.onload = () => resolve();
-          image.onerror = () => reject(new Error(`تعذر تحميل ${src}`));
+          image.onerror = () => reject(new Error(`تعذر تحميل ${resolvedSrc}`));
         });
       }
       if (typeof image.decode === 'function') {
         try { await image.decode(); } catch { /* onload validation below remains authoritative */ }
       }
       if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
-        throw new Error(`أصل غير صالح: ${src}`);
+        throw new Error(`أصل غير صالح: ${resolvedSrc}`);
       }
       raceSpritesRef.current[key] = image;
     };
 
-    Promise.allSettled(entries.map(loadAndDecode)).then(results => {
+    setSpritesReady(false);
+    setSpriteLoadError(null);
+    spriteModeRef.current = false;
+    spriteLoadFailedRef.current = false;
+    raceSpritesRef.current = {};
+    Promise.all(entries.map(loadAndDecode)).then(() => {
       if (cancelled) return;
-      const loadedCount = results.filter(result => result.status === 'fulfilled').length;
-      const failedAssets = results
-        .map((result, index) => result.status === 'rejected' ? entries[index][1] : '')
-        .filter(Boolean);
-      spriteModeRef.current = loadedCount > 0;
-      spriteLoadFailedRef.current = failedAssets.length > 0;
-      setSpritesReady(loadedCount === entries.length);
-      if (failedAssets.length > 0) {
-        console.warn('Some race sprites were unavailable; Canvas fallback will be used where needed.', failedAssets);
-      }
+      spriteModeRef.current = true;
+      spriteLoadFailedRef.current = false;
+      setSpriteLoadError(null);
+      setSpritesReady(true);
+    }).catch(error => {
+      console.error('Race sprites failed validation', error);
+      if (cancelled) return;
+      spriteModeRef.current = false;
+      spriteLoadFailedRef.current = true;
+      raceSpritesRef.current = {};
+      setSpritesReady(false);
+      setSpriteLoadError(error instanceof Error ? error.message : 'تعذر تحميل أصول السيارات.');
     });
 
     return () => {
@@ -621,7 +632,7 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
   };
 
   const startGame = () => {
-    if (!canPlay) return;
+    if (!canPlay || !spriteModeRef.current) return;
     resetGame();
     syncState('playing');
   };
@@ -1269,11 +1280,18 @@ return (
         <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[2rem] p-7 text-center animate-in fade-in zoom-in-95 duration-200" style={{ background: 'linear-gradient(160deg, rgba(28,52,88,.98), rgba(7,21,47,.99))', border: '1px solid rgba(251,191,36,.42)', boxShadow: '0 28px 80px rgba(0,0,0,.58), 0 0 38px rgba(245,158,11,.13)' }}>
             <div className="text-6xl mb-3">🏎️</div>
-            <div className={`mx-auto mb-3 w-fit rounded-full px-3 py-1 text-[10px] font-black border ${spritesReady ? 'bg-emerald-400/10 border-emerald-300/25 text-emerald-200' : 'bg-slate-800 border-white/10 text-slate-300'}`}>{spritesReady ? 'السيارات الاحترافية جاهزة • 5 منافسين' : spriteLoadFailedRef.current ? 'وضع Canvas جاهز للعب' : 'جارٍ تجهيز سيارات السباق...'}</div>
+            <div className={`mx-auto mb-3 w-fit rounded-full px-3 py-1 text-[10px] font-black border ${spritesReady ? 'bg-emerald-400/10 border-emerald-300/25 text-emerald-200' : 'bg-slate-800 border-white/10 text-slate-300'}`}>{spritesReady ? 'السيارات الاحترافية جاهزة • 5 منافسين' : spriteLoadError ? 'تعذر تجهيز أصول السيارات' : 'جارٍ تجهيز سيارات السباق...'}</div>
             <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-l from-amber-300 to-orange-500 mb-2">طريق المعرفة</h1>
             <p className="text-sm font-bold text-slate-300 leading-6 mb-6">
               سباق حقيقي: تجاوز السيارات، افتح بوابات الأسئلة، واستعمل التيربو لتصبح بطل الحلبة.
             </p>
+            {spriteLoadError && (
+              <div className="mb-4 rounded-2xl border border-red-300/30 bg-red-400/10 p-3">
+                <p className="text-xs font-black text-red-200">لم تكتمل أصول سباق المعرفة، لذلك لن تبدأ اللعبة بوضع ناقص.</p>
+                <p dir="ltr" className="mt-2 break-all text-[9px] text-slate-300">{spriteLoadError}</p>
+                <button type="button" onClick={() => setSpriteReloadKey(value => value + 1)} className="mt-3 rounded-xl bg-white px-4 py-2 text-xs font-black text-slate-900">إعادة تحميل السيارات</button>
+              </div>
+            )}
             {!canPlay ? (
               <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-sm font-bold text-slate-300">
                 بانتظار أسئلة سباق المعرفة من المعلم.
@@ -1282,10 +1300,11 @@ return (
               <button
                 type="button"
                 onClick={startGame}
+                disabled={!spritesReady}
                 className="w-full h-14 rounded-2xl bg-gradient-to-l from-amber-400 to-orange-600 disabled:from-slate-600 disabled:to-slate-700 disabled:opacity-70 text-white font-black text-lg shadow-[0_14px_28px_rgba(245,158,11,0.35)] active:scale-95 flex items-center justify-center gap-2"
               >
                 <Play className="w-6 h-6" />
-                ابدأ السباق
+                {spritesReady ? 'ابدأ السباق' : spriteLoadError ? 'الأصول غير مكتملة' : 'جارٍ تجهيز السيارات...'}
               </button>
             )}
           </div>
