@@ -78,7 +78,7 @@ export default defineConfig(({ mode }) => {
                     urlPattern: ({ request }) => request.destination === 'image' || request.destination === 'audio',
                     handler: 'CacheFirst',
                     options: {
-                      cacheName: 'rased-student-game-assets-v1',
+                     cacheName: 'rased-student-game-assets-v2'
                       expiration: {
                         maxEntries: 500,
                         maxAgeSeconds: 30 * 24 * 60 * 60,
