@@ -177,15 +177,11 @@ const shuffleArray = <T,>(arr: T[]) => {
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 
-// Resolve public assets correctly for both deployment targets:
-// GitHub Pages PWA: /rased-student-app/assets/...
-// Capacitor Android/iOS: ./assets/...
 const resolvePublicAsset = (path: string) => {
   const cleanPath = String(path || '')
     .trim()
     .replace(/^\.\/+/, '')
     .replace(/^\/+/, '');
-
   return `${import.meta.env.BASE_URL}${cleanPath}`;
 };
 const getTodayKey = () => new Date().toLocaleDateString('en-CA');
@@ -281,17 +277,18 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
       raceSpritesRef.current[key] = image;
     };
 
-    Promise.all(entries.map(loadAndDecode)).then(() => {
+    Promise.allSettled(entries.map(loadAndDecode)).then(results => {
       if (cancelled) return;
-      spriteModeRef.current = true;
-      spriteLoadFailedRef.current = false;
-      setSpritesReady(true);
-    }).catch(error => {
-      console.error('Race sprites failed validation', error);
-      if (cancelled) return;
-      spriteModeRef.current = false;
-      spriteLoadFailedRef.current = true;
-      setSpritesReady(false);
+      const loadedCount = results.filter(result => result.status === 'fulfilled').length;
+      const failedAssets = results
+        .map((result, index) => result.status === 'rejected' ? entries[index][1] : '')
+        .filter(Boolean);
+      spriteModeRef.current = loadedCount > 0;
+      spriteLoadFailedRef.current = failedAssets.length > 0;
+      setSpritesReady(loadedCount === entries.length);
+      if (failedAssets.length > 0) {
+        console.warn('Some race sprites were unavailable; Canvas fallback will be used where needed.', failedAssets);
+      }
     });
 
     return () => {
@@ -624,7 +621,7 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
   };
 
   const startGame = () => {
-    if (!canPlay || !spriteModeRef.current) return;
+    if (!canPlay) return;
     resetGame();
     syncState('playing');
   };
@@ -1272,7 +1269,7 @@ return (
         <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[2rem] p-7 text-center animate-in fade-in zoom-in-95 duration-200" style={{ background: 'linear-gradient(160deg, rgba(28,52,88,.98), rgba(7,21,47,.99))', border: '1px solid rgba(251,191,36,.42)', boxShadow: '0 28px 80px rgba(0,0,0,.58), 0 0 38px rgba(245,158,11,.13)' }}>
             <div className="text-6xl mb-3">🏎️</div>
-            <div className={`mx-auto mb-3 w-fit rounded-full px-3 py-1 text-[10px] font-black border ${spritesReady ? 'bg-emerald-400/10 border-emerald-300/25 text-emerald-200' : 'bg-slate-800 border-white/10 text-slate-300'}`}>{spritesReady ? 'السيارات الاحترافية جاهزة • 5 منافسين' : 'جارٍ تجهيز سيارات السباق...'}</div>
+            <div className={`mx-auto mb-3 w-fit rounded-full px-3 py-1 text-[10px] font-black border ${spritesReady ? 'bg-emerald-400/10 border-emerald-300/25 text-emerald-200' : 'bg-slate-800 border-white/10 text-slate-300'}`}>{spritesReady ? 'السيارات الاحترافية جاهزة • 5 منافسين' : spriteLoadFailedRef.current ? 'وضع Canvas جاهز للعب' : 'جارٍ تجهيز سيارات السباق...'}</div>
             <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-l from-amber-300 to-orange-500 mb-2">طريق المعرفة</h1>
             <p className="text-sm font-bold text-slate-300 leading-6 mb-6">
               سباق حقيقي: تجاوز السيارات، افتح بوابات الأسئلة، واستعمل التيربو لتصبح بطل الحلبة.
@@ -1285,11 +1282,10 @@ return (
               <button
                 type="button"
                 onClick={startGame}
-                disabled={!spritesReady}
                 className="w-full h-14 rounded-2xl bg-gradient-to-l from-amber-400 to-orange-600 disabled:from-slate-600 disabled:to-slate-700 disabled:opacity-70 text-white font-black text-lg shadow-[0_14px_28px_rgba(245,158,11,0.35)] active:scale-95 flex items-center justify-center gap-2"
               >
                 <Play className="w-6 h-6" />
-                {spritesReady ? 'ابدأ السباق' : 'جارٍ تجهيز السيارات...'}
+                ابدأ السباق
               </button>
             )}
           </div>
