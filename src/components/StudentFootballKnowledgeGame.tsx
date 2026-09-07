@@ -116,6 +116,18 @@ const SHOT_ZONES: ShotZone[] = [
 ];
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+// Resolve public game assets for both deployment targets:
+// GitHub Pages PWA: /rased-student-app/assets/...
+// Capacitor Android/iOS: ./assets/...
+const resolvePublicAsset = (path: string) => {
+  const cleanPath = String(path || '')
+    .trim()
+    .replace(/^\.\/+/, '')
+    .replace(/^\/+/, '');
+
+  return `${import.meta.env.BASE_URL}${cleanPath}`;
+};
 const getTodayKey = () => new Date().toLocaleDateString('en-CA');
 
 const normalizeQuestions = (questions: FootballKnowledgeQuestion[]) => {
@@ -222,7 +234,7 @@ const StudentFootballKnowledgeGame: React.FC<StudentFootballKnowledgeGameProps> 
         resolve();
       };
       image.onerror = () => reject(new Error(`تعذر تحميل Sprite: ${definition.src}`));
-      image.src = definition.src;
+      image.src = resolvePublicAsset(definition.src);
     }))).then(() => {
       if (!cancelled) setSpritesReady(true);
     }).catch(error => {
