@@ -175,6 +175,19 @@ const shuffleArray = <T,>(arr: T[]) => {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+
+// Resolve public assets correctly for both deployment targets:
+// GitHub Pages PWA: /rased-student-app/assets/...
+// Capacitor Android/iOS: ./assets/...
+const resolvePublicAsset = (path: string) => {
+  const cleanPath = String(path || '')
+    .trim()
+    .replace(/^\.\/+/, '')
+    .replace(/^\/+/, '');
+
+  return `${import.meta.env.BASE_URL}${cleanPath}`;
+};
 const getTodayKey = () => new Date().toLocaleDateString('en-CA');
 
 const makeId = () => Math.random().toString(36).slice(2, 10);
@@ -252,7 +265,7 @@ const StudentKnowledgeRaceGame: React.FC<StudentKnowledgeRaceGameProps> = ({
     const loadAndDecode = async ([key, src]: [string, string]) => {
       const image = new Image();
       image.decoding = 'async';
-      image.src = src;
+      image.src = resolvePublicAsset(src);
       if (!image.complete) {
         await new Promise<void>((resolve, reject) => {
           image.onload = () => resolve();
