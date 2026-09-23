@@ -51,13 +51,7 @@ const MOVE_SPEED = 330;
 const RUN_SPEED = 440;
 const JUMP_SPEED = 840;
 
-const fallbackQuestions: SuperTalebQuestion[] = [
-  { id: 'st-1', question: 'ما عاصمة سلطنة عُمان؟', options: ['صحار', 'مسقط', 'نزوى', 'صلالة'], correctAnswer: 1 },
-  { id: 'st-2', question: 'كم عدد أيام الأسبوع؟', options: ['خمسة', 'ستة', 'سبعة', 'ثمانية'], correctAnswer: 2 },
-  { id: 'st-3', question: 'أي كلمة تعبّر عن المعرفة؟', options: ['كتاب', 'طريق', 'باب', 'شجرة'], correctAnswer: 0 },
-  { id: 'st-4', question: 'ما ناتج 6 + 4؟', options: ['8', '9', '10', '11'], correctAnswer: 2 },
-  { id: 'st-5', question: 'العلم العُماني يحتوي على اللون الأخضر.', options: ['صحيح', 'خطأ'], correctAnswer: 0 },
-];
+
 
 const APP_BASE_URL = import.meta.env.BASE_URL || './';
 const resolvePublicAsset = (path: string) => {
@@ -141,7 +135,7 @@ const createLevel = (questionCount: number) => {
     {x:3890,y:360},{x:4740,y:515},{x:5480,y:360},{x:6460,y:515},
     {x:7180,y:360},{x:8030,y:515},{x:8580,y:515},{x:8840,y:360}
   ];
-  const count = Math.min(Math.max(questionCount, 1), questionSlots.length);
+  const count = Math.min(Math.max(questionCount, 0), questionSlots.length);
   const selectedSlots = Array.from({length:count}, (_,i) => questionSlots[Math.round(i*(questionSlots.length-1)/Math.max(1,count-1))]);
   const boxes: Box[] = selectedSlots.map((slot,i) => ({ x:slot.x,y:slot.y,w:58,h:58,questionIndex:i,opened:false,active:false }));
 
@@ -168,7 +162,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
   const rafRef = useRef<number | null>(null);
   const lastRef = useRef(0);
   const stateRef = useRef<GameState>('menu');
-  const questionPool = useMemo(() => (questions?.length ? questions : fallbackQuestions), [questions]);
+  const questionPool = useMemo(() => (Array.isArray(questions) ? questions : []).filter(question => question?.question && Array.isArray(question.options) && question.options.length >= 2), [questions]);
   const levelRef = useRef(createLevel(questionPool.length));
   const playerRef = useRef({ x: 105, y: GROUND_Y - PLAYER_H, w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0, grounded: false, facing: 1, invincible: 0, runFrame: 0, supportIndex: -1, landTimer: 0, checkpointX: 105, hazardCooldown: 0 });
   const inputRef = useRef({ left: false, right: false, jump: false, run: false });
@@ -242,6 +236,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
 
   const openQuestion = useCallback((box: Box) => {
     if (box.opened || stateRef.current !== 'playing') return;
+    if (questionPool.length === 0) return;
     const idx = box.questionIndex % questionPool.length;
     playerRef.current.vx = 0;
     inputRef.current = { left: false, right: false, jump: false, run: false };
@@ -748,7 +743,7 @@ export default function SuperTalebLevel1({ questions, onComplete, onClose }: Pro
     {gameState==='menu' && <Overlay><Card compact={orientation==='landscape'}>
       <div style={{fontSize:58}}>🎓</div><h1 style={title}>سوبر طالب</h1><p style={sub}>المرحلة الأولى: مدرسة راصد للتعليم</p>
       <p style={body}>تحرك واقفز، اجمع العملات ونجوم المعرفة، وافتح صناديق الأسئلة حتى تصل إلى الفصل الدراسي.</p>
-      <button style={primary} onClick={resetGame}>ابدأ المرحلة</button><button style={secondary} onClick={onClose}>العودة</button>
+      {questionPool.length > 0 ? <button style={primary} onClick={resetGame}>ابدأ المرحلة</button> : <p style={body}>لا تحتوي هذه الدفعة على أسئلة اختيار من متعدد أو صواب وخطأ مناسبة لسوبر طالب.</p>}<button style={secondary} onClick={onClose}>العودة</button>
     </Card></Overlay>}
 
     {gameState==='playing' && showIntro && <Overlay><Card compact={orientation==='landscape'}>

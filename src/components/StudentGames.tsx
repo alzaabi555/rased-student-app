@@ -17,7 +17,9 @@ import {
   RotateCcw,
   Info,
   Archive,
-  GraduationCap
+  GraduationCap,
+  FileText,
+  Printer
 } from 'lucide-react';
 
 import StudentSnakeLadderGame from './StudentSnakeLadderGame';
@@ -51,7 +53,7 @@ export interface GameQuestion {
   unit?: string;
   lesson?: string;
   gameTypes?: string[];
-  questionType?: 'multiple_choice' | 'true_false' | 'matching' | 'sequence' | 'hints';
+  questionType?: 'multiple_choice' | 'true_false' | 'matching' | 'sequence' | 'sequence_order' | 'hints';
   question?: string;
   options?: string[];
   correctAnswerIndex?: number;
@@ -257,11 +259,11 @@ type GameCardWithAvailability = GameCard & { questionCount: number };
 const BASE_GAMES: Omit<GameCard, 'status'>[] = [
   { id: 'knowledge_race', title: 'سباق المعرفة', shortTitle: 'السباق', description: 'تجاوز المركبات وافتح بوابات الأسئلة لتحصل على التيربو.', icon: Car, color: 'warning', supportedGameTypes: ['race', 'knowledge_race'], supportedQuestionTypes: ['multiple_choice', 'true_false'], minQuestions: 1, estimatedTime: '3 - 5 دقائق' },
   { id: 'football_quiz', title: 'ركلات المعرفة', shortTitle: 'الكرة', description: 'اختر زاوية التسديد، أجب عن سؤال الحسم، وسجل الأهداف.', icon: Goal, color: 'info', supportedGameTypes: ['football', 'penalty', 'football_quiz'], supportedQuestionTypes: ['multiple_choice', 'true_false'], minQuestions: 1, estimatedTime: '3 دقائق' },
-  { id: 'super_taleb', title: 'سوبر طالب', shortTitle: 'سوبر طالب', description: 'تحرك واقفز، اجمع العملات ونجوم المعرفة، وتجاوز العقبات حتى تصل إلى الفصل الدراسي.', icon: GraduationCap, color: 'success', supportedGameTypes: ['super_taleb', 'platform', 'adventure'], supportedQuestionTypes: ['multiple_choice', 'true_false'], minQuestions: 0, estimatedTime: '4 - 7 دقائق' },
-  { id: 'snake_ladder', title: 'السلم والثعبان', shortTitle: 'السلم', description: 'لوحة تعليمية ممتعة بأسئلة ديناميكية من المعلم.', icon: RotateCcw, color: 'primary', supportedGameTypes: ['snake_ladder'], supportedQuestionTypes: ['multiple_choice', 'true_false'], minQuestions: 0, estimatedTime: 'حسب عدد الأسئلة' },
+  { id: 'super_taleb', title: 'سوبر طالب', shortTitle: 'سوبر طالب', description: 'تحرك واقفز، اجمع العملات ونجوم المعرفة، وتجاوز العقبات حتى تصل إلى الفصل الدراسي.', icon: GraduationCap, color: 'success', supportedGameTypes: ['super_taleb', 'platform', 'adventure'], supportedQuestionTypes: ['multiple_choice', 'true_false'], minQuestions: 1, estimatedTime: '4 - 7 دقائق' },
+  { id: 'snake_ladder', title: 'السلم والثعبان', shortTitle: 'السلم', description: 'لوحة تعليمية ممتعة بأسئلة ديناميكية من المعلم.', icon: RotateCcw, color: 'primary', supportedGameTypes: ['snake_ladder'], supportedQuestionTypes: ['multiple_choice', 'true_false'], minQuestions: 1, estimatedTime: 'حسب عدد الأسئلة' },
   { id: 'true_false', title: 'صح أم خطأ', shortTitle: 'صح/خطأ', description: 'تحدي سريع: اختر صح أو خطأ قبل انتهاء الوقت.', icon: CheckCircle2, color: 'success', supportedGameTypes: ['true_false'], supportedQuestionTypes: ['true_false'], minQuestions: 1, estimatedTime: 'دقيقتان' },
   { id: 'match_cards', title: 'طابق المفهوم', shortTitle: 'المطابقة', description: 'اربط المصطلح بالتعريف الصحيح بطريقة ممتعة.', icon: Puzzle, color: 'danger', supportedGameTypes: ['matching', 'match_cards'], supportedQuestionTypes: ['matching'], minQuestions: 1, estimatedTime: '3 دقائق' },
-  { id: 'sequence_order', title: 'رتّب الأحداث', shortTitle: 'الترتيب', description: 'رتب الأحداث أو الخطوات حسب التسلسل الصحيح.', icon: ListOrdered, color: 'primary', supportedGameTypes: ['sequence', 'order'], supportedQuestionTypes: ['sequence'], minQuestions: 1, estimatedTime: '3 دقائق' }
+  { id: 'sequence_order', title: 'رتّب الأحداث', shortTitle: 'الترتيب', description: 'رتب الأحداث أو الخطوات حسب التسلسل الصحيح.', icon: ListOrdered, color: 'primary', supportedGameTypes: ['sequence', 'order'], supportedQuestionTypes: ['sequence', 'sequence_order'], minQuestions: 1, estimatedTime: '3 دقائق' }
 ];
 
 const GAME_TITLES: Record<string, string> = {
@@ -351,16 +353,27 @@ const normalizeQuestionList = (questions: GameQuestion[], includeInactive = fals
   return Array.from(map.values());
 };
 
-const isQuestionCompatibleWithGame = (question: GameQuestion, game: Omit<GameCard, 'status'>) => {
-  const byGameType = (question.gameTypes || []).some(type => game.supportedGameTypes.includes(type));
-  const byQuestionType = question.questionType ? game.supportedQuestionTypes.includes(question.questionType) : false;
-  return byGameType || byQuestionType;
+const normalizeQuestionType = (value?: string) => {
+  const type = String(value || '').trim().toLowerCase();
+  if (type === 'match' || type === 'match_cards') return 'matching';
+  if (type === 'sequence_order' || type === 'order') return 'sequence';
+  return type;
 };
-
+const isQuestionCompatibleWithGame = (question: GameQuestion, game: Omit<GameCard, 'status'>) => {
+  // نوع السؤال هو المرجع الحاكم. gameTypes مجرد وصف إضافي ولا يجوز أن يفتح لعبة غير متوافقة.
+  const questionType = normalizeQuestionType(question.questionType);
+  const supportedTypes = game.supportedQuestionTypes.map(normalizeQuestionType);
+  if (questionType) return supportedTypes.includes(questionType);
+  // توافق قديم للبيانات التي لا تحتوي questionType، مع منع الألعاب العامة من قبول المطابقة والترتيب.
+  const declaredGameTypes = (question.gameTypes || []).map(type => String(type || '').trim().toLowerCase());
+  return declaredGameTypes.some(type => game.supportedGameTypes.includes(type));
+};
 const filterPlayableQuestions = (questions: GameQuestion[]) => questions.filter(question => {
   if (!question.question) return false;
   if (question.active === false) return false;
-  if (question.questionType === 'true_false') return true;
+  const questionType = normalizeQuestionType(question.questionType);
+  if (questionType !== 'multiple_choice' && questionType !== 'true_false') return false;
+  if (questionType === 'true_false') return true;
   const hasOptions = Array.isArray(question.options) && question.options.length >= 2;
   const hasAnswer = typeof question.correctAnswerIndex === 'number';
   return hasOptions && hasAnswer;
@@ -448,7 +461,7 @@ const toMatchCardsQuestions = (questions: GameQuestion[]): MatchCardsQuestion[] 
 const toSequenceOrderQuestions = (questions: GameQuestion[]): SequenceOrderQuestion[] => questions
   .filter(question => {
     if (question.active === false) return false;
-    return question.questionType === 'sequence' && Array.isArray(question.sequence) && question.sequence.map(item => item.trim()).filter(Boolean).length >= 2;
+    return normalizeQuestionType(question.questionType) === 'sequence' && Array.isArray(question.sequence) && question.sequence.map(item => item.trim()).filter(Boolean).length >= 2;
   })
   .map(question => ({
     id: question.id,
@@ -626,6 +639,43 @@ const buildGameResultLogEntry = (
   };
 };
 
+const escapeHtml = (value: unknown) => String(value ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const buildReviewExportHtml = (task: StudentGameTask, includeAnswers = true) => {
+  const questionsHtml = task.questions.map((question, index) => {
+    const type = normalizeQuestionType(question.questionType);
+    let body = '';
+    if (type === 'matching') {
+      body = `<ol>${(question.pairs || []).map(pair => `<li>${escapeHtml(pair.term || pair.left)} ← ${escapeHtml(pair.definition || pair.right)}</li>`).join('')}</ol>`;
+    } else if (type === 'sequence') {
+      body = `<ol>${(question.sequence || []).map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ol>`;
+    } else {
+      const options = type === 'true_false' ? ['صح', 'خطأ'] : (question.options || []);
+      body = `<ol type="A">${options.map(option => `<li>${escapeHtml(option)}</li>`).join('')}</ol>`;
+    }
+    const answer = includeAnswers && (type === 'multiple_choice' || type === 'true_false')
+      ? `<p class="answer"><strong>الإجابة:</strong> ${escapeHtml(question.correctAnswerText || question.options?.[question.correctAnswerIndex ?? -1] || '')}</p>` : '';
+    const explanation = includeAnswers && question.explanation ? `<p class="explanation"><strong>التفسير:</strong> ${escapeHtml(question.explanation)}</p>` : '';
+    return `<section><h3>السؤال ${index + 1}</h3><p class="question">${escapeHtml(question.question || (type === 'matching' ? 'طابق بين العناصر' : 'رتب العناصر'))}</p>${body}${answer}${explanation}</section>`;
+  }).join('');
+  return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><style>
+    body{font-family:Arial,Tahoma,sans-serif;direction:rtl;line-height:1.8;margin:32px;color:#0f172a}h1,h2{text-align:center}section{page-break-inside:avoid;border-bottom:1px solid #cbd5e1;padding:14px 0}.meta{background:#f1f5f9;padding:12px;border-radius:10px}.question{font-weight:700}.answer{color:#166534}.explanation{color:#075985}@page{size:A4;margin:18mm}
+  </style></head><body><h1>مراجعاتي</h1><h2>${escapeHtml(task.subjectName)} · ${escapeHtml(task.title)}</h2><div class="meta">${escapeHtml(task.unit)}${task.lesson ? ` · ${escapeHtml(task.lesson)}` : ''} · عدد الأسئلة: ${task.questions.length}</div>${questionsHtml}</body></html>`;
+};
+const safeExportName = (task: StudentGameTask) => `${task.subjectName}_${task.title}`.replace(/[^\u0600-\u06FFa-zA-Z0-9_-]+/g, '_');
+const exportReviewTaskAsWord = (task: StudentGameTask) => {
+  const blob = new Blob(['\ufeff', buildReviewExportHtml(task, true)], { type: 'application/msword;charset=utf-8' });
+  const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
+  anchor.href = url; anchor.download = `مراجعة_${safeExportName(task)}.doc`; anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+const exportReviewTaskAsPdf = (task: StudentGameTask) => {
+  const printWindow = window.open('', '_blank', 'noopener,noreferrer');
+  if (!printWindow) return;
+  printWindow.document.open(); printWindow.document.write(buildReviewExportHtml(task, true)); printWindow.document.close();
+  printWindow.onload = () => { printWindow.focus(); printWindow.print(); };
+};
+
 const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange }) => {
   const { t, dir } = useApp();
   const [selectedGame, setSelectedGame] = useState<GameCardWithAvailability | null>(null);
@@ -706,13 +756,11 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
   }, [studentKey, statsVersion]);
   const games = useMemo<GameCardWithAvailability[]>(() => BASE_GAMES.map(game => {
     const compatibleQuestions = currentGameQuestions.filter(q => isQuestionCompatibleWithGame(q, game));
-    const status: GameStatus = game.id === 'snake_ladder' || game.id === 'super_taleb'
+    const status: GameStatus = compatibleQuestions.length >= game.minQuestions
       ? 'available'
-      : compatibleQuestions.length >= game.minQuestions
-        ? 'available'
-        : compatibleQuestions.length > 0
-          ? 'needs_questions'
-          : 'coming_soon';
+      : compatibleQuestions.length > 0
+        ? 'needs_questions'
+        : 'coming_soon';
     return { ...game, status, questionCount: compatibleQuestions.length };
   }), [currentGameQuestions]);
 
@@ -735,8 +783,8 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
   const superTalebQuestions = useMemo(() => {
     const game = findBaseGame('super_taleb');
     const compatible = game ? currentGameQuestions.filter(q => isQuestionCompatibleWithGame(q, game)) : [];
-    // سوبر طالب تقبل قائمة فارغة وتستخدم أسئلة مدمجة للمعاينة عند عدم توفر أسئلة المعلم.
-    return toSuperTalebQuestions(compatible.length ? compatible : currentGameQuestions.filter(q => q.questionType === 'multiple_choice' || q.questionType === 'true_false'));
+    // لا تمرر أي أسئلة بديلة. سوبر طالب تعمل فقط بأسئلة اختيار/صواب وخطأ المتوافقة مع الدفعة.
+    return toSuperTalebQuestions(compatible);
   }, [currentGameQuestions]);
 
   const superTalebChallengeId = useMemo(() => {
@@ -787,7 +835,9 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
   };
 
   const handleStartGame = (game: GameCardWithAvailability) => {
-    if (!activeTask) return;
+    if (!activeTask || game.status !== 'available') return;
+    const compatibleQuestions = getGameTypeQuestions(game.id, questionCollections);
+    if (compatibleQuestions.length < game.minQuestions) return;
     if (!isReviewMode) {
       const current = readTaskState();
       if (current?.selectedGame && current.selectedGame !== game.id) return;
@@ -796,10 +846,10 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
         dateKey, subjectId: activeTask.subjectId, subjectName: activeTask.subjectName, selectedGame: game.id,
         completedAttempts: 0, maxAttempts: 2, bestScore: 0, selectedAt: new Date().toISOString() });
     }
-    if (game.id === 'snake_ladder') { setSelectedGame(null); setActiveGame('snake_ladder'); return; }
+    if (game.id === 'snake_ladder') { if (snakeLadderQuestions.length === 0) return; setSelectedGame(null); setActiveGame('snake_ladder'); return; }
     if (game.id === 'knowledge_race') { if (knowledgeRaceQuestions.length === 0) return; setSelectedGame(null); setActiveGame('knowledge_race'); return; }
     if (game.id === 'football_quiz') { if (footballQuestions.length === 0) return; setSelectedGame(null); setActiveGame('football_quiz'); return; }
-    if (game.id === 'super_taleb') { setSelectedGame(null); setActiveGame('super_taleb'); return; }
+    if (game.id === 'super_taleb') { if (superTalebQuestions.length === 0) return; setSelectedGame(null); setActiveGame('super_taleb'); return; }
     if (game.id === 'true_false') { if (trueFalseQuestions.length === 0) return; setSelectedGame(null); setActiveGame('true_false'); return; }
     if (game.id === 'match_cards') { if (matchCardsQuestions.length === 0) return; setSelectedGame(null); setActiveGame('match_cards'); return; }
     if (game.id === 'sequence_order') { if (sequenceOrderQuestions.length === 0) return; setSelectedGame(null); setActiveGame('sequence_order'); }
@@ -903,6 +953,11 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
       const raw = result as unknown as Record<string, unknown>;
       const resultGameType = typeof raw.gameType === 'string' ? raw.gameType : activeGame || '';
       const activeQuestionsForResult = getGameTypeQuestions(resultGameType, questionCollections);
+      // لا تحفظ ولا ترسل نتيجة لعبة لم تستخدم سؤالًا متوافقًا من الدفعة الحالية.
+      if (activeQuestionsForResult.length === 0) {
+        console.warn('[StudentGames] تم رفض نتيجة لعبة بلا أسئلة متوافقة', resultGameType);
+        return;
+      }
       const cloudMeta = getResultCloudMeta();
       const logEntry = buildGameResultLogEntry(result, student, studentKey, activeQuestionsForResult, cloudMeta);
 
@@ -1063,7 +1118,13 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
           </button>)}</div>
         </section>}
         {activeTask && <section>
-          <button type="button" onClick={() => setActiveTaskId(null)} className="mb-3 text-xs font-black text-primary">العودة إلى دفعات المادة</button>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <button type="button" onClick={() => setActiveTaskId(null)} className="text-xs font-black text-primary">العودة إلى دفعات المادة</button>
+            {isReviewMode && <div className="flex gap-2">
+              <button type="button" onClick={() => exportReviewTaskAsWord(activeTask)} className="h-9 rounded-xl border border-primary/20 bg-primary/10 px-3 text-[10px] font-black text-primary flex items-center gap-1"><FileText className="w-4 h-4" />تصدير Word</button>
+              <button type="button" onClick={() => exportReviewTaskAsPdf(activeTask)} className="h-9 rounded-xl border border-info/20 bg-info/10 px-3 text-[10px] font-black text-info flex items-center gap-1"><Printer className="w-4 h-4" />تصدير PDF</button>
+            </div>}
+          </div>
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-sm font-black text-textPrimary flex items-center gap-2">{isReviewMode ? <Archive className="w-4 h-4 text-primary" /> : <Star className="w-4 h-4 text-warning" />}{activeTask.subjectName} · {activeTask.title}</h2>
             <span className="text-[9px] font-black text-textSecondary bg-bgSoft border border-borderColor px-2 py-1 rounded-full">{availableGames.length} متاحة</span>
@@ -1100,7 +1161,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
               const tone = getToneClasses(selectedGame.color);
               const Icon = selectedGame.icon;
               const dailyLocked = isTaskGameLocked(selectedGame.id);
-              const isAvailable = (selectedGame.status === 'available' || selectedGame.id === 'snake_ladder' || selectedGame.id === 'super_taleb') && !dailyLocked;
+              const isAvailable = selectedGame.status === 'available' && selectedGame.questionCount >= selectedGame.minQuestions && !dailyLocked;
               return (
                 <div>
                   <div className="flex items-center gap-3 mb-4"><div className={`w-12 h-12 rounded-2xl border flex items-center justify-center ${tone.icon}`}><Icon className="w-6 h-6" /></div><div><h3 className="text-base font-black text-textPrimary">{selectedGame.title}</h3><p className="text-[10px] font-bold text-textSecondary">{selectedGame.questionCount} سؤال متاح · {selectedGame.estimatedTime}</p></div></div>
@@ -1115,7 +1176,7 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
                         ? `هذه هي لعبة اليوم. المتبقي ${taskRemainingAttempts} من محاولتين.`
                         : 'عند البدء ستصبح هذه لعبة اليوم، وستتاح إعادتها مرة واحدة فقط.'}
                   </div>}
-                  {isAvailable ? <button type="button" className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`} onClick={() => handleStartGame(selectedGame)}><Play className="w-5 h-5" />{selectedGame.id === 'super_taleb' ? 'ابدأ مغامرة سوبر طالب' : selectedGame.id === 'snake_ladder' && selectedGame.questionCount === 0 ? 'فتح اللعبة' : isReviewMode ? 'ابدأ المراجعة' : 'ابدأ اللعبة'}</button> : <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-xs font-black text-textPrimary mb-1">اللعبة غير متاحة بعد</p><p className="text-[10px] font-bold text-textSecondary leading-5">{dailyLocked ? taskState?.selectedGame === selectedGame.id ? 'استخدمت المحاولتين المتاحتين لهذه اللعبة اليوم.' : `اختيار اليوم هو ${GAME_TITLES[taskState?.selectedGame || ''] || ''}. ستتاح الألعاب الثلاث للاختيار من جديد غدًا.` : isReviewMode ? 'ستعمل هذه اللعبة عندما تتوفر أسئلة مراجعة مناسبة لها.' : 'ستعمل هذه اللعبة عندما يضيف المعلم عددًا كافيًا من الأسئلة المناسبة لها من راصد المعلم.'}</p></div>}
+                  {isAvailable ? <button type="button" className={`w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${tone.button}`} onClick={() => handleStartGame(selectedGame)}><Play className="w-5 h-5" />{selectedGame.id === 'super_taleb' ? 'ابدأ مغامرة سوبر طالب' : isReviewMode ? 'ابدأ المراجعة' : 'ابدأ اللعبة'}</button> : <div className="bg-bgSoft border border-borderColor rounded-2xl p-3 text-center"><p className="text-xs font-black text-textPrimary mb-1">اللعبة غير متاحة بعد</p><p className="text-[10px] font-bold text-textSecondary leading-5">{dailyLocked ? taskState?.selectedGame === selectedGame.id ? 'استخدمت المحاولتين المتاحتين لهذه اللعبة اليوم.' : `اختيار اليوم هو ${GAME_TITLES[taskState?.selectedGame || ''] || ''}. ستتاح الألعاب الثلاث للاختيار من جديد غدًا.` : isReviewMode ? 'ستعمل هذه اللعبة عندما تتوفر أسئلة مراجعة مناسبة لها.' : 'ستعمل هذه اللعبة عندما يضيف المعلم عددًا كافيًا من الأسئلة المناسبة لها من راصد المعلم.'}</p></div>}
                   <button type="button" onClick={() => setSelectedGame(null)} className="w-full mt-3 h-10 rounded-2xl font-black text-xs text-textSecondary hover:text-danger transition-colors">إغلاق</button>
                 </div>
               );

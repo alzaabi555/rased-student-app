@@ -156,6 +156,7 @@ const normalizeQuestions = (questions: KnowledgeRaceQuestion[]) => {
   return (Array.isArray(questions) ? questions : []).filter(q => {
     if (!q || q.active === false) return false;
     if (!q.question) return false;
+    if (q.questionType !== 'multiple_choice' && q.questionType !== 'true_false') return false;
     if (q.questionType === 'true_false') return true;
 
     const hasOptions = Array.isArray(q.options) && q.options.length >= 2;
