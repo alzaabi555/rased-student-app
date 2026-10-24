@@ -8,6 +8,10 @@ const STUDENT_SCRIPT_URL =
 const PARENT_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbzKPPsQsM_dIttcYSxRLs6LQuvXhT6Qia5TwJ1Tw4ObQ-eZFZeJhV6epXXjxA9_SwWk/exec';
 
+const SCHOOL_IDENTITY_URL =
+  'https://script.google.com/macros/s/AKfycbyG1DTqpZGgi0qmjswbttvBmP2j3Afhj0t303XM0N6M4P8LwNhpMx56u1fr0zpjzb3R/exec';
+const STUDENT_SESSION_KEY = 'rased_student_central_session_v1';
+
 interface AppContextType {
   t: (key: string) => string;
   dir: 'rtl' | 'ltr';
@@ -32,6 +36,7 @@ const normalizeGameQuestions = (data: any) => {
 
 const readLocalGameQuestions = (student: any, secretCode?: string) => {
   const possibleKeys = [
+    `rased_game_questions_${student?.centralStudentId || ''}`,
     `rased_game_questions_${student?.civilId || ''}`,
     `rased_game_questions_${student?.rasedId || ''}`,
     `rased_game_questions_${student?.id || ''}`,
@@ -104,6 +109,7 @@ const prepareStudentData = (data: any, secretCode?: string) => {
   };
 
   const studentKey =
+    prepared.centralStudentId ||
     prepared.rasedId ||
     prepared.secretCode ||
     prepared.civilId ||
@@ -122,6 +128,15 @@ const prepareStudentData = (data: any, secretCode?: string) => {
   return prepared;
 };
 
+const resolveCentralIdentity = async (loginCode: string) => {
+  const code = String(loginCode || '').trim().toUpperCase();
+  const response = await fetch(SCHOOL_IDENTITY_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'resolveRasedCode', rasedCode: code, code }) });
+  if (!response.ok) throw new Error(`IDENTITY_HTTP_${response.status}`);
+  const result = await response.json();
+  if (!result?.ok || result?.status !== 'matched' || !result?.centralStudentId) return null;
+  return { loginCode: code, loginMethod: result.via || 'primary', centralStudentId: String(result.centralStudentId), schoolId: String(result.schoolId || ''), centralRasedId: String(result.rasedId || code).toUpperCase() };
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [studentData, setStudentData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -129,9 +144,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const activeSecretCodeRef = useRef<string | null>(null);
 
-  const fetchAndMergeData = async (secretCode: string) => {
+  const fetchAndMergeData = async (secretCode: string, resolvedIdentity?: any) => {
     try {
-      const sanitizedCode = secretCode.trim().toUpperCase();
+      const sanitizedCode = String(resolvedIdentity?.centralRasedId || secretCode).trim().toUpperCase();
+      const centralStudentId = String(resolvedIdentity?.centralStudentId || '').trim();
       const cacheBuster = new Date().getTime();
 
       const fetchOptions: RequestInit = {
@@ -141,12 +157,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const [studentResponse, parentResponse] = await Promise.all([
         fetch(
-          `${STUDENT_SCRIPT_URL}?code=${encodeURIComponent(sanitizedCode)}&t=${cacheBuster}`,
+          `${STUDENT_SCRIPT_URL}?code=${encodeURIComponent(sanitizedCode)}&centralStudentId=${encodeURIComponent(centralStudentId)}&t=${cacheBuster}`,
           fetchOptions
         ).catch(() => null),
 
         fetch(
-          `${PARENT_SCRIPT_URL}?code=${encodeURIComponent(sanitizedCode)}&t=${cacheBuster}`,
+          `${PARENT_SCRIPT_URL}?code=${encodeURIComponent(sanitizedCode)}&centralStudentId=${encodeURIComponent(centralStudentId)}&t=${cacheBuster}`,
           fetchOptions
         ).catch(() => null)
       ]);
@@ -212,7 +228,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // 4. تجهيز نهائي يحافظ على gameQuestions
-      return prepareStudentData(finalData, sanitizedCode);
+      return prepareStudentData({ ...finalData, ...(resolvedIdentity || {}), rasedId: finalData.rasedId || resolvedIdentity?.centralRasedId || sanitizedCode, centralRasedId: resolvedIdentity?.centralRasedId || finalData.centralRasedId || finalData.rasedId, centralStudentId: resolvedIdentity?.centralStudentId || finalData.centralStudentId, schoolId: resolvedIdentity?.schoolId || finalData.schoolId, loginCode: resolvedIdentity?.loginCode || secretCode, loginMethod: resolvedIdentity?.loginMethod || 'legacy_fallback' }, sanitizedCode);
     } catch (error) {
       console.error('Merge Fetch Error:', error);
       return null;
@@ -268,7 +284,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       const sanitizedCode = secretCode.trim().toUpperCase();
-      const mergedData = await fetchAndMergeData(sanitizedCode);
+      let resolvedIdentity: any = null;
+      try { resolvedIdentity = await resolveCentralIdentity(sanitizedCode); } catch (identityError) { console.warn('تعذر الوصول لخدمة الهوية؛ سيتم استخدام الدخول الانتقالي القديم.', identityError); }
+      const mergedData = await fetchAndMergeData(sanitizedCode, resolvedIdentity);
 
       if (mergedData) {
         setStudentData(mergedData);
@@ -279,6 +297,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           sanitizedCode;
 
         localStorage.setItem('last_secret_code', sanitizedCode);
+        if (resolvedIdentity) localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(resolvedIdentity));
+        else localStorage.removeItem(STUDENT_SESSION_KEY);
 
         return true;
       }
