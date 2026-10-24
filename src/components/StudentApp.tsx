@@ -136,6 +136,7 @@ const StudentApp: React.FC = () => {
         return (
           <StudentExams
             studentId={String(
+              (studentData as any)?.centralStudentId ||
               (studentData as any)?.id ||
               (studentData as any)?.studentId ||
               (studentData as any)?.rasedId ||
