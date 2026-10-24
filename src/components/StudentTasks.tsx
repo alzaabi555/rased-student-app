@@ -85,7 +85,7 @@ const StudentTasks: React.FC = () => {
   // 🧠 جلب المهام وفلترتها
   useEffect(() => {
     if (studentData && Array.isArray(studentData.tasks)) {
-      const civilId = studentData.civilId || 'default';
+      const civilId = studentData.centralStudentId || studentData.rasedId || studentData.civilId || studentData.id || 'default';
 
       const savedStatus = JSON.parse(
         localStorage.getItem(`tasks_status_${civilId}`) || '{}'
@@ -142,7 +142,7 @@ const StudentTasks: React.FC = () => {
 
   // 💾 حفظ حالة المهام وتاريخ إنجازها
   useEffect(() => {
-    if (studentData?.civilId) {
+    if (studentData?.centralStudentId || studentData?.rasedId || studentData?.civilId || studentData?.id) {
       const statusMap = tasks.reduce((acc: any, task) => {
         acc[task.id] = {
           completed: task.completed,
@@ -153,7 +153,7 @@ const StudentTasks: React.FC = () => {
       }, {});
 
       localStorage.setItem(
-        `tasks_status_${studentData.civilId}`,
+        `tasks_status_${studentData.centralStudentId || studentData.rasedId || studentData.civilId || studentData.id}`,
         JSON.stringify(statusMap)
       );
     }

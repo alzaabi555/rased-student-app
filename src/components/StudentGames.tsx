@@ -607,6 +607,10 @@ const buildGameResultLogEntry = (
   return {
     id: `sgr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     studentId: studentKey,
+      centralStudentId: student?.centralStudentId || studentKey,
+      schoolId: student?.schoolId || '',
+      rasedId: student?.rasedId || '',
+      centralRasedId: student?.centralRasedId || student?.rasedId || '',
     studentName: student?.name || cloudMeta.studentName,
     className: student?.classes?.[0] || cloudMeta.className,
     grade: student?.grade || cloudMeta.grade,
@@ -683,7 +687,8 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
   const [statsVersion, setStatsVersion] = useState(0);
   const [gamesMode, setGamesMode] = useState<GamesMode>('daily');
 
-  const studentKey = student?.rasedId || student?.civilId || student?.id || 'default';
+  const studentKey = student?.centralStudentId ||
+    student?.rasedId || student?.civilId || student?.id || 'default';
   const dateKey = getTodayKey();
   const [activeSubjectId, setActiveSubjectId] = useState<string | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
