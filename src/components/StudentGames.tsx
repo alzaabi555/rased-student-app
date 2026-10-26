@@ -73,6 +73,11 @@ export interface StudentGamesStudent {
   id: string;
   civilId?: string;
   rasedId?: string;
+  centralStudentId?: string;
+  schoolId?: string;
+  schoolCode?: string;
+  centralRasedId?: string;
+  legacyRasedIds?: string[];
   name?: string;
   classes?: string[];
   grade?: string;
@@ -196,6 +201,11 @@ type ResultCloudMeta = {
 export interface StudentGameResultLogEntry {
   id: string;
   studentId: string;
+  centralStudentId?: string;
+  schoolId?: string;
+  rasedId?: string;
+  centralRasedId?: string;
+  legacyRasedIds?: string[];
   studentName?: string;
   className?: string;
   grade?: string;
@@ -870,11 +880,22 @@ const StudentGames: React.FC<StudentGamesProps> = ({ student, onGameActiveChange
           schoolCode: meta.schoolCode,
           teacherId: meta.teacherId,
           studentId: logEntry.studentId,
+          centralStudentId: student?.centralStudentId || logEntry.centralStudentId || '',
+          schoolId: student?.schoolId || logEntry.schoolId || '',
+          rasedId: student?.rasedId || logEntry.rasedId || '',
+          centralRasedId: student?.centralRasedId || logEntry.centralRasedId || student?.rasedId || '',
+          legacyRasedIds: student?.legacyRasedIds || [],
           studentName: logEntry.studentName || meta.studentName,
           className: logEntry.className || meta.className,
           grade: logEntry.grade || meta.grade,
           gameResult: {
             ...logEntry,
+            sourceGameResultId: logEntry.id,
+            centralStudentId: student?.centralStudentId || logEntry.centralStudentId || '',
+            schoolId: student?.schoolId || logEntry.schoolId || '',
+            rasedId: student?.rasedId || logEntry.rasedId || '',
+            centralRasedId: student?.centralRasedId || logEntry.centralRasedId || student?.rasedId || '',
+            legacyRasedIds: student?.legacyRasedIds || [],
             schoolCode: meta.schoolCode,
             teacherId: meta.teacherId,
             studentName: logEntry.studentName || meta.studentName,
