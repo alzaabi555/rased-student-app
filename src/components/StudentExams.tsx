@@ -900,15 +900,15 @@ export default function StudentExams({
 
   return (
     <div dir="rtl" className="flex h-full min-h-0 flex-col overflow-hidden bg-slate-50 text-slate-900">
-      <header className="shrink-0 bg-gradient-to-l from-indigo-700 to-blue-600 px-4 py-7 text-white sm:px-7">
+      <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-7 text-slate-800 sm:px-7">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-sm font-black text-blue-100"><GraduationCap className="h-4 w-4" /> راصد الطالب</div>
+            <div className="flex items-center gap-2 text-sm font-black text-emerald-700"><GraduationCap className="h-4 w-4" /> راصد الطالب</div>
             <h1 className="mt-2 text-3xl font-black">الاختبارات</h1>
-            <p className="mt-2 text-sm font-bold text-blue-100">التجريبية استعدادا للاختبارات الرسمية.</p>
-            {studentName && <p className="mt-1 text-xs font-bold text-blue-200">الطالب: {studentName}</p>}
+            <p className="mt-2 text-sm font-bold text-slate-500">التجريبية استعدادا للاختبارات الرسمية.</p>
+            {studentName && <p className="mt-1 text-xs font-bold text-slate-400">الطالب: {studentName}</p>}
           </div>
-          <button type="button" onClick={() => void refreshExams()} disabled={isRefreshing} className="flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-3 font-black backdrop-blur disabled:opacity-50">
+          <button type="button" onClick={() => void refreshExams()} disabled={isRefreshing} className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 font-black text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50">
             <RotateCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> {isRefreshing ? 'جاري التحديث...' : 'تحديث الاختبارات'}
           </button>
         </div>
@@ -993,7 +993,7 @@ export default function StudentExams({
                     type="button"
                     disabled={examSection === 'closed'}
                     onClick={() => openExam(exam)}
-                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 font-black text-white disabled:bg-slate-200 disabled:text-slate-500"
+                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-3.5 font-black text-white shadow-sm shadow-emerald-100 transition-colors hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none"
                   >
                     {examSection === 'in_progress' ? <><RotateCcw className="h-4 w-4" /> متابعة الاختبار</>
                       : examSection === 'completed' ? <><FileCheck2 className="h-4 w-4" /> عرض النتيجة</>
