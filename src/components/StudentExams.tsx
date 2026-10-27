@@ -94,6 +94,12 @@ export interface StudentExamProgress {
   id: string;
   examId: string;
   studentId: string;
+  centralStudentId?: string;
+  schoolId?: string;
+  rasedId?: string;
+  centralRasedId?: string;
+  legacyRasedIds?: string[];
+  sourceExamResultId?: string;
   attemptNumber: number;
   status: 'in_progress' | 'submitted' | 'expired';
   questionOrder: string[];
@@ -131,6 +137,11 @@ export interface StudentExamResult {
 
 export interface StudentExamsProps {
   studentId?: string;
+  centralStudentId?: string;
+  schoolId?: string;
+  rasedId?: string;
+  centralRasedId?: string;
+  legacyRasedIds?: string[];
   studentName?: string;
   studentClassIds?: string[];
   schoolCode?: string;
@@ -251,6 +262,11 @@ function EmptyState({ title, details }: { title: string; details: string }) {
 
 export default function StudentExams({
   studentId = localStorage.getItem('rased_student_id') || 'student_local',
+  centralStudentId = localStorage.getItem('rased_central_student_id') || localStorage.getItem('centralStudentId') || '',
+  schoolId = localStorage.getItem('rased_school_id') || '',
+  rasedId = localStorage.getItem('rased_student_id') || '',
+  centralRasedId = localStorage.getItem('rased_central_rased_id') || localStorage.getItem('centralRasedId') || '',
+  legacyRasedIds = safeRead<string[]>('rased_legacy_rased_ids', []),
   studentName = localStorage.getItem('rased_student_name') || '',
   studentClassIds = [],
   schoolCode,
@@ -274,7 +290,12 @@ export default function StudentExams({
       body: JSON.stringify({
         action: 'getStudentExams',
         schoolCode: schoolCode || '',
+        schoolId,
         studentId,
+        centralStudentId,
+        rasedId,
+        centralRasedId,
+        legacyRasedIds,
         className: studentClassIds[0] || '',
       }),
     });
@@ -288,7 +309,13 @@ export default function StudentExams({
       body: JSON.stringify({
         action: 'studentExamResult',
         schoolCode: schoolCode || '',
+        schoolId,
         studentId,
+        centralStudentId,
+        rasedId,
+        centralRasedId,
+        legacyRasedIds,
+        sourceExamResultId: result.sourceExamResultId || result.id,
         studentName,
         className: studentClassIds[0] || '',
         examResult: result,
@@ -565,6 +592,12 @@ export default function StudentExams({
       examId: activeExam.id,
       examType: activeExam.examType,
       studentId,
+      centralStudentId: centralStudentId || undefined,
+      schoolId: schoolId || undefined,
+      rasedId: rasedId || undefined,
+      centralRasedId: centralRasedId || undefined,
+      legacyRasedIds,
+      sourceExamResultId: `${activeExam.id}_${studentId}_${activeProgress.attemptNumber}`,
       attemptNumber: activeProgress.attemptNumber,
       totalQuestions: activeExam.questionCount,
       answeredQuestions,
