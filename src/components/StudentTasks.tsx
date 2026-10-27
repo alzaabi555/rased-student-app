@@ -186,7 +186,7 @@ const StudentTasks: React.FC = () => {
 
   const deleteTask = (id: string) => {
     if (window.confirm('هل تريد حذف هذه المهمة نهائياً من قائمتك؟')) {
-      const civilId = studentData?.civilId || 'default';
+      const civilId = studentData?.centralStudentId || studentData?.rasedId || studentData?.civilId || studentData?.id || 'default';
 
       const hidden = JSON.parse(
         localStorage.getItem(`hidden_tasks_${civilId}`) || '[]'
