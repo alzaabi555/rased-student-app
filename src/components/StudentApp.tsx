@@ -136,13 +136,25 @@ const StudentApp: React.FC = () => {
         return (
           <StudentExams
             studentId={String(
-              (studentData as any)?.centralStudentId ||
               (studentData as any)?.id ||
               (studentData as any)?.studentId ||
               (studentData as any)?.rasedId ||
               localStorage.getItem('rased_student_id') ||
               'student_local'
             )}
+            centralStudentId={String((studentData as any)?.centralStudentId || '')}
+            schoolId={String((studentData as any)?.schoolId || '')}
+            rasedId={String((studentData as any)?.rasedId || '')}
+            centralRasedId={String(
+              (studentData as any)?.centralRasedId ||
+              (studentData as any)?.rasedId ||
+              ''
+            )}
+            legacyRasedIds={
+              Array.isArray((studentData as any)?.legacyRasedIds)
+                ? (studentData as any).legacyRasedIds
+                : []
+            }
             studentName={String((studentData as any)?.name || '')}
             studentClassIds={
               Array.isArray((studentData as any)?.classes)
