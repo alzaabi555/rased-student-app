@@ -130,7 +130,17 @@ const StudentTasks: React.FC = () => {
           };
         })
         .filter(Boolean)
-        .sort((a: any, b: any) => b._sortOrder - a._sortOrder)
+        .sort((a: any, b: any) => {
+          const parseDueDate = (value: string) => {
+            const raw = String(value || '').trim();
+            if (!raw || raw === 'غير محدد') return Number.POSITIVE_INFINITY;
+            const timestamp = new Date(raw).getTime();
+            return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
+          };
+          const dueDifference = parseDueDate(a.dueDate) - parseDueDate(b.dueDate);
+          // الأقرب موعدًا أولًا، وعند تساوي الموعد تظهر المهمة الأحدث أولًا.
+          return dueDifference !== 0 ? dueDifference : b._sortOrder - a._sortOrder;
+        })
         .map(({ _sortOrder, ...task }: any) => task) as Task[];
 
       localStorage.setItem(
@@ -272,7 +282,9 @@ const StudentTasks: React.FC = () => {
 
                     <span className="text-warning flex items-center gap-1 shrink-0">
                       <Calendar className="w-3 h-3" />
-                      {task.dueDate || 'قريباً'}
+                      {task.dueDate && task.dueDate !== 'غير محدد'
+                        ? new Intl.DateTimeFormat('ar-OM', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(task.dueDate))
+                        : 'دون موعد محدد'}
                     </span>
                   </div>
                 </div>
