@@ -99,7 +99,7 @@ const StudentTasks: React.FC = () => {
 
       const syncedTasks = studentData.tasks
         .filter((task: any) => !hiddenTasks.includes(String(task.id)))
-        .map((task: any) => {
+        .map((task: any, sourceIndex: number) => {
           const id = String(task.id || Math.random());
           const status = savedStatus[id];
 
@@ -124,10 +124,14 @@ const StudentTasks: React.FC = () => {
             subject: String(task.subject || 'عام'),
             dueDate: String(task.dueDate || ''),
             completed: isCompleted,
-            completedAt
+            completedAt,
+            // تستخرج وقت الإنشاء من المعرفات الحديثة والقديمة، مع ترتيب المصدر كبديل آمن.
+            _sortOrder: Number(id.match(/\d{13}/)?.[0] || 0) || sourceIndex
           };
         })
-        .filter(Boolean) as Task[];
+        .filter(Boolean)
+        .sort((a: any, b: any) => b._sortOrder - a._sortOrder)
+        .map(({ _sortOrder, ...task }: any) => task) as Task[];
 
       localStorage.setItem(
         `hidden_tasks_${civilId}`,
