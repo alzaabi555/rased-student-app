@@ -369,7 +369,11 @@ export default function StudentExams({
   const allExams = useMemo(() => deduplicateExams([...(suppliedExams || []), ...receivedExams]), [suppliedExams, receivedExams]);
 
   const eligibleExams = useMemo(() => allExams.filter((exam) => {
-    if (schoolCode && exam.schoolCode && exam.schoolCode !== schoolCode) return false;
+    if (
+      schoolCode &&
+      exam.schoolCode &&
+      String(exam.schoolCode).trim() !== String(schoolCode).trim()
+    ) return false;
     if (studentClassIds.length && exam.classIds?.length) {
       const normalizedStudentClasses = studentClassIds.map(normalizeExamClass).filter(Boolean);
       const targetsStudent = exam.classIds.some((classId) => normalizedStudentClasses.includes(normalizeExamClass(classId)));
