@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   Library,
   ClipboardCheck,
+  Mail,
   Loader2,
   AlertTriangle
 } from 'lucide-react';
@@ -20,6 +21,7 @@ import StudentTasks from './StudentTasks';
 import StudentGrades from './StudentGrades';
 import StudentLibrary from './StudentLibrary';
 import StudentExams from './StudentExams';
+import StudentMessages from './StudentMessages';
 import StudentReviewPlan from './StudentGames';
 
 const StudentApp: React.FC = () => {
@@ -28,7 +30,7 @@ const StudentApp: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const [isGameActive, setIsGameActive] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    'home' | 'review' | 'tasks' | 'library' | 'grades' | 'exams'
+    'home' | 'review' | 'tasks' | 'library' | 'grades' | 'exams' | 'messages'
   >('home');
 
   const handleLogin = async (secretCode: string) => {
@@ -104,6 +106,7 @@ const StudentApp: React.FC = () => {
     { id: 'review', icon: Target, label: 'العابي' },
     { id: 'grades', icon: ShieldCheck, label: 'إتقاني' },
     { id: 'library', icon: Library, label: 'مكتبتي' },
+    { id: 'messages', icon: Mail, label: 'مراسلاتي' },
     { id: 'exams', icon: ClipboardCheck, label: 'الاختبارات' }
   ] as const;
 
@@ -132,29 +135,20 @@ const StudentApp: React.FC = () => {
       case 'library':
         return <StudentLibrary />;
 
+      case 'messages':
+        return <StudentMessages student={studentData} />;
+
       case 'exams':
         return (
           <StudentExams
             studentId={String(
+              (studentData as any)?.centralStudentId ||
               (studentData as any)?.id ||
               (studentData as any)?.studentId ||
               (studentData as any)?.rasedId ||
               localStorage.getItem('rased_student_id') ||
               'student_local'
             )}
-            centralStudentId={String((studentData as any)?.centralStudentId || '')}
-            schoolId={String((studentData as any)?.schoolId || '')}
-            rasedId={String((studentData as any)?.rasedId || '')}
-            centralRasedId={String(
-              (studentData as any)?.centralRasedId ||
-              (studentData as any)?.rasedId ||
-              ''
-            )}
-            legacyRasedIds={
-              Array.isArray((studentData as any)?.legacyRasedIds)
-                ? (studentData as any).legacyRasedIds
-                : []
-            }
             studentName={String((studentData as any)?.name || '')}
             studentClassIds={
               Array.isArray((studentData as any)?.classes)
