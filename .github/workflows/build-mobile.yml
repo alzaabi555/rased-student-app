@@ -89,8 +89,8 @@ jobs:
         run: npx @capacitor/assets generate --ios || true
       - name: Set Arabic App Name
         run: |
-          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName راصد نسخة الطلبة" ios/App/App/Info.plist || true
-          /usr/libexec/PlistBuddy -c "Set :CFBundleName راصد نسخة الطلبة" ios/App/App/Info.plist || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName راصد نسخة الطالب" ios/App/App/Info.plist || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName راصد نسخة الطالب" ios/App/App/Info.plist || true
       - name: Build Unsigned IPA Artifact
         run: |
           cd ios/App
