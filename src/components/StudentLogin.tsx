@@ -60,8 +60,9 @@ const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin }) => {
 
   return (
     <main
-      className="rased-student-light relative min-h-[100dvh] overflow-hidden bg-[#f6faf7] text-slate-900"
+      className="rased-student-light relative min-h-[100dvh] w-full max-w-full overflow-x-hidden overflow-y-auto bg-[#f6faf7] text-slate-900"
       dir={dir}
+      style={{ boxSizing: 'border-box', contain: 'layout paint' }}
     >
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -right-24 -top-28 h-80 w-80 rounded-full bg-emerald-100/70 blur-3xl" />
@@ -69,8 +70,8 @@ const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin }) => {
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/60 to-transparent" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-6xl items-center px-4 py-6 sm:px-6 lg:px-8">
-        <section className="grid w-full overflow-hidden rounded-[2.25rem] border border-white/90 bg-white/90 shadow-[0_24px_80px_rgba(15,118,80,0.10)] backdrop-blur-xl lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full min-w-0 max-w-6xl items-center overflow-x-hidden px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <section className="grid w-full min-w-0 max-w-full overflow-hidden rounded-[1.75rem] border sm:rounded-[2.25rem] border-white/90 bg-white/90 shadow-[0_24px_80px_rgba(15,118,80,0.10)] backdrop-blur-xl lg:grid-cols-[1.05fr_0.95fr]">
           <aside className="relative hidden min-h-[650px] overflow-hidden border-l border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-amber-50/60 p-10 lg:flex lg:flex-col lg:justify-between">
             <div className="pointer-events-none absolute -left-20 top-20 h-64 w-64 rounded-full border-[38px] border-emerald-100/45" />
             <div className="pointer-events-none absolute bottom-10 right-8 grid grid-cols-5 gap-3 opacity-40">
@@ -123,15 +124,15 @@ const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin }) => {
             </div>
           </aside>
 
-          <section className="flex min-h-[620px] flex-col justify-center p-5 sm:p-9 lg:p-12">
-            <div className="mx-auto w-full max-w-md">
-              <div className="mb-8 flex items-center justify-between lg:hidden">
-                <div className="flex items-center gap-3">
+          <section className="flex min-h-[620px] min-w-0 max-w-full flex-col justify-center overflow-x-hidden p-4 sm:p-9 lg:p-12">
+            <div className="mx-auto w-full min-w-0 max-w-md">
+              <div className="mb-8 flex min-w-0 items-center justify-between gap-3 lg:hidden">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
                     <BookOpen className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-lg font-black text-emerald-900">{t('rasedApp') || 'راصد'}</p>
+                    <p className="truncate text-base font-black text-emerald-900 sm:text-lg">{t('rasedApp') || 'راصد'}</p>
                     <p className="text-[10px] font-bold text-slate-400">{t('studentEdition') || 'نسخة الطالب'}</p>
                   </div>
                 </div>
@@ -152,14 +153,14 @@ const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin }) => {
 
               <form onSubmit={handleLogin} className="space-y-5" noValidate>
                 <div>
-                  <div className="mb-2 flex items-center justify-between">
+                  <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
                     <label htmlFor="student-rased-code" className="text-sm font-black text-slate-700">
                       كود راصد
                     </label>
                     <span className="text-[10px] font-bold text-slate-400">الكود القديم أو الموحد</span>
                   </div>
 
-                  <div className={`group flex items-center rounded-2xl border bg-white px-4 shadow-sm transition-all ${error ? 'border-red-300 ring-4 ring-red-50' : 'border-slate-200 focus-within:border-emerald-400 focus-within:ring-4 focus-within:ring-emerald-50'}`}>
+                  <div className={`group flex min-w-0 max-w-full items-center overflow-hidden rounded-2xl border bg-white px-4 shadow-sm transition-all ${error ? 'border-red-300 ring-4 ring-red-50' : 'border-slate-200 focus-within:border-emerald-400 focus-within:ring-4 focus-within:ring-emerald-50'}`}>
                     <KeyRound className={`h-5 w-5 shrink-0 transition-colors ${error ? 'text-red-400' : 'text-slate-400 group-focus-within:text-emerald-600'}`} />
                     <input
                       id="student-rased-code"
@@ -173,7 +174,7 @@ const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin }) => {
                       spellCheck={false}
                       aria-invalid={Boolean(error)}
                       aria-describedby={error ? 'student-code-error' : undefined}
-                      className="min-w-0 flex-1 bg-transparent px-3 py-4 text-center text-lg font-black tracking-[0.16em] text-slate-900 outline-none placeholder:text-sm placeholder:font-bold placeholder:tracking-normal placeholder:text-slate-300"
+                      className="w-0 min-w-0 flex-1 bg-transparent px-2 py-4 text-center text-base sm:px-3 sm:text-lg font-black tracking-[0.16em] text-slate-900 outline-none placeholder:text-sm placeholder:font-bold placeholder:tracking-normal placeholder:text-slate-300"
                     />
                     <button
                       type="button"
@@ -201,7 +202,7 @@ const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin }) => {
                 <button
                   type="submit"
                   disabled={isLoading || !normalizedCode}
-                  className="group flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-500 px-6 py-4 text-base font-black text-white shadow-[0_12px_28px_rgba(16,185,129,0.24)] transition hover:bg-emerald-600 hover:shadow-[0_16px_34px_rgba(16,185,129,0.28)] focus:outline-none focus:ring-4 focus:ring-emerald-200 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+                  className="group flex w-full min-w-0 max-w-full items-center justify-center gap-3 rounded-2xl bg-emerald-500 px-6 py-4 text-base font-black text-white shadow-[0_12px_28px_rgba(16,185,129,0.24)] transition hover:bg-emerald-600 hover:shadow-[0_16px_34px_rgba(16,185,129,0.28)] focus:outline-none focus:ring-4 focus:ring-emerald-200 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
                 >
                   {isLoading ? (
                     <>
@@ -217,7 +218,7 @@ const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin }) => {
                 </button>
               </form>
 
-              <div className="mt-7 flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+              <div className="mt-7 flex min-w-0 max-w-full items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
                 <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
                 <div>
                   <p className="text-xs font-black text-emerald-900">حسابك محمي</p>
@@ -227,7 +228,7 @@ const StudentLogin: React.FC<StudentLoginProps> = ({ onLogin }) => {
                 </div>
               </div>
 
-              <footer className="mt-8 flex items-center justify-center gap-2 text-[10px] font-bold text-slate-400">
+              <footer className="mt-8 flex min-w-0 flex-wrap items-center justify-center gap-2 text-[10px] font-bold text-slate-400">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 مجموعة تطبيقات راصد التعليمية
               </footer>
